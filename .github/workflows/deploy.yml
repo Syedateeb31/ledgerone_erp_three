@@ -1,0 +1,20 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: almalinux-latest
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.31.97.123.46 }}
+          username: ${{ secrets.root }}
+          key: ${{ secrets.ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDr9SMb3Fl+cFZGoT7q7iNtv0A5jZmfr3viOSuImU1Ew support@unisensystems.com }}
+          script: |
+            cd /var/www/ledgerone_erp/
+            git pull origin main
