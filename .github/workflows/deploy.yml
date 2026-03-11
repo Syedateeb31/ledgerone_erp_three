@@ -7,14 +7,14 @@ on:
 
 jobs:
   deploy:
-    runs-on: almalinux-latest
+    runs-on: ubuntu-latest
     steps:
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.0.0
         with:
-          host: ${{ secrets.31.97.123.46 }}
-          username: ${{ secrets.root }}
-          key: ${{ secrets.ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEggxvRDSPVftRyNkljnjnJ+iBj+dbL9DvshGnl/O6Tm ledgerone-vps }}
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
           script: |
             cd /var/www/ledgerone_erp/
             git pull origin main
