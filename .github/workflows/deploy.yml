@@ -9,13 +9,21 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Setup SSH Key
+      - name: Deploy to VPS
         run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.VPS_SSH_KEY }}" | base64 -d > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
+          # Write key to file
+          echo "${{ secrets.VPS_SSH_KEY }}" > /tmp/deploy_key
+          chmod 600 /tmp/deploy_key
 
-      - name: Deploy via SSH
-        run: |
-          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "cd /var/www/ledgerone_erp && git pull origin main"
+          # Verify key is valid
+          ssh-keygen -l -f /tmp/deploy_key
+
+          # Connect and deploy
+          ssh -i /tmp/deploy_key \
+              -o StrictHostKeyChecking=no \
+              -o PasswordAuthentication=no \
+              ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} \
+              "cd /var/www/ledgerone_erp && git pull origin main"
+
+          # Clean up key
+          rm /tmp/deploy_key
