@@ -14,7 +14,7 @@ jobs:
         with:
           host: ${{ secrets.31.97.123.46 }}
           username: ${{ secrets.root }}
-          key: ${{ secrets.ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDr9SMb3Fl+cFZGoT7q7iNtv0A5jZmfr3viOSuImU1Ew support@unisensystems.com }}
+          key: ${{ secrets.ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEggxvRDSPVftRyNkljnjnJ+iBj+dbL9DvshGnl/O6Tm ledgerone-vps }}
           script: |
             cd /var/www/ledgerone_erp/
             git pull origin main
