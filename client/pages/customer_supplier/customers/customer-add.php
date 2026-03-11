@@ -1,0 +1,481 @@
+<?php
+require_once '../../../../includes/dashboard.php';
+// Start session if not already started
+if (session_status() == PHP_SESSION_NONE) {
+    session_start();
+}
+
+// Get user_id from session
+$user_id = $_SESSION['user_id'] ?? null;
+
+if (!$user_id) {
+    // Redirect to login if no user_id in session
+    header('Location: ../../auth/login.html');
+    exit();
+}
+?>
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>LedgerOne ERP - Customer Entry</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="../../../assets/css/customer_supplier/customers/customer-add.css">
+</head>
+
+<body class="light-mode">
+    <div class="container">
+        <div class="card">
+            <h2 class="card-title">
+                <i class="fas fa-user-plus"></i>
+                Customer Entry
+            </h2>
+            <form id="customerForm">
+                <div class="form-grid">
+                    <!-- Basic Information Section -->
+                    <div class="form-section">
+                        <h3 class="section-title">
+                            <i class="fas fa-id-card"></i>
+                            Basic Information
+                        </h3>
+
+                        <div class="form-group col-4">
+                            <label for="company" class="required">
+                                <i class="fas fa-building"></i>
+                                Company
+                            </label>
+                            <select id="company" required>
+                                <option value="">Select Company</option>
+                            </select>
+                            <div class="error-text" id="companyError" style="display: none;">
+                                <i class="fas fa-exclamation-circle"></i>
+                                <span>Company is required</span>
+                            </div>
+                        </div>
+
+                        <div class="form-group col-4">
+                            <label for="customerCode" class="required">
+                                <i class="fas fa-hashtag"></i>
+                                Customer Code
+                            </label>
+                            <input type="text" id="customerCode" readonly value="Auto Generated">
+                            <div class="helper-text">
+                                <i class="fas fa-info-circle"></i>
+                                Automatically generated
+                            </div>
+                        </div>
+
+                        <div class="form-group col-8">
+                            <label for="customerName" class="required">
+                                <i class="fas fa-user"></i>
+                                Customer Name
+                            </label>
+                            <input type="text" id="customerName" required placeholder="Enter customer full name">
+                            <div class="error-text" id="customerNameError">
+                                <i class="fas fa-exclamation-circle"></i>
+                                <span>Customer name is required</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Contact Information Section -->
+                    <div class="form-section">
+                        <h3 class="section-title">
+                            <i class="fas fa-address-book"></i>
+                            Contact Information
+                        </h3>
+
+                        <div class="form-group col-12">
+                            <label for="address">
+                                <i class="fas fa-map-marker-alt"></i>
+                                Address
+                            </label>
+                            <textarea id="address" placeholder="Enter complete customer address"></textarea>
+                        </div>
+
+                        <div class="form-group col-6">
+                            <label for="primaryPhone">
+                                <i class="fas fa-phone"></i>
+                                Primary Phone
+                            </label>
+                            <input type="text" id="primaryPhone" maxlength="15" placeholder="e.g., 1234567890">
+                            <div class="error-text" id="primaryPhoneError">
+                                <i class="fas fa-exclamation-circle"></i>
+                                <span>Phone can only contain numbers (max 15 digits)</span>
+                            </div>
+                        </div>
+
+                        <div class="form-group col-6">
+                            <label for="secondaryPhone">
+                                <i class="fas fa-phone-alt"></i>
+                                Secondary Phone
+                            </label>
+                            <input type="text" id="secondaryPhone" maxlength="15" placeholder="Optional">
+                            <div class="error-text" id="secondaryPhoneError">
+                                <i class="fas fa-exclamation-circle"></i>
+                                <span>Phone can only contain numbers (max 15 digits)</span>
+                            </div>
+                        </div>
+
+                        <div class="form-group col-6">
+                            <label for="email">
+                                <i class="fas fa-envelope"></i>
+                                Email Address
+                            </label>
+                            <input type="email" id="email" maxlength="300" placeholder="customer@example.com">
+                            <div class="error-text" id="emailError">
+                                <i class="fas fa-exclamation-circle"></i>
+                                <span>Please enter a valid email address</span>
+                            </div>
+                        </div>
+
+                        <div class="form-group col-6">
+                            <label for="identityCard">
+                                <i class="fas fa-id-card"></i>
+                                Identity Card No
+                            </label>
+                            <input type="text" id="identityCard" maxlength="15" placeholder="Numbers only">
+                            <div class="error-text" id="identityCardError">
+                                <i class="fas fa-exclamation-circle"></i>
+                                <span>Identity card can only contain numbers</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Sales Officer Section -->
+                    <div class="form-section">
+                        <h3 class="section-title">
+                            <i class="fas fa-user-tie"></i>
+                            Sales Information
+                        </h3>
+
+                        <div class="form-group col-12">
+                            <label for="salesOfficer">
+                                <i class="fas fa-user-tie"></i>
+                                Associated Sales Officer
+                            </label>
+                            <select id="salesOfficer">
+                                <option value="">Select Sales Officer</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Territory Section -->
+                    <div class="form-section">
+                        <h3 class="section-title">
+                            <i class="fas fa-map-marked-alt"></i>
+                            Territory
+                        </h3>
+
+                        <div class="form-group col-4">
+                            <label for="country">
+                                <i class="fas fa-globe"></i>
+                                Country
+                            </label>
+                            <select id="country">
+                                <option value="">Select Country</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group col-4">
+                            <label for="region">
+                                <i class="fas fa-map"></i>
+                                Region
+                            </label>
+                            <select id="region" disabled>
+                                <option value="">Select Region</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group col-4">
+                            <label for="city">
+                                <i class="fas fa-city"></i>
+                                City
+                            </label>
+                            <select id="city" disabled>
+                                <option value="">Select City</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group col-6">
+                            <label for="cityZone">
+                                <i class="fas fa-map-pin"></i>
+                                City Zone
+                            </label>
+                            <select id="cityZone" disabled>
+                                <option value="">Select City Zone</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group col-6">
+                            <label for="area">
+                                <i class="fas fa-map-marker-alt"></i>
+                                Area
+                            </label>
+                            <select id="area" disabled>
+                                <option value="">Select Area</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Taxation Section -->
+                    <div class="form-section">
+                        <h3 class="section-title">
+                            <i class="fas fa-file-invoice-dollar"></i>
+                            Taxation
+                        </h3>
+
+                        <div class="form-group col-6">
+                            <div class="checkbox-group">
+                                <input type="checkbox" id="isSalesTaxRegistered">
+                                <label for="isSalesTaxRegistered">
+                                    <i class="fas fa-receipt"></i>
+                                    Is Sales Tax Registered?
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="form-group col-6" id="strnGroup" style="display: none;">
+                            <label for="strn">
+                                <i class="fas fa-hashtag"></i>
+                                Sales Tax Registered Number (STRN)
+                            </label>
+                            <input type="text" id="strn" maxlength="50" placeholder="Enter STRN">
+                        </div>
+
+                        <div class="form-group col-6">
+                            <div class="checkbox-group">
+                                <input type="checkbox" id="isFiler">
+                                <label for="isFiler">
+                                    <i class="fas fa-file-alt"></i>
+                                    Is Filer?
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="form-group col-6" id="ntnGroup" style="display: none;">
+                            <label for="ntn">
+                                <i class="fas fa-hashtag"></i>
+                                National Tax Number (NTN)
+                            </label>
+                            <input type="text" id="ntn" maxlength="50" placeholder="Enter NTN">
+                        </div>
+
+                    </div>
+
+                    <!-- Financial Information Section -->
+                    <div class="form-section">
+                        <h3 class="section-title">
+                            <i class="fas fa-chart-line"></i>
+                            Financial Information
+                        </h3>
+
+                        <div class="form-group col-6">
+                            <label for="defaultDiscount">
+                                <i class="fas fa-percent"></i>
+                                Default Discount %
+                            </label>
+                            <input type="number" id="defaultDiscount" step="0.01" min="0" max="100" placeholder="0.00">
+                        </div>
+
+                        <div class="form-group col-6">
+                            <label for="balanceLimit">
+                                <i class="fas fa-wallet"></i>
+                                Credit Limit
+                            </label>
+                            <input type="number" id="balanceLimit" step="0.01" min="0" placeholder="0.00">
+                            <div class="helper-text">
+                                <i class="fas fa-info-circle"></i>
+                                Maximum credit limit allowed
+                            </div>
+                        </div>
+
+                        <div class="form-group col-6">
+                            <label for="balancePeriodLimit">
+                                <i class="fas fa-calendar-alt"></i>
+                                Credit Period Limit (Days)
+                            </label>
+                            <input type="number" id="balancePeriodLimit" min="0" placeholder="0">
+                            <div class="helper-text">
+                                <i class="fas fa-info-circle"></i>
+                                Credit period in days
+                            </div>
+                        </div>
+
+                        <div class="form-group col-6">
+                            <label for="openingDebit">
+                                <i class="fas fa-money-bill-wave"></i>
+                                Opening Debit (Dr) Amount
+                            </label>
+                            <input type="number" id="openingDebit" step="0.01" min="0" placeholder="0.00" readonly>
+                            <div class="helper-text">
+                                <i class="fas fa-info-circle"></i>
+                                Auto-calculated from invoices or enter manually
+                            </div>
+                        </div>
+
+                        <div class="form-group col-6">
+                            <label for="openingCredit">
+                                <i class="fas fa-credit-card"></i>
+                                Opening Credit (Cr) Amount
+                            </label>
+                            <input type="number" id="openingCredit" step="0.01" min="0" placeholder="0.00">
+                            <div class="helper-text">
+                                <i class="fas fa-info-circle"></i>
+                                Amount you owe to customer
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Opening Balance Invoices Section -->
+                    <div class="form-section" id="openingInvoicesSection">
+                        <h3 class="section-title">
+                            <i class="fas fa-file-invoice"></i>
+                            Opening Balance Invoices
+                        </h3>
+
+                        <div class="form-group col-12">
+                            <div style="overflow-x: auto;">
+                                <table id="invoicesTable" style="width: 100%; border-collapse: collapse; border: 1px solid var(--border-default);">
+                                    <thead style="background: var(--surface-2);">
+                                        <tr>
+                                            <th style="padding: 12px; border: 1px solid var(--border-default); text-align: left;">Distribution</th>
+                                            <th style="padding: 12px; border: 1px solid var(--border-default); text-align: left;">Sales Officer</th>
+                                            <th style="padding: 12px; border: 1px solid var(--border-default); text-align: left;">Invoice Number</th>
+                                            <th style="padding: 12px; border: 1px solid var(--border-default); text-align: left;">Debit (Dr)</th>
+                                            <th style="padding: 12px; border: 1px solid var(--border-default); text-align: left;">Invoice Date</th>
+                                            <th style="padding: 12px; border: 1px solid var(--border-default); text-align: center; width: 80px;">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="invoicesTableBody">
+                                        <!-- Invoice rows will be added here -->
+                                    </tbody>
+                                    <tfoot>
+                                        <tr>
+                                            <td colspan="6" style="padding: 12px; border: 1px solid var(--border-default);">
+                                                <button type="button" class="btn btn-secondary btn-sm" id="addInvoiceBtn">
+                                                    <i class="fas fa-plus"></i>
+                                                    Add Invoice
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                            <div class="helper-text" style="margin-top: 8px;">
+                                <i class="fas fa-info-circle"></i>
+                                Opening Debit will be auto-calculated from invoice totals
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Sub Accounts Section -->
+                    <div class="form-section">
+                        <h3 class="section-title">
+                            <i class="fas fa-users"></i>
+                            Sub Accounts
+                        </h3>
+
+                        <div class="form-group col-12">
+                            <div style="overflow-x: auto;">
+                                <table style="width: 100%; border-collapse: collapse; border: 1px solid var(--border-default);">
+                                    <thead style="background: var(--surface-2);">
+                                        <tr>
+                                            <th style="padding: 12px; border: 1px solid var(--border-default); text-align: left; width: 80px;">S#</th>
+                                            <th style="padding: 12px; border: 1px solid var(--border-default); text-align: left;">Sub Account Name</th>
+                                            <th style="padding: 12px; border: 1px solid var(--border-default); text-align: left; width: 150px;">Debit (Dr)</th>
+                                            <th style="padding: 12px; border: 1px solid var(--border-default); text-align: left; width: 150px;">Credit (Cr)</th>
+                                            <th style="padding: 12px; border: 1px solid var(--border-default); text-align: center; width: 100px;">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="subAccountsTableBody">
+                                        <!-- Sub account rows will be added here -->
+                                    </tbody>
+                                    <tfoot>
+                                        <tr>
+                                            <td colspan="3" style="padding: 12px; border: 1px solid var(--border-default);">
+                                                <button type="button" class="btn btn-secondary btn-sm" id="addSubAccountBtn">
+                                                    <i class="fas fa-plus"></i>
+                                                    Add Sub Account
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Security Section -->
+                    <div class="form-section">
+                        <h3 class="section-title">
+                            <i class="fas fa-shield-alt"></i>
+                            Security Settings
+                        </h3>
+
+                        <div class="form-group col-6">
+                            <div class="checkbox-group">
+                                <input type="checkbox" id="isWholesaler">
+                                <label for="isWholesaler">
+                                    <i class="fas fa-warehouse"></i>
+                                    Is Wholesaler?
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="form-group col-6">
+                            <div class="checkbox-group">
+                                <input type="checkbox" id="blacklist">
+                                <label for="blacklist">
+                                    <i class="fas fa-ban"></i>
+                                    Blacklist this customer
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="form-group col-12">
+                            <div class="helper-text">
+                                <i class="fas fa-info-circle"></i>
+                                Prevent transactions with blacklisted customers
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" id="resetBtn">
+                        <i class="fas fa-undo"></i>
+                        Reset Form
+                    </button>
+                    <button type="submit" class="btn btn-primary" id="submitBtn">
+                        <i class="fas fa-save"></i>
+                        Save Customer
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="notification" id="notification">
+        <div class="notification-icon">
+            <i class="fas fa-check"></i>
+        </div>
+        <div class="notification-content">
+            <div class="notification-title" id="notificationTitle">Success</div>
+            <div class="notification-message" id="notificationMessage">Customer saved successfully!</div>
+        </div>
+        <button class="notification-close" id="notificationClose">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    <script src="../../../assets/js/customer_supplier/customers/customer-add.js"></script>
+</body>
+
+</html>

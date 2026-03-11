@@ -1,0 +1,290 @@
+<?php
+require_once '../../../../includes/dashboard.php';
+// Start session if not already started
+if (session_status() == PHP_SESSION_NONE) {
+    session_start();
+}
+
+// Get user_id from session
+$user_id = $_SESSION['user_id'] ?? null;
+
+if (!$user_id) {
+    // Redirect to login if no user_id in session
+    header('Location: ../../auth/login.html');
+    exit();
+}
+?>
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>LedgerOne ERP - Supplier Entry</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../../../assets/css/customer_supplier/suppliers/supplier-add.css">
+</head>
+
+<body class="light-mode">
+    <div class="container">
+        <div class="card">
+            <h2 class="card-title">
+                <i class="fas fa-user-plus"></i>
+                Supplier Entry
+            </h2>
+            <form id="supplierForm">
+                <div class="form-grid">
+                    <!-- Basic Information Section -->
+                    <div class="form-section">
+                        <h3 class="section-title">
+                            <i class="fas fa-id-card"></i>
+                            Basic Information
+                        </h3>
+
+                        <div class="form-group col-4">
+                            <label for="company" class="required">
+                                <i class="fas fa-building"></i>
+                                Company
+                            </label>
+                            <select id="company" required>
+                                <option value="">Select Company</option>
+                            </select>
+                            <div class="error-text" id="companyError" style="display: none;">
+                                <i class="fas fa-exclamation-circle"></i>
+                                <span>Company is required</span>
+                            </div>
+                        </div>
+
+                        <div class="form-group col-4">
+                            <label for="supplierCode" class="required">
+                                <i class="fas fa-hashtag"></i>
+                                Supplier Code
+                            </label>
+                            <input type="text" id="supplierCode" readonly value="Auto Generated">
+                            <div class="helper-text">
+                                <i class="fas fa-info-circle"></i>
+                                Automatically generated
+                            </div>
+                        </div>
+
+                        <div class="form-group col-4">
+                            <label for="supplierType" class="required">
+                                <i class="fas fa-tag"></i>
+                                Supplier Type
+                            </label>
+                            <select id="supplierType" required>
+                                <option value="Manufacturer" selected>Manufacturer</option>
+                                <option value="Distributor">Distributor</option>
+                                <option value="Wholesaler">Wholesaler</option>
+                                <option value="Retailer">Retailer</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group col-8">
+                            <label for="supplierName" class="required">
+                                <i class="fas fa-user"></i>
+                                Supplier Name
+                            </label>
+                            <input type="text" id="supplierName" required placeholder="Enter supplier full name">
+                            <div class="error-text" id="supplierNameError">
+                                <i class="fas fa-exclamation-circle"></i>
+                                <span>Supplier name is required</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Contact Information Section -->
+                    <div class="form-section">
+                        <h3 class="section-title">
+                            <i class="fas fa-address-book"></i>
+                            Contact Information
+                        </h3>
+
+                        <div class="form-group col-12">
+                            <label for="address">
+                                <i class="fas fa-map-marker-alt"></i>
+                                Address
+                            </label>
+                            <textarea id="address" placeholder="Enter complete supplier address"></textarea>
+                        </div>
+
+                        <div class="form-group col-6">
+                            <label for="primaryPhone">
+                                <i class="fas fa-phone"></i>
+                                Primary Phone
+                            </label>
+                            <input type="text" id="primaryPhone" maxlength="15" placeholder="e.g., 1234567890">
+                            <div class="error-text" id="primaryPhoneError">
+                                <i class="fas fa-exclamation-circle"></i>
+                                <span>Phone can only contain numbers (max 15 digits)</span>
+                            </div>
+                        </div>
+
+                        <div class="form-group col-6">
+                            <label for="secondaryPhone">
+                                <i class="fas fa-phone-alt"></i>
+                                Secondary Phone
+                            </label>
+                            <input type="text" id="secondaryPhone" maxlength="15" placeholder="Optional">
+                            <div class="error-text" id="secondaryPhoneError">
+                                <i class="fas fa-exclamation-circle"></i>
+                                <span>Phone can only contain numbers (max 15 digits)</span>
+                            </div>
+                        </div>
+
+                        <div class="form-group col-6">
+                            <label for="email">
+                                <i class="fas fa-envelope"></i>
+                                Email Address
+                            </label>
+                            <input type="email" id="email" maxlength="300" placeholder="supplier@example.com">
+                            <div class="error-text" id="emailError">
+                                <i class="fas fa-exclamation-circle"></i>
+                                <span>Please enter a valid email address</span>
+                            </div>
+                        </div>
+
+                        <div class="form-group col-6">
+                            <label for="identityCard">
+                                <i class="fas fa-id-card"></i>
+                                Identity Card No
+                            </label>
+                            <input type="text" id="identityCard" maxlength="15" placeholder="Numbers only">
+                            <div class="error-text" id="identityCardError">
+                                <i class="fas fa-exclamation-circle"></i>
+                                <span>Identity card can only contain numbers</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Financial Information Section -->
+                    <div class="form-section">
+                        <h3 class="section-title">
+                            <i class="fas fa-chart-line"></i>
+                            Financial Information
+                        </h3>
+
+                        <div class="form-group col-6">
+                            <label for="openingDebit">
+                                <i class="fas fa-money-bill-wave"></i>
+                                Opening Debit (Dr) Amount
+                            </label>
+                            <input type="number" id="openingDebit" step="0.01" min="0" placeholder="0.00">
+                            <div class="helper-text">
+                                <i class="fas fa-info-circle"></i>
+                                Auto-calculated from sub accounts
+                            </div>
+                        </div>
+
+                        <div class="form-group col-6">
+                            <label for="openingCredit">
+                                <i class="fas fa-credit-card"></i>
+                                Opening Credit (Cr) Amount
+                            </label>
+                            <input type="number" id="openingCredit" step="0.01" min="0" placeholder="0.00">
+                            <div class="helper-text">
+                                <i class="fas fa-info-circle"></i>
+                                Auto-calculated from sub accounts
+                            </div>
+                        </div>
+
+                        <div class="form-group col-6">
+                            <label for="aitPercent">
+                                <i class="fas fa-percent"></i>
+                                AIT %
+                            </label>
+                            <input type="number" id="aitPercent" step="0.01" min="0" max="100" placeholder="0.00">
+                        </div>
+                    </div>
+
+                    <!-- Sub Accounts Section -->
+                    <div class="form-section">
+                        <h3 class="section-title">
+                            <i class="fas fa-list"></i>
+                            Sub Accounts
+                        </h3>
+
+                        <div class="form-group col-12">
+                            <div class="table-container">
+                                <table id="subAccountsTable">
+                                    <thead>
+                                        <tr>
+                                            <th style="width: 60px;">S#</th>
+                                            <th>Sub Account Name</th>
+                                            <th style="width: 150px;">Debit</th>
+                                            <th style="width: 150px;">Credit</th>
+                                            <th style="width: 100px;">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="subAccountsBody">
+                                        <tr>
+                                            <td>1</td>
+                                            <td><input type="text" class="sub-account-input" placeholder="Enter sub account name"></td>
+                                            <td><input type="number" class="sub-account-debit" step="0.01" min="0" placeholder="0.00"></td>
+                                            <td><input type="number" class="sub-account-credit" step="0.01" min="0" placeholder="0.00"></td>
+                                            <td>
+                                                <button type="button" class="btn-icon btn-add" title="Add Row"><i class="fas fa-plus"></i></button>
+                                                <button type="button" class="btn-icon btn-remove" title="Remove Row"><i class="fas fa-minus"></i></button>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Security Section -->
+                    <div class="form-section">
+                        <h3 class="section-title">
+                            <i class="fas fa-shield-alt"></i>
+                            Security Settings
+                        </h3>
+
+                        <div class="form-group col-12">
+                            <div class="checkbox-group">
+                                <input type="checkbox" id="blacklist">
+                                <label for="blacklist">
+                                    <i class="fas fa-ban"></i>
+                                    Blacklist this supplier
+                                </label>
+                            </div>
+                            <div class="helper-text">
+                                <i class="fas fa-info-circle"></i>
+                                Prevent transactions with blacklisted suppliers
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" id="resetBtn">
+                        <i class="fas fa-undo"></i>
+                        Reset Form
+                    </button>
+                    <button type="submit" class="btn btn-primary" id="submitBtn">
+                        <i class="fas fa-save"></i>
+                        Save Supplier
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="notification" id="notification">
+        <div class="notification-icon">
+            <i class="fas fa-check"></i>
+        </div>
+        <div class="notification-content">
+            <div class="notification-title" id="notificationTitle">Success</div>
+            <div class="notification-message" id="notificationMessage">Supplier saved successfully!</div>
+        </div>
+        <button class="notification-close" id="notificationClose">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
+
+    <script src="../../../assets/js/customer_supplier/suppliers/supplier-add.js"></script>
+</body>
+
+</html>

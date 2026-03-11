@@ -1,0 +1,156 @@
+<?php
+require_once '../../../../includes/connection.php';
+
+header('Content-Type: application/json');
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: POST');
+header('Access-Control-Allow-Headers: Content-Type');
+
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    http_response_code(405);
+    echo json_encode(['success' => false, 'message' => 'Method not allowed']);
+    exit;
+}
+
+session_start();
+$user_id = $_SESSION['user_id'] ?? null;
+$tenant_id = $_SESSION['tenant_id'] ?? null;
+
+if (!$user_id || !$tenant_id) {
+    http_response_code(401);
+    echo json_encode(['success' => false, 'message' => 'Unauthorized - Please login again']);
+    exit;
+}
+
+try {
+    $input = json_decode(file_get_contents('php://input'), true);
+    
+    // Validate required fields
+    if (empty($input['supplierName'])) {
+        throw new Exception('Supplier name is required');
+    }
+    
+    if (empty($input['companyId'])) {
+        throw new Exception('Company is required');
+    }
+    
+    // Generate supplier code based on last supplier_code in database
+    $stmt = $pdo->prepare("SELECT supplier_code FROM suppliers WHERE tenant_id = ? ORDER BY id DESC LIMIT 1");
+    $stmt->execute([$tenant_id]);
+    $lastSupplier = $stmt->fetch();
+    
+    if ($lastSupplier) {
+        $lastNum = (int)substr($lastSupplier['supplier_code'], 5);
+        $nextNum = $lastNum + 1;
+    } else {
+        $nextNum = 1;
+    }
+    
+    $supplier_code = 'SUPP-' . str_pad($nextNum, 5, '0', STR_PAD_LEFT);
+    
+    // Prepare data
+    $data = [
+        'tenant_id' => $tenant_id,
+        'company_id' => (int)$input['companyId'],
+        'supplier_code' => $supplier_code,
+        'supplier_type' => trim($input['supplierType']),
+        'supplier_name' => trim($input['supplierName']),
+        'address' => !empty($input['address']) ? trim($input['address']) : null,
+        'primary_phone' => !empty($input['primaryPhone']) ? trim($input['primaryPhone']) : null,
+        'secondary_phone' => !empty($input['secondaryPhone']) ? trim($input['secondaryPhone']) : null,
+        'identity_card_no' => !empty($input['identityCard']) ? trim($input['identityCard']) : null,
+        'email' => !empty($input['email']) ? trim($input['email']) : null,
+        'opening_debit_amount' => floatval($input['openingDebit'] ?? 0),
+        'opening_credit_amount' => floatval($input['openingCredit'] ?? 0),
+        'ait_percent' => floatval($input['aitPercent'] ?? 0),
+        'is_blacklisted' => !empty($input['blacklist']) ? 1 : 0,
+        'created_by' => $user_id,
+        'updated_by' => $user_id
+    ];
+    
+    // Generate ID - get max ID across all tenants to avoid conflicts
+    $stmt = $pdo->prepare("SELECT COALESCE(MAX(id), 0) + 1 as new_id FROM suppliers");
+    $stmt->execute();
+    $new_id = $stmt->fetch()['new_id'];
+    $data['id'] = $new_id;
+    
+    // Insert supplier
+    $sql = "INSERT INTO suppliers (id, tenant_id, company_id, supplier_code, supplier_type, supplier_name, address, primary_phone, secondary_phone, identity_card_no, email, opening_debit_amount, opening_credit_amount, ait_percent, is_blacklisted, created_by, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+    
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute([
+        $data['id'],
+        $data['tenant_id'],
+        $data['company_id'],
+        $data['supplier_code'],
+        $data['supplier_type'],
+        $data['supplier_name'],
+        $data['address'],
+        $data['primary_phone'],
+        $data['secondary_phone'],
+        $data['identity_card_no'],
+        $data['email'],
+        $data['opening_debit_amount'],
+        $data['opening_credit_amount'],
+        $data['ait_percent'],
+        $data['is_blacklisted'],
+        $data['created_by'],
+        $data['updated_by']
+    ]);
+    
+    // Insert accounting ledger entries for opening balances
+    if ($data['opening_debit_amount'] > 0) {
+        // Trade Creditors (14) = Debit, Opening Balance Equity (90) = Credit
+        $ledgerSql = "INSERT INTO accounting_ledger (tenant_id, transaction_type, reference_table, reference_id, account_id, date, description, debit, credit) VALUES (?, ?, ?, ?, ?, CURDATE(), ?, ?, ?)";
+        
+        $stmt = $pdo->prepare($ledgerSql);
+        $stmt->execute([$tenant_id, 'supplier_opening', 'suppliers', $new_id, 14, 'Supplier Opening Debit - ' . $data['supplier_name'], $data['opening_debit_amount'], 0]);
+        
+        $stmt = $pdo->prepare($ledgerSql);
+        $stmt->execute([$tenant_id, 'supplier_opening', 'suppliers', $new_id, 90, 'Supplier Opening Debit - ' . $data['supplier_name'], 0, $data['opening_debit_amount']]);
+    }
+    
+    if ($data['opening_credit_amount'] > 0) {
+        // Opening Balance Equity (90) = Debit, Trade Creditors (14) = Credit
+        $ledgerSql = "INSERT INTO accounting_ledger (tenant_id, transaction_type, reference_table, reference_id, account_id, date, description, debit, credit) VALUES (?, ?, ?, ?, ?, CURDATE(), ?, ?, ?)";
+        
+        $stmt = $pdo->prepare($ledgerSql);
+        $stmt->execute([$tenant_id, 'supplier_opening', 'suppliers', $new_id, 90, 'Supplier Opening Credit - ' . $data['supplier_name'], $data['opening_credit_amount'], 0]);
+        
+        $stmt = $pdo->prepare($ledgerSql);
+        $stmt->execute([$tenant_id, 'supplier_opening', 'suppliers', $new_id, 14, 'Supplier Opening Credit - ' . $data['supplier_name'], 0, $data['opening_credit_amount']]);
+    }
+    
+    // Insert sub accounts
+    if (!empty($input['subAccounts']) && is_array($input['subAccounts'])) {
+        $subAccountSql = "INSERT INTO supplier_sub_accounts (tenant_id, supplier_id, sub_account_name, debit, credit) VALUES (?, ?, ?, ?, ?)";
+        $stmt = $pdo->prepare($subAccountSql);
+        
+        foreach ($input['subAccounts'] as $subAccount) {
+            if (!empty(trim($subAccount['name']))) {
+                $stmt->execute([
+                    $tenant_id, 
+                    $new_id, 
+                    trim($subAccount['name']),
+                    floatval($subAccount['debit'] ?? 0),
+                    floatval($subAccount['credit'] ?? 0)
+                ]);
+            }
+        }
+    }
+    
+    echo json_encode([
+        'success' => true,
+        'message' => 'Supplier created successfully',
+        'supplier_code' => $supplier_code,
+        'supplier_id' => $new_id
+    ]);
+    
+} catch (Exception $e) {
+    http_response_code(400);
+    echo json_encode([
+        'success' => false,
+        'message' => $e->getMessage()
+    ]);
+}
+?>
