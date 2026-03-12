@@ -21,4 +21,4 @@ jobs:
       - name: Deploy to VPS
         run: |
           ssh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} \
-          "cd /var/www/ledgerone_erp && git pull origin main"
+          "cd /var/www/ledgerone_erp && git reset --hard HEAD && git pull origin main"
