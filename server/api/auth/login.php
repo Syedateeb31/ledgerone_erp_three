@@ -5,9 +5,9 @@ ini_set('log_errors', 1);
 session_start();
 
 // Database configuration
-define('DB_HOST', $_ENV['DB_HOST'] ?? 'localhost');
-define('DB_USER', $_ENV['DB_USER'] ?? 'ateeb');
-define('DB_PASS', $_ENV['DB_PASS'] ?? 'root');
+define('DB_HOST', $_ENV['DB_HOST'] ?? '31.97.123.46');
+define('DB_USER', $_ENV['DB_USER'] ?? 'ledgerone_tenant');
+define('DB_PASS', $_ENV['DB_PASS'] ?? 'JAAsqzFU6fujVoQD');
 define('DB_PUBLIC', $_ENV['DB_PUBLIC'] ?? 'ledgerone_public');
 define('DB_TENANT', $_ENV['DB_TENANT'] ?? 'ledgerone_tenant');
 define('SESSION_EXPIRY', $_ENV['SESSION_EXPIRY'] ?? 3600);
