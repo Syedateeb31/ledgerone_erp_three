@@ -91,9 +91,10 @@ try {
         $stmt = $pdo->prepare("DELETE FROM accounting_ledger WHERE tenant_id = ? AND transaction_type = 'supplier_opening' AND reference_table = 'suppliers' AND reference_id = ?");
         $stmt->execute([$tenant_id, $supplier_id]);
 
-        // Delete existing sub accounts
-        $stmt = $pdo->prepare("DELETE FROM supplier_sub_accounts WHERE tenant_id = ? AND supplier_id = ?");
+        // Get existing sub accounts
+        $stmt = $pdo->prepare("SELECT id FROM supplier_sub_accounts WHERE tenant_id = ? AND supplier_id = ?");
         $stmt->execute([$tenant_id, $supplier_id]);
+        $existingSubAccountIds = $stmt->fetchAll(PDO::FETCH_COLUMN);
 
         // Insert new opening balance ledger entries
         $openingDebit = floatval($input['openingDebit'] ?? 0);
@@ -120,22 +121,54 @@ try {
             $stmt->execute([$tenant_id, 'supplier_opening', 'suppliers', $supplier_id, 14, 'Supplier Opening Credit - ' . $supplierName, 0, $openingCredit]);
         }
 
-        // Insert new sub accounts
+        // Update sub accounts (reuse existing IDs)
         if (!empty($input['subAccounts']) && is_array($input['subAccounts'])) {
-            $subAccountSql = "INSERT INTO supplier_sub_accounts (tenant_id, supplier_id, sub_account_name, debit, credit) VALUES (?, ?, ?, ?, ?)";
-            $stmt = $pdo->prepare($subAccountSql);
+            $newSubAccounts = array_filter($input['subAccounts'], function($sa) {
+                return !empty(trim($sa['name']));
+            });
             
-            foreach ($input['subAccounts'] as $subAccount) {
-                if (!empty(trim($subAccount['name']))) {
-                    $stmt->execute([
-                        $tenant_id, 
-                        $supplier_id, 
+            $updateSql = "UPDATE supplier_sub_accounts SET sub_account_name = ?, debit = ?, credit = ? WHERE id = ? AND tenant_id = ?";
+            $insertSql = "INSERT INTO supplier_sub_accounts (tenant_id, supplier_id, sub_account_name, debit, credit) VALUES (?, ?, ?, ?, ?)";
+            $updateStmt = $pdo->prepare($updateSql);
+            $insertStmt = $pdo->prepare($insertSql);
+            
+            $usedIds = [];
+            foreach ($newSubAccounts as $index => $subAccount) {
+                if (isset($existingSubAccountIds[$index])) {
+                    // Update existing sub account
+                    $subAccountId = $existingSubAccountIds[$index];
+                    $updateStmt->execute([
+                        trim($subAccount['name']),
+                        floatval($subAccount['debit'] ?? 0),
+                        floatval($subAccount['credit'] ?? 0),
+                        $subAccountId,
+                        $tenant_id
+                    ]);
+                    $usedIds[] = $subAccountId;
+                } else {
+                    // Insert new sub account
+                    $insertStmt->execute([
+                        $tenant_id,
+                        $supplier_id,
                         trim($subAccount['name']),
                         floatval($subAccount['debit'] ?? 0),
                         floatval($subAccount['credit'] ?? 0)
                     ]);
                 }
             }
+            
+            // Delete unused sub accounts
+            $unusedIds = array_diff($existingSubAccountIds, $usedIds);
+            if (!empty($unusedIds)) {
+                $placeholders = implode(',', array_fill(0, count($unusedIds), '?'));
+                $deleteSql = "DELETE FROM supplier_sub_accounts WHERE id IN ($placeholders) AND tenant_id = ?";
+                $deleteStmt = $pdo->prepare($deleteSql);
+                $deleteStmt->execute(array_merge($unusedIds, [$tenant_id]));
+            }
+        } else {
+            // Delete all sub accounts if none provided
+            $stmt = $pdo->prepare("DELETE FROM supplier_sub_accounts WHERE tenant_id = ? AND supplier_id = ?");
+            $stmt->execute([$tenant_id, $supplier_id]);
         }
 
         echo json_encode(['success' => true, 'message' => 'Supplier updated successfully']);
