@@ -1,0 +1,44 @@
+INSTRUCTIONS TO ADD FINANCIAL SUMMARY TO DASHBOARD
+===================================================
+
+1. ADD TO NAVIGATION MENU (dashboard-core.js)
+----------------------------------------------
+Find the "financial-reports" section in getNavbarHTML() method and add this line:
+<button data-action="financial-summary">Financial Summary</button>
+
+Add it after the line:
+<button data-action="cash-flow">Cash Flow</button>
+
+
+2. ADD ROUTE MAPPING (dashboard-core.js)
+-----------------------------------------
+Find the "financial-reports" object in navigateToAction() method and add this line:
+"financial-summary": `${this.basePath}/client/pages/financial_reports/financial_summary/financial_summary.php`,
+
+Add it after:
+"pending-dsr-sheet": `${this.basePath}/client/pages/financial_reports/pending_dsr_sheet/pending-dsr-sheet.php`,
+
+
+3. ADD PERMISSION MAPPING (dashboard-core.js)
+----------------------------------------------
+Find the actionMap object in applyPermissions() method and add this line:
+'financial-summary': 'Financial Summary',
+
+Add it after:
+'pending-dsr-sheet': 'Pending DSR Sheet',
+
+
+4. ADD TO ACCESS MANAGEMENT (panel.php)
+----------------------------------------
+Find the Financial Reports section and add this checkbox:
+<label><input type="checkbox" name="forms[]" value="Financial Summary"> Financial Summary</label>
+
+Add it after Cash Flow checkbox.
+
+
+EXACT LOCATIONS:
+================
+Line ~220: Add menu button in getNavbarHTML()
+Line ~650: Add route in navigateToAction()
+Line ~750: Add permission in applyPermissions()
+panel.php: Add checkbox in Financial Reports section

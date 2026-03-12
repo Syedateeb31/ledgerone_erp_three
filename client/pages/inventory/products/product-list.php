@@ -1,0 +1,165 @@
+<?php
+require_once '../../../../includes/dashboard.php';
+// Start session if not already started
+if (session_status() == PHP_SESSION_NONE) {
+    session_start();
+}
+
+// Get user_id from session
+$user_id = $_SESSION['user_id'] ?? null;
+
+if (!$user_id) {
+    // Redirect to login if no user_id in session
+    header('Location: ../../auth/login.html');
+    exit();
+}
+?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>LedgerOne ERP - Products List</title>
+    <link rel="stylesheet" href="../../../assets/css/inventory/products/product-list.css">
+    <link rel="stylesheet" href="../../../assets/css/inventory/products/unit-modal.css">
+</head>
+<body>
+    <div class="container">
+        <div class="page-header">
+            <div>
+                <h1>Products</h1>
+                <p class="page-description">Manage your products and services inventory</p>
+            </div>
+            <div class="header-actions">
+                <div class="dropdown">
+                    <button class="btn btn-secondary dropdown-toggle" id="exportBtn">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M14 10V12.6667C14 13.0203 13.8595 13.3594 13.6095 13.6095C13.3594 13.8595 13.0203 14 12.6667 14H3.33333C2.97971 14 2.64057 13.8595 2.39052 13.6095C2.14048 13.3594 2 13.0203 2 12.6667V10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M4.66675 6.66667L8.00008 10L11.3334 6.66667" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M8 10V2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        Export
+                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg" style="margin-left: 4px;">
+                            <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </button>
+                    <div class="dropdown-menu" id="exportDropdown">
+                        <button class="dropdown-item" id="printList">Print List</button>
+                        <button class="dropdown-item" id="exportExcel">Export To Excel</button>
+                        <button class="dropdown-item" id="exportJson">Export JSON</button>
+                    </div>
+                </div>
+                <button class="btn btn-primary" id="addProductBtn">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M8 3.33333V12.6667" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M3.33325 8H12.6666" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    Add Product
+                </button>
+            </div>
+        </div>
+
+        <div class="card">
+            <!-- Filters Section -->
+            <div class="filters-section">
+                <div class="filter-group">
+                    <label for="search">Search</label>
+                    <input type="text" id="search" placeholder="Product name or code...">
+                </div>
+                <div class="filter-group">
+                    <label>Price Type</label>
+                    <div style="display: flex; gap: 16px; margin-top: 6px;">
+                        <label style="display: flex; align-items: center; gap: 6px; font-weight: normal;">
+                            <input type="radio" name="priceType" value="tp" checked>
+                            Use Trade Price (TP)
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 6px; font-weight: normal;">
+                            <input type="radio" name="priceType" value="mrp">
+                            Use Maximum Retail Price (MRP)
+                        </label>
+                    </div>
+                </div>
+                <div class="filter-group">
+                    <label for="category">Category</label>
+                    <select id="category">
+                        <option value="">All Categories</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label for="type">Product Type</label>
+                    <select id="type">
+                        <option value="">All Types</option>
+                        <option value="product">Physical Product</option>
+                        <option value="service">Service</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label for="status">Status</label>
+                    <select id="status">
+                        <option value="">All Status</option>
+                        <option value="active">Active</option>
+                        <option value="inactive">Inactive</option>
+                    </select>
+                </div>
+                <div class="filter-actions">
+                    <button class="btn btn-secondary" id="applyFilters">Apply Filters</button>
+                    <button class="btn btn-ghost" id="resetFilters">Reset</button>
+                </div>
+            </div>
+
+            <!-- Products Table -->
+            <div class="table-container">
+                <table id="productsTable">
+                    <thead>
+                        <tr>
+                            <th>Product Code</th>
+                            <th>Name</th>
+                            <th>Type</th>
+                            <th>Category</th>
+                            <th>Current Stock</th>
+                            <th>Price</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody">
+                        <!-- Table rows will be populated by JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Empty State (hidden by default) -->
+            <div id="emptyState" class="empty-state" style="display: none;">
+                <div class="empty-state-icon">📦</div>
+                <h3>No products found</h3>
+                <p>Try adjusting your search or filters, or add a new product.</p>
+                <button class="btn btn-primary" id="addFirstProduct" style="margin-top: 16px;">Add Your First Product</button>
+            </div>
+
+            <!-- Pagination -->
+            <div class="pagination">
+                <div class="pagination-info" id="paginationInfo">Showing 0-0 of 0 products</div>
+                <div class="pagination-controls">
+                    <button class="pagination-btn" id="prevPage" disabled>
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M10 12L6 8L10 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </button>
+                    <button class="pagination-btn" id="nextPage">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M6 12L10 8L6 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <?php include 'delete-modal.php'; ?>
+    <?php include 'print-code-modal.php'; ?>
+
+    <script src="https://cdn.jsdelivr.net/npm/qrious@4.0.2/dist/qrious.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.5/JsBarcode.all.min.js"></script>
+    <script src="../../../assets/js/inventory/products/product-list.js"></script>
+</body>
+</html>

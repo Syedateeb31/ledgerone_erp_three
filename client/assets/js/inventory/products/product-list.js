@@ -1,0 +1,517 @@
+let products = [];
+let currentPage = 1;
+let totalPages = 1;
+let totalRecords = 0;
+let collapsedParents = new Set();
+
+document.addEventListener('DOMContentLoaded', function () {
+    // Load and render products
+    loadProducts();
+
+    // Add Product button
+    document.getElementById('addProductBtn').addEventListener('click', function () {
+        window.location.href = 'product-add.php';
+    });
+
+    // Add First Product button
+    document.getElementById('addFirstProduct').addEventListener('click', function () {
+        window.location.href = 'product-add.php';
+    });
+
+    // Export dropdown
+    document.getElementById('exportBtn').addEventListener('click', function (e) {
+        e.stopPropagation();
+        const dropdown = document.getElementById('exportDropdown');
+        dropdown.classList.toggle('show');
+    });
+    
+    // Export options
+    document.getElementById('printList').addEventListener('click', function () {
+        const params = new URLSearchParams({
+            search: document.getElementById('search').value,
+            category: document.getElementById('category').value,
+            type: document.getElementById('type').value,
+            status: document.getElementById('status').value
+        });
+        
+        window.open(`print.php?${params}`, '_blank');
+        document.getElementById('exportDropdown').classList.remove('show');
+    });
+    
+    document.getElementById('exportExcel').addEventListener('click', function () {
+        alert('Export to Excel functionality would be implemented here');
+        document.getElementById('exportDropdown').classList.remove('show');
+    });
+    
+    document.getElementById('exportJson').addEventListener('click', function () {
+        alert('Export JSON functionality would be implemented here');
+        document.getElementById('exportDropdown').classList.remove('show');
+    });
+    
+    // Close dropdown when clicking outside
+    document.addEventListener('click', function () {
+        document.getElementById('exportDropdown').classList.remove('show');
+    });
+
+    // Apply Filters button
+    document.getElementById('applyFilters').addEventListener('click', applyFilters);
+
+    // Reset Filters button
+    document.getElementById('resetFilters').addEventListener('click', resetFilters);
+    
+    // Price type change
+    document.querySelectorAll('input[name="priceType"]').forEach(radio => {
+        radio.addEventListener('change', applyFilters);
+    });
+    
+    // Load categories for filter
+    loadCategoriesFilter();
+
+    // Pagination buttons
+    document.getElementById('prevPage').addEventListener('click', function () {
+        if (currentPage > 1) {
+            loadProducts(currentPage - 1);
+        }
+    });
+
+    document.getElementById('nextPage').addEventListener('click', function () {
+        if (currentPage < totalPages) {
+            loadProducts(currentPage + 1);
+        }
+    });
+
+    // Search on Enter key
+    document.getElementById('search').addEventListener('keyup', function (e) {
+        if (e.key === 'Enter') {
+            applyFilters();
+        }
+    });
+});
+
+function renderProductTable(productsToRender) {
+    const tableBody = document.getElementById('tableBody');
+    const emptyState = document.getElementById('emptyState');
+
+    // Clear existing table rows
+    tableBody.innerHTML = '';
+
+    if (productsToRender.length === 0) {
+        // Show empty state
+        document.querySelector('.table-container').style.display = 'none';
+        document.querySelector('.pagination').style.display = 'none';
+        emptyState.style.display = 'block';
+        return;
+    } else {
+        // Show table and pagination
+        document.querySelector('.table-container').style.display = 'block';
+        document.querySelector('.pagination').style.display = 'flex';
+        emptyState.style.display = 'none';
+    }
+
+    // Populate table with products
+    productsToRender.forEach(product => {
+        const row = document.createElement('tr');
+        
+        // Hide child products if parent is collapsed
+        if (product.parentProductId && collapsedParents.has(product.parentProductId)) {
+            row.style.display = 'none';
+        }
+        row.dataset.productId = product.id;
+        row.dataset.parentId = product.parentProductId || '';
+
+        // Determine stock status
+        let stockStatus = '';
+        let stockClass = '';
+
+        if (product.type === 'service' || product.noStockRecords) {
+            stockStatus = 'N/A';
+        } else {
+            stockStatus = `${formatNumber(product.currentStock)}`;
+
+            if (product.status === 'inactive') {
+                stockClass = 'status-inactive';
+            } else if (product.currentStock <= product.minStock) {
+                stockClass = 'status-low-stock';
+                stockStatus = `Low: ${formatNumber(product.currentStock)}`;
+            }
+        }
+
+        // Determine status badge
+        let statusBadge = '';
+        if (product.status === 'active') {
+            statusBadge = '<span class="status-badge status-active">Active</span>';
+        } else if (product.status === 'inactive') {
+            statusBadge = '<span class="status-badge status-inactive">Inactive</span>';
+        } else if (product.status === 'low-stock') {
+            statusBadge = '<span class="status-badge status-low-stock">Low Stock</span>';
+        }
+
+        // Determine type badge
+        const typeBadge = product.type === 'physical'
+            ? '<span class="type-badge type-product">Product</span>'
+            : '<span class="type-badge type-service">Service</span>';
+
+        // Check if this product has children
+        const hasChildren = productsToRender.some(p => p.parentProductId === product.id);
+        const isCollapsed = collapsedParents.has(product.id);
+        
+        row.innerHTML = `
+                    <td>${product.code}</td>
+                    <td>
+                        <div style="font-weight: 500; ${product.parentProductId ? 'padding-left: 24px;' : ''}; display: flex; align-items: center; gap: 4px;">
+                            ${hasChildren ? `<span class="toggle-children" data-parent-id="${product.id}" style="cursor: pointer; user-select: none; width: 16px; text-align: center;">${isCollapsed ? '▶' : '▼'}</span>` : ''}
+                            ${product.parentProductId ? '└─ ' : ''}${product.name}
+                        </div>
+                        ${product.subcategory ? `<div style="font-size: 12px; color: var(--subtext); ${product.parentProductId ? 'padding-left: 24px;' : ''}">${product.subcategory}</div>` : ''}
+                    </td>
+                    <td>${typeBadge}</td>
+                    <td>${product.category}</td>
+                    <td class="${stockClass}">${stockStatus}</td>
+                    <td>${product.price > 0 ? `${product.currencySymbol}${product.price.toFixed(2)}` : 'Free'}</td>
+                    <td>${statusBadge}</td>
+                    <td>
+                        <div class="action-buttons">
+                            ${product.qrCode || product.barcode ? `
+                            <button class="btn btn-icon btn-ghost print-code" data-id="${product.id}" data-qr="${product.qrCode || ''}" data-barcode="${product.barcode || ''}" data-name="${product.name}" data-code="${product.code}" data-price="${product.tradePrice}" data-company="${product.companyName || ''}" data-currency="${product.currencySymbol}" title="Print Code">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M4 6V2H12V6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M4 11H2V7H14V11H12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M4 14H12V10H4V14Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                            </button>
+                            ` : ''}
+                            <button class="btn btn-icon btn-ghost edit-product" data-id="${product.id}" title="Edit">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M11.3333 1.99996C11.5084 1.82485 11.7163 1.686 11.945 1.59124C12.1737 1.49648 12.4189 1.44763 12.6666 1.44763C12.9144 1.44763 13.1596 1.49648 13.3883 1.59124C13.617 1.686 13.8249 1.82485 14 1.99996C14.1751 2.17507 14.3139 2.38297 14.4087 2.61167C14.5035 2.84037 14.5523 3.08556 14.5523 3.33329C14.5523 3.58103 14.5035 3.82622 14.4087 4.05492C14.3139 4.28362 14.1751 4.49152 14 4.66663L5.00004 13.6666L1.33337 14.6666L2.33337 11L11.3333 1.99996Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                            </button>
+                            <button class="btn btn-icon btn-danger delete-product" data-id="${product.id}" title="Delete">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M2 4H3.33333H14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M5.33337 4V2.66667C5.33337 2.31305 5.47385 1.97391 5.7239 1.72386C5.97395 1.47381 6.31309 1.33334 6.66671 1.33334H9.33337C9.68699 1.33334 10.0261 1.47381 10.2762 1.72386C10.5262 1.97391 10.6667 2.31305 10.6667 2.66667V4M12.6667 4V13.3333C12.6667 13.687 12.5262 14.0261 12.2762 14.2761C12.0261 14.5262 11.687 14.6667 11.3334 14.6667H4.66671C4.31309 14.6667 3.97395 14.5262 3.7239 14.2761C3.47385 14.0261 3.33337 13.687 3.33337 13.3333V4H12.6667Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </td>
+                `;
+
+        tableBody.appendChild(row);
+    });
+
+    // Add event listeners to action buttons
+    document.querySelectorAll('.print-code').forEach(button => {
+        button.addEventListener('click', function () {
+            const qr = this.getAttribute('data-qr');
+            const barcode = this.getAttribute('data-barcode');
+            const name = this.getAttribute('data-name');
+            const code = this.getAttribute('data-code');
+            const price = this.getAttribute('data-price');
+            const company = this.getAttribute('data-company');
+            const currency = this.getAttribute('data-currency');
+            printCode(qr, barcode, name, code, price, company, currency);
+        });
+    });
+    
+    document.querySelectorAll('.edit-product').forEach(button => {
+        button.addEventListener('click', function () {
+            const productId = this.getAttribute('data-id');
+            editProduct(productId);
+        });
+    });
+
+    document.querySelectorAll('.delete-product').forEach(button => {
+        button.addEventListener('click', function () {
+            const productId = this.getAttribute('data-id');
+            deleteProduct(productId);
+        });
+    });
+    
+    // Add toggle functionality
+    document.querySelectorAll('.toggle-children').forEach(toggle => {
+        toggle.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const parentId = parseInt(this.dataset.parentId);
+            
+            if (collapsedParents.has(parentId)) {
+                collapsedParents.delete(parentId);
+                this.textContent = '▼';
+            } else {
+                collapsedParents.add(parentId);
+                this.textContent = '▶';
+            }
+            
+            // Toggle child rows
+            document.querySelectorAll(`tr[data-parent-id="${parentId}"]`).forEach(row => {
+                row.style.display = collapsedParents.has(parentId) ? 'none' : '';
+            });
+        });
+    });
+
+    // Pagination info will be updated by updatePagination function
+}
+
+function applyFilters() {
+    loadProducts();
+}
+
+function resetFilters() {
+    document.getElementById('search').value = '';
+    document.getElementById('category').value = '';
+    document.getElementById('type').value = '';
+    document.getElementById('status').value = '';
+    document.querySelector('input[name="priceType"][value="tp"]').checked = true;
+    collapsedParents.clear();
+
+    loadProducts();
+}
+
+
+
+function editProduct(productId) {
+    window.location.href = `product-add.php?id=${productId}`;
+}
+
+function deleteProduct(productId) {
+    const product = products.find(p => p.id == productId);
+    if (product) {
+        showDeleteModal(product.name, productId);
+    }
+}
+
+function showDeleteModal(productName, productId) {
+    document.getElementById('deleteModalMessage').textContent = 
+        `Are you sure you want to delete "${productName}"? This action cannot be undone.`;
+    
+    const modal = document.getElementById('deleteModal');
+    modal.style.display = 'flex';
+    
+    // Remove previous event listeners
+    const newCancelBtn = document.getElementById('cancelDelete').cloneNode(true);
+    const newConfirmBtn = document.getElementById('confirmDelete').cloneNode(true);
+    document.getElementById('cancelDelete').parentNode.replaceChild(newCancelBtn, document.getElementById('cancelDelete'));
+    document.getElementById('confirmDelete').parentNode.replaceChild(newConfirmBtn, document.getElementById('confirmDelete'));
+    
+    // Add new event listeners
+    newCancelBtn.addEventListener('click', () => {
+        modal.style.display = 'none';
+    });
+    
+    newConfirmBtn.addEventListener('click', () => {
+        modal.style.display = 'none';
+        performDelete(productId);
+    });
+    
+    // Close button
+    document.getElementById('closeDeleteModal').onclick = () => {
+        modal.style.display = 'none';
+    };
+    
+    // Close on outside click
+    modal.onclick = (e) => {
+        if (e.target === modal) {
+            modal.style.display = 'none';
+        }
+    };
+}
+
+function performDelete(productId) {
+    fetch(`../../../../server/api/inventory/products/product-delete.php`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: `id=${productId}`
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Product deleted successfully!');
+            loadProducts(); // Refresh the product list
+        } else {
+            alert('Error: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('An error occurred while deleting the product');
+    });
+}
+
+function formatNumber(num) {
+    return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+}
+
+function loadProducts(page = 1) {
+    currentPage = page;
+    const priceType = document.querySelector('input[name="priceType"]:checked').value;
+    const params = new URLSearchParams({
+        search: document.getElementById('search').value,
+        category: document.getElementById('category').value,
+        type: document.getElementById('type').value,
+        status: document.getElementById('status').value,
+        page: page
+    });
+    
+    fetch(`../../../../server/api/inventory/products/product-list.php?${params}`)
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            products = data.products.map(product => ({
+                id: product.id,
+                code: product.code,
+                name: product.name,
+                type: product.product_type,
+                category: product.category_name || 'Uncategorized',
+                subcategory: product.subcategory_name || '',
+                currentStock: product.current_stock,
+                price: parseFloat(priceType === 'tp' ? product.trade_price : product.mrp),
+                tradePrice: parseFloat(product.trade_price),
+                status: product.is_active ? 'active' : 'inactive',
+                noStockRecords: product.no_stock_records == 1,
+                currencySymbol: product.currency_symbol || '₹',
+                parentProductId: product.parent_product_id,
+                qrCode: product.qr_code,
+                barcode: product.barcode,
+                companyName: product.company_name || ''
+            }));
+            
+            // Update pagination info
+            currentPage = data.pagination.current_page;
+            totalPages = data.pagination.total_pages;
+            totalRecords = data.pagination.total_records;
+            
+            renderProductTable(products);
+            updatePagination();
+        } else {
+            console.error('Error loading products:', data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+    });
+}
+
+function loadCategoriesFilter() {
+    fetch('../../../../server/api/inventory/products/category-list.php')
+    .then(response => response.json())
+    .then(data => {
+        if (data.success && data.categories) {
+            const select = document.getElementById('category');
+            data.categories.forEach(category => {
+                const option = document.createElement('option');
+                option.value = category.id;
+                option.textContent = category.category_name;
+                select.appendChild(option);
+            });
+        }
+    })
+    .catch(error => console.error('Error loading categories:', error));
+}
+
+function updatePagination() {
+    const startRecord = totalRecords === 0 ? 0 : (currentPage - 1) * 10 + 1;
+    const endRecord = Math.min(currentPage * 10, totalRecords);
+    
+    document.getElementById('paginationInfo').textContent = 
+        `Showing ${startRecord}-${endRecord} of ${totalRecords} products`;
+    
+    // Update prev/next button states
+    document.getElementById('prevPage').disabled = currentPage <= 1;
+    document.getElementById('nextPage').disabled = currentPage >= totalPages;
+    
+    // Update page numbers
+    const paginationControls = document.querySelector('.pagination-controls');
+    const pageButtons = paginationControls.querySelectorAll('.pagination-btn:not(#prevPage):not(#nextPage)');
+    pageButtons.forEach(btn => btn.remove());
+    
+    // Add page number buttons
+    const maxVisiblePages = 5;
+    let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+    
+    if (endPage - startPage + 1 < maxVisiblePages) {
+        startPage = Math.max(1, endPage - maxVisiblePages + 1);
+    }
+    
+    for (let i = startPage; i <= endPage; i++) {
+        const pageBtn = document.createElement('button');
+        pageBtn.className = `pagination-btn ${i === currentPage ? 'active' : ''}`;
+        pageBtn.textContent = i;
+        pageBtn.addEventListener('click', () => loadProducts(i));
+        
+        paginationControls.insertBefore(pageBtn, document.getElementById('nextPage'));
+    }
+}
+
+function printCode(qr, barcode, productName, productCode, tradePrice, companyName, currencySymbol) {
+    const modal = document.getElementById('printCodeModal');
+    const content = document.getElementById('printCodeContent');
+    content.innerHTML = '';
+    
+    // Add company name at top if exists
+    if (companyName) {
+        const companyDiv = document.createElement('div');
+        companyDiv.style.cssText = 'font-size: 18px; font-weight: 700; color: var(--heading); margin-bottom: 16px; text-align: center;';
+        companyDiv.textContent = companyName;
+        content.appendChild(companyDiv);
+    }
+    
+    let canvas;
+    if (qr) {
+        canvas = document.createElement('canvas');
+        canvas.width = 200;
+        canvas.height = 200;
+        new QRious({ element: canvas, value: qr, size: 200 });
+        content.appendChild(canvas);
+    } else if (barcode) {
+        canvas = document.createElement('canvas');
+        JsBarcode(canvas, barcode, { format: "CODE128", width: 2, height: 80, displayValue: true });
+        content.appendChild(canvas);
+    }
+    
+    // Add product details below code
+    const detailsDiv = document.createElement('div');
+    detailsDiv.style.cssText = 'margin-top: 16px; text-align: center; line-height: 1.6;';
+    detailsDiv.innerHTML = `
+        <div style="font-size: 16px; font-weight: 600; color: var(--heading); margin-bottom: 8px;">${productName}</div>
+        <div style="font-size: 15px; font-weight: 700; color: var(--primary);">${currencySymbol}${parseFloat(tradePrice).toFixed(2)}</div>
+    `;
+    content.appendChild(detailsDiv);
+    
+    modal.style.display = 'flex';
+    document.getElementById('printCopies').value = 1;
+    
+    document.getElementById('closePrintCodeModal').onclick = () => modal.style.display = 'none';
+    document.getElementById('cancelPrintCode').onclick = () => modal.style.display = 'none';
+    document.getElementById('confirmPrintCode').onclick = () => {
+        const copies = parseInt(document.getElementById('printCopies').value) || 1;
+        const printWindow = window.open('', '', 'width=800,height=600');
+        printWindow.document.write('<html><head><title>Print Code</title>');
+        printWindow.document.write('<style>body{font-family:Arial,sans-serif;text-align:center;padding:20px;}.print-item{margin:20px;page-break-inside:avoid;display:inline-block;}.company{font-size:18px;font-weight:700;margin-bottom:10px;}.details{margin-top:10px;}.name{font-size:16px;font-weight:600;margin-bottom:8px;}.price{font-size:15px;font-weight:700;color:#1f7bff;}</style>');
+        printWindow.document.write('</head><body>');
+        
+        const imageData = canvas.toDataURL();
+        for (let i = 0; i < copies; i++) {
+            printWindow.document.write('<div class="print-item">');
+            if (companyName) {
+                printWindow.document.write(`<div class="company">${companyName}</div>`);
+            }
+            printWindow.document.write(`<img src="${imageData}">`);
+            printWindow.document.write('<div class="details">');
+            printWindow.document.write(`<div class="name">${productName}</div>`);
+            printWindow.document.write(`<div class="price">${currencySymbol}${parseFloat(tradePrice).toFixed(2)}</div>`);
+            printWindow.document.write('</div></div>');
+        }
+        
+        printWindow.document.write('</body></html>');
+        printWindow.document.close();
+        printWindow.focus();
+        setTimeout(() => {
+            printWindow.print();
+            printWindow.close();
+        }, 250);
+        modal.style.display = 'none';
+    };
+    
+    modal.onclick = (e) => { if (e.target === modal) modal.style.display = 'none'; };
+}
