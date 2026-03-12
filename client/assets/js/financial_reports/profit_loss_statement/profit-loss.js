@@ -126,13 +126,7 @@ function validateForm() {
         isValid = false;
     }
 
-    // Check if dates are in the future
-    if (startDate > today || endDate > today) {
-        startDateEl.classList.add('error');
-        endDateEl.classList.add('error');
-        errorMessage = 'Report dates cannot be in the future.';
-        isValid = false;
-    }
+
 
     // Show validation message
     if (!isValid) {

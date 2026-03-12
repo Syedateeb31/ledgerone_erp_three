@@ -9,7 +9,7 @@
   class DashboardCore {
     constructor() {
       this.isInitialized = false;
-      this.basePath = "";
+      this.basePath = "/ledgerone_erp";
       this.permissions = {};
       this.init();
     }
