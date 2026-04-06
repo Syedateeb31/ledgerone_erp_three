@@ -18,7 +18,7 @@
     
     // Load dashboard core with cache busting
     const script = document.createElement('script');
-    script.src = '/client/assets/js/dashboard/dashboard-core.js?v=' + timestamp;
+    script.src = '/ledgerone_erp/client/assets/js/dashboard/dashboard-core.js?v=' + timestamp;
     script.async = false;
     
     // Add error handling
