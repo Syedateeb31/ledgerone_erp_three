@@ -5,7 +5,7 @@ ob_start();
 
 try {
     session_start();
-    require_once $_SERVER['DOCUMENT_ROOT'] . '/includes/connection.php';
+    require_once '../../../../includes/connection.php';
     
     $stmt = $pdo->prepare("SELECT id, code, name, symbol FROM ledgerone_public.currencies WHERE is_active = 1 ORDER BY name");
     $stmt->execute();
