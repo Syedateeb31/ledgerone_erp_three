@@ -3,7 +3,7 @@ name: Deploy to Oracle Sandbox
 on:
   push:
     branches:
-      - main  # change to master if your branch is master
+      - main
 
 jobs:
   deploy:
@@ -11,9 +11,6 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
-
       - name: Deploy to Oracle VM
         uses: appleboy/ssh-action@v1.0.0
         with:
@@ -24,7 +21,4 @@ jobs:
           script: |
             cd /var/www/ledgerone_erp
             git pull origin main
-            composer install --no-dev --optimize-autoloader
-            sudo chown -R apache:apache /var/www/ledgerone_erp
-            sudo chmod -R 755 /var/www/ledgerone_erp
             sudo systemctl restart php-fpm

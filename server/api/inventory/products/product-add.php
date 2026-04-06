@@ -208,16 +208,17 @@ try {
                         // Group format - insert separate ledger entries for each unit
                         insertGroupStockLedgerEntries($_POST, $i, $product_id, $stockOpeningId, $branchId, $inventory_account, $tenant_id, $openingPrice, $pdo);
                     } else {
-                        // Single entry for default unit
+                        // Single entry for default unit - store ORIGINAL qty, not converted
+                        $originalQty = !empty($_POST['openingQty'][$i]) ? floatval($_POST['openingQty'][$i]) : 0;
                         $stockLedgerStmt->execute([
                             $tenant_id,
                             $inventory_account,
                             $branchId,
                             $product_id,
                             $stockOpeningId,
-                            $totalQtyInBaseUnits,
+                            $originalQty,  // Store original quantity (e.g., 150 Grams)
                             $openingPrice,
-                            $unitIdForLedger
+                            $default_unit  // Store the actual unit used (e.g., Gram)
                         ]);
                     }
                 }
