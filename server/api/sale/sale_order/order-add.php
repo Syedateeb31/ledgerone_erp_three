@@ -60,10 +60,10 @@ try {
     $stmt = $pdo->prepare("
         INSERT INTO sale_order (
             tenant_id, company_id, currency_id, bill_no, sale_date, customer_id, branch_id,
-            previous_balance, sale_officer_id, bilty_no, transport_name, total_bill, total_discount_percent, 
+            previous_balance, sale_officer_id, supplier_man_id, bilty_no, transport_name, total_bill, total_discount_percent, 
             total_discount_amount, net_amount, remarks, status,
             created_by, updated_by
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ");
 
     $stmt->execute([
@@ -76,6 +76,7 @@ try {
         $input['branchId'],
         extractBalanceAmount($input['previousBalance'] ?? '0.00'),
         $input['salesOfficerId'] ?? null,
+        $input['supplierManId'] ?? null,
         $input['biltyNo'] ?? null,
         $input['transportName'] ?? null,
         $input['totalBill'],
@@ -91,40 +92,41 @@ try {
     $invoice_id = $pdo->lastInsertId();
     $status = $input['status'] ?? 'Posted';
 
-    // Insert invoice items
+    // Insert invoice items with dynamic UOM support
     $item_stmt = $pdo->prepare("
         INSERT INTO sale_order_items (
             tenant_id, sale_invoice_id, product_id, uom_id,
             quantity, sale_price, gross_amount, discount_percent,
             discount_amount, trade_offer_percent, trade_offer_amount,
-            gst_percent, gst_amount, foc_quantity, net_amount, parent_row_id, piece, carton, dozen, created_by, updated_by
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            gst_percent, gst_amount, foc_quantity, net_amount, created_by, updated_by
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ");
 
     foreach ($input['items'] as $item) {
-        $item_stmt->execute([
-            $tenant_id,
-            $invoice_id,
-            $item['productId'],
-            $item['uomId'],
-            $item['quantity'],
-            $item['salePrice'],
-            $item['grossAmount'],
-            $item['discountPercent'] ?? 0.00,
-            $item['discountAmount'] ?? 0.00,
-            $item['tradeOfferPercent'] ?? 0.00,
-            $item['tradeOfferAmount'] ?? 0.00,
-            $item['gstPercent'] ?? 0.00,
-            $item['gstAmount'] ?? 0.00,
-            $item['focQty'] ?? 0.00,
-            $item['netAmount'],
-            $item['parentRowId'] ?? null,
-            $item['pcs'] ?? 0,
-            $item['ctn'] ?? 0,
-            $item['dz'] ?? 0,
-            $user_id,
-            $user_id
-        ]);
+        // Each item can have multiple unit entries
+        $isFirstEntry = true;
+        foreach ($item['unitEntries'] as $unitEntry) {
+            $item_stmt->execute([
+                $tenant_id,
+                $invoice_id,
+                $item['productId'],
+                $unitEntry['uomId'],
+                $unitEntry['quantity'],
+                $item['salePrice'],
+                $isFirstEntry ? $item['grossAmount'] : 0,
+                $item['discountPercent'] ?? 0.00,
+                $isFirstEntry ? $item['discountAmount'] : 0,
+                $item['tradeOfferPercent'] ?? 0.00,
+                $isFirstEntry ? $item['tradeOfferAmount'] : 0,
+                $item['gstPercent'] ?? 0.00,
+                $isFirstEntry ? $item['gstAmount'] : 0,
+                $item['focQty'] ?? 0,
+                $isFirstEntry ? $item['netAmount'] : 0,
+                $user_id,
+                $user_id
+            ]);
+            $isFirstEntry = false;
+        }
     }
 
     // Insert receive voucher if amount paid > 0 and status is Posted

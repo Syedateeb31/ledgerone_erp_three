@@ -77,6 +77,20 @@ if (!$user_id) {
                         </select>
                     </div>
                     
+                    <div class="form-group full-width">
+                        <label class="required">UOM Type</label>
+                        <div class="radio-group">
+                            <div class="radio-option">
+                                <input type="radio" id="uomTypeUnit" name="uomType" value="unit" checked required>
+                                <label for="uomTypeUnit">Default Unit</label>
+                            </div>
+                            <div class="radio-option">
+                                <input type="radio" id="uomTypeGroup" name="uomType" value="group" required>
+                                <label for="uomTypeGroup">UOM Group</label>
+                            </div>
+                        </div>
+                    </div>
+                    
                     <div class="form-group" id="defaultUnitGroup">
                         <label class="required">Default Unit</label>
                         <div class="input-with-buttons">
@@ -88,6 +102,25 @@ if (!$user_id) {
                                 <button type="button" class="input-button" id="removeUnit">-</button>
                             </div>
                         </div>
+                    </div>
+                    
+                    <div class="form-group" id="uomGroupField" style="display: none;">
+                        <label class="required">UOM Group</label>
+                        <div class="input-with-buttons">
+                            <select id="uomGroup" name="uomGroup">
+                                <option value="">Select UOM Group</option>
+                            </select>
+                            <div class="input-buttons">
+                                <button type="button" class="input-button" id="addUomGroup">+</button>
+                                <button type="button" class="input-button" id="removeUomGroup">-</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group" id="productConversionFactorGroup" style="display: none;">
+                        <label class="required">Conversion Factor</label>
+                        <input type="number" id="productConversionFactor" name="productConversionFactor" step="0.000001" min="0" placeholder="e.g., 1000">
+                        <div class="helper-text">Product-specific conversion factor for this unit</div>
                     </div>
                     
                     <div class="form-group optional-field" data-field="category">
@@ -393,6 +426,7 @@ if (!$user_id) {
     </div>
 
     <?php include 'unit-modal.php'; ?>
+    <?php include 'uom-group-modal.php'; ?>
     <?php include 'category-modal.php'; ?>
     <?php include 'confirm-modal.php'; ?>
     <?php include 'customize-fields-modal.php'; ?>

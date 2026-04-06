@@ -28,7 +28,7 @@ try {
     $stmt->execute([$tenant_id, $supplier_id]);
     $subAccounts = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
-    echo json_encode(['success' => true, 'subAccounts' => $subAccounts]);
+    echo json_encode(['success' => true, 'sub_accounts' => $subAccounts]);
 } catch (Exception $e) {
     http_response_code(500);
     echo json_encode(['success' => false, 'message' => $e->getMessage()]);

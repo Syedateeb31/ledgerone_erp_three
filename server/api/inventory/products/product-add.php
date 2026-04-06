@@ -41,6 +41,7 @@ try {
     // Get form data
     $name = $_POST['name'] ?? '';
     $product_type = $_POST['productType'] ?? 'physical';
+    $uom_type = $_POST['uomType'] ?? 'unit';
     $company = !empty($_POST['company']) ? $_POST['company'] : null;
     $default_unit = !empty($_POST['defaultUnit']) ? $_POST['defaultUnit'] : null;
     $category = !empty($_POST['category']) ? $_POST['category'] : null;
@@ -92,23 +93,41 @@ try {
     // Insert product
     $stmt = $pdo->prepare("
         INSERT INTO products (
-            tenant_id, company_id, code, name, product_type, default_unit_id, category_id, subcategory_id,
+            tenant_id, company_id, code, name, product_type, uom_type, default_unit_id, uom_group_id, product_conversion_factor, category_id, subcategory_id,
             inventory_account_id, vendor_id, parent_product_id, description, qr_code, barcode, purchase_price, trade_price, wholesale_price, mrp,
             default_discount, trade_offer_discount, default_foc, carton_conversion, sales_tax_type, sales_tax, further_tax,
             min_stock_level, max_stock_level, manufacturing_date, expiry_date, photo, is_active, stock_affects, invoice_affects, created_by
         ) VALUES (
-            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
         )
     ");
     
+    $product_conversion_factor = !empty($_POST['productConversionFactor']) ? $_POST['productConversionFactor'] : null;
+    $uom_group_id = !empty($_POST['uomGroup']) ? $_POST['uomGroup'] : null;
+    $group_conversion_factors = isset($_POST['groupConversionFactor']) ? $_POST['groupConversionFactor'] : [];
+    
     $stmt->execute([
-        $tenant_id, $company, $code, $name, $product_type, $default_unit, $category, $subcategory,
+        $tenant_id, $company, $code, $name, $product_type, $uom_type, $default_unit, $uom_group_id, $product_conversion_factor, $category, $subcategory,
         $inventory_account, $vendor_id, $parent_product_id, $description, $qr_code, $barcode, $purchase_price, $trade_price, $wholesale_price, $mrp,
         $default_discount, $trade_offer_discount, $default_foc, $carton_conversion, $sales_tax_type, $sales_tax, $further_tax,
         $min_stock, $max_stock, $manufacturing_date, $expiry_date, $photo_filename, $is_active, $stock_affects, $invoice_affects, $user_id
     ]);
     
     $product_id = $pdo->lastInsertId();
+    
+    // Insert group conversion factors if UOM type is group
+    if ($uom_type === 'group' && !empty($group_conversion_factors)) {
+        $conversionStmt = $pdo->prepare("
+            INSERT INTO product_uom_conversions (product_id, uom_id, conversion_factor)
+            VALUES (?, ?, ?)
+        ");
+        
+        foreach ($group_conversion_factors as $uom_id => $factor) {
+            if (!empty($factor)) {
+                $conversionStmt->execute([$product_id, $uom_id, $factor]);
+            }
+        }
+    }
     
     // Insert stock opening entries
     if (isset($_POST['branch']) && is_array($_POST['branch'])) {
@@ -123,33 +142,85 @@ try {
         ");
         
         for ($i = 0; $i < count($_POST['branch']); $i++) {
-            if (!empty($_POST['branch'][$i]) && !empty($_POST['openingQty'][$i])) {
-                $openingQty = $_POST['openingQty'][$i];
-                $openingPrice = $_POST['openingPrice'][$i] ?? 0;
+            if (!empty($_POST['branch'][$i])) {
                 $branchId = $_POST['branch'][$i];
+                $openingPrice = $_POST['openingPrice'][$i] ?? 0;
                 
-                // Insert into stock_opening
-                $stockOpeningStmt->execute([
-                    $product_id,
-                    $tenant_id,
-                    $branchId,
-                    $openingQty,
-                    $openingPrice
-                ]);
+                // Calculate total quantity in base units for stock_opening
+                $totalQtyInBaseUnits = 0;
+                $unitIdForLedger = null;
                 
-                $stockOpeningId = $pdo->lastInsertId();
+                if ($uom_type === 'group' && $uom_group_id) {
+                    // Get base unit
+                    $baseUnitStmt = $pdo->prepare("
+                        SELECT u.id
+                        FROM uom u
+                        INNER JOIN uom_group_units ugu ON u.id = ugu.uom_id
+                        WHERE ugu.uom_group_id = ? AND u.is_base_unit = 1
+                        LIMIT 1
+                    ");
+                    $baseUnitStmt->execute([$uom_group_id]);
+                    $baseUnitRow = $baseUnitStmt->fetch(PDO::FETCH_ASSOC);
+                    
+                    if ($baseUnitRow) {
+                        $unitIdForLedger = $baseUnitRow['id'];
+                    } else {
+                        $nonBaseStmt = $pdo->prepare("
+                            SELECT u.base_unit_id
+                            FROM uom u
+                            INNER JOIN uom_group_units ugu ON u.id = ugu.uom_id
+                            WHERE ugu.uom_group_id = ? AND u.is_base_unit = 0 AND u.base_unit_id IS NOT NULL
+                            LIMIT 1
+                        ");
+                        $nonBaseStmt->execute([$uom_group_id]);
+                        $nonBaseRow = $nonBaseStmt->fetch(PDO::FETCH_ASSOC);
+                        
+                        if ($nonBaseRow && $nonBaseRow['base_unit_id']) {
+                            $unitIdForLedger = $nonBaseRow['base_unit_id'];
+                        }
+                    }
+                    
+                    // UOM Group mode - insert separate entries for each unit
+                    $totalQtyInBaseUnits = convertGroupUnitsToBaseUnits($_POST, $i, $product_id, $pdo);
+                } else {
+                    // Default Unit mode - single quantity
+                    if (!empty($_POST['openingQty'][$i])) {
+                        $qty = $_POST['openingQty'][$i];
+                        $totalQtyInBaseUnits = convertSingleUnitToBaseUnits($qty, $default_unit, $product_conversion_factor, $pdo);
+                    }
+                    $unitIdForLedger = $default_unit;
+                }
                 
-                // Insert into stock_ledger
-                $stockLedgerStmt->execute([
-                    $tenant_id,
-                    $inventory_account,
-                    $branchId,
-                    $product_id,
-                    $stockOpeningId,
-                    $openingQty,
-                    $openingPrice,
-                    $default_unit
-                ]);
+                if ($totalQtyInBaseUnits > 0) {
+                    // Insert into stock_opening
+                    $stockOpeningStmt->execute([
+                        $product_id,
+                        $tenant_id,
+                        $branchId,
+                        $totalQtyInBaseUnits,
+                        $openingPrice
+                    ]);
+                    
+                    $stockOpeningId = $pdo->lastInsertId();
+                    
+                    // Insert into stock_ledger - separate entries for each unit
+                    if ($uom_type === 'group' && $uom_group_id) {
+                        // Group format - insert separate ledger entries for each unit
+                        insertGroupStockLedgerEntries($_POST, $i, $product_id, $stockOpeningId, $branchId, $inventory_account, $tenant_id, $openingPrice, $pdo);
+                    } else {
+                        // Single entry for default unit
+                        $stockLedgerStmt->execute([
+                            $tenant_id,
+                            $inventory_account,
+                            $branchId,
+                            $product_id,
+                            $stockOpeningId,
+                            $totalQtyInBaseUnits,
+                            $openingPrice,
+                            $unitIdForLedger
+                        ]);
+                    }
+                }
             }
         }
     }
@@ -234,4 +305,134 @@ function convertToWebP($source_path, $destination_path, $source_ext) {
     }
     
     return false;
+}
+
+function convertSingleUnitToBaseUnits($qty, $unit_id, $product_conversion_factor, $pdo) {
+    if (empty($unit_id)) return $qty;
+    
+    // Get unit info
+    $stmt = $pdo->prepare("SELECT unit_scope, is_base_unit, base_unit_id, conversion_factor FROM uom WHERE id = ?");
+    $stmt->execute([$unit_id]);
+    $unit = $stmt->fetch(PDO::FETCH_ASSOC);
+    
+    if (!$unit) return $qty;
+    
+    // If already base unit, return as is
+    if ($unit['is_base_unit'] == 1) {
+        return $qty;
+    }
+    
+    // Convert based on unit_scope
+    if ($unit['unit_scope'] === 'per_product' && !empty($product_conversion_factor)) {
+        // Use product-specific conversion factor
+        return $qty * $product_conversion_factor;
+    } elseif ($unit['unit_scope'] === 'universal' && !empty($unit['conversion_factor'])) {
+        // Use universal conversion factor
+        return $qty * $unit['conversion_factor'];
+    }
+    
+    return $qty;
+}
+
+function convertGroupUnitsToBaseUnits($postData, $rowIndex, $product_id, $pdo) {
+    $totalQty = 0;
+    
+    if (!isset($postData['openingQty']) || !is_array($postData['openingQty'])) {
+        return 0;
+    }
+    
+    foreach ($postData['openingQty'] as $unit_id => $quantities) {
+        if (is_array($quantities) && isset($quantities[$rowIndex]) && !empty($quantities[$rowIndex])) {
+            $qty = floatval($quantities[$rowIndex]);
+            
+            $stmt = $pdo->prepare("SELECT unit_scope, is_base_unit, base_unit_id, conversion_factor FROM uom WHERE id = ?");
+            $stmt->execute([$unit_id]);
+            $unit = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if ($unit) {
+                if ($unit['is_base_unit'] == 1) {
+                    $totalQty += $qty;
+                } elseif ($unit['unit_scope'] === 'per_product') {
+                    $convStmt = $pdo->prepare("SELECT conversion_factor FROM product_uom_conversions WHERE product_id = ? AND uom_id = ?");
+                    $convStmt->execute([$product_id, $unit_id]);
+                    $conv = $convStmt->fetch(PDO::FETCH_ASSOC);
+                    
+                    if ($conv && !empty($conv['conversion_factor'])) {
+                        $totalQty += $qty * $conv['conversion_factor'];
+                    } else {
+                        $totalQty += $qty;
+                    }
+                } elseif ($unit['unit_scope'] === 'universal' && !empty($unit['conversion_factor'])) {
+                    $totalQty += $qty * $unit['conversion_factor'];
+                } else {
+                    $totalQty += $qty;
+                }
+            }
+        }
+    }
+    
+    return $totalQty;
+}
+
+function insertGroupStockLedgerEntries($postData, $rowIndex, $product_id, $stockOpeningId, $branchId, $inventory_account, $tenant_id, $pricePerBaseUnit, $pdo) {
+    $stockLedgerStmt = $pdo->prepare("
+        INSERT INTO stock_ledger (tenant_id, account_id, branch_id, product_id, reference_table, reference_id, qty_in, unit_cost, unit_id, transaction_type, transaction_date)
+        VALUES (?, ?, ?, ?, 'products', ?, ?, ?, ?, 'Opening Stock', CURDATE())
+    ");
+    
+    foreach ($postData['openingQty'] as $unit_id => $quantities) {
+        if (is_array($quantities) && isset($quantities[$rowIndex]) && !empty($quantities[$rowIndex])) {
+            $qty = floatval($quantities[$rowIndex]);
+            
+            // Get conversion factor
+            $conversionFactor = getConversionFactor($unit_id, $product_id, $pdo);
+            
+            // Calculate value: qty * conversion_factor * price_per_base_unit
+            $qtyInBaseUnits = $qty * $conversionFactor;
+            $value = $qtyInBaseUnits * $pricePerBaseUnit;
+            
+            $stockLedgerStmt->execute([
+                $tenant_id,
+                $inventory_account,
+                $branchId,
+                $product_id,
+                $stockOpeningId,
+                $qty,  // Store original quantity
+                $pricePerBaseUnit,  // Store price per base unit
+                $unit_id  // Store the actual unit used
+            ]);
+        }
+    }
+}
+
+function getConversionFactor($unit_id, $product_id, $pdo) {
+    // Get unit info
+    $stmt = $pdo->prepare("SELECT unit_scope, is_base_unit, conversion_factor FROM uom WHERE id = ?");
+    $stmt->execute([$unit_id]);
+    $unit = $stmt->fetch(PDO::FETCH_ASSOC);
+    
+    if (!$unit) return 1;
+    
+    // Base unit has conversion factor of 1
+    if ($unit['is_base_unit'] == 1) {
+        return 1;
+    }
+    
+    // Per-product unit: get from product_uom_conversions
+    if ($unit['unit_scope'] === 'per_product') {
+        $convStmt = $pdo->prepare("SELECT conversion_factor FROM product_uom_conversions WHERE product_id = ? AND uom_id = ?");
+        $convStmt->execute([$product_id, $unit_id]);
+        $conv = $convStmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($conv && !empty($conv['conversion_factor'])) {
+            return floatval($conv['conversion_factor']);
+        }
+    }
+    
+    // Universal unit: use conversion_factor from uom table
+    if ($unit['unit_scope'] === 'universal' && !empty($unit['conversion_factor'])) {
+        return floatval($unit['conversion_factor']);
+    }
+    
+    return 1;
 }

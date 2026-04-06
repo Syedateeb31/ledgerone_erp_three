@@ -150,6 +150,16 @@ document.addEventListener('DOMContentLoaded', function () {
             });
     }
 
+    function loadEmployees(callback) {
+        fetch('../../../../server/api/customer_supplier/suppliers/get-employees.php')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && callback) {
+                    callback(data.employees);
+                }
+            });
+    }
+
     statusFilter.addEventListener('change', function () {
         currentPage = 1;
         loadSuppliers();
@@ -251,6 +261,16 @@ document.addEventListener('DOMContentLoaded', function () {
     function populateViewModal(supplier) {
         document.getElementById('viewSupplierCode').textContent = supplier.supplier_code;
         document.getElementById('viewSupplierName').textContent = supplier.supplier_name;
+        
+        // Load and display salesman
+        if (supplier.salesman_id) {
+            loadEmployees((employees) => {
+                const employee = employees.find(e => e.id == supplier.salesman_id);
+                document.getElementById('viewSalesman').textContent = employee ? `${employee.employee_id} - ${employee.full_name}` : '-';
+            });
+        } else {
+            document.getElementById('viewSalesman').textContent = '-';
+        }
         
         // Load and display company
         fetch('../../../../server/api/customer_supplier/suppliers/get-companies.php')
@@ -406,6 +426,19 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
             });
         
+        // Load employees and set value
+        loadEmployees((employees) => {
+            const editSalesman = document.getElementById('editSalesman');
+            editSalesman.innerHTML = '<option value="">Select Salesman</option>';
+            employees.forEach(employee => {
+                const option = document.createElement('option');
+                option.value = employee.id;
+                option.textContent = `${employee.employee_id} - ${employee.full_name}`;
+                if (employee.id == supplier.salesman_id) option.selected = true;
+                editSalesman.appendChild(option);
+            });
+        });
+        
         document.getElementById('editAddress').value = supplier.address || '';
         document.getElementById('editPrimaryPhone').value = supplier.primary_phone || '';
         document.getElementById('editSecondaryPhone').value = supplier.secondary_phone || '';
@@ -443,6 +476,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (subAccounts.length > 0) {
             subAccounts.forEach((subAccount, index) => {
                 const row = document.createElement('tr');
+                row.dataset.subAccountId = subAccount.id;
                 row.innerHTML = `
                     <td>${index + 1}</td>
                     <td><input type="text" class="sub-account-input" value="${subAccount.sub_account_name}" placeholder="Enter sub account name"></td>
@@ -607,11 +641,15 @@ document.addEventListener('DOMContentLoaded', function () {
             const debitInput = row.querySelector('.sub-account-debit');
             const creditInput = row.querySelector('.sub-account-credit');
             if (nameInput && nameInput.value.trim()) {
-                subAccounts.push({
+                const subAccount = {
                     name: nameInput.value.trim(),
                     debit: parseFloat(debitInput.value) || 0,
                     credit: parseFloat(creditInput.value) || 0
-                });
+                };
+                if (row.dataset.subAccountId) {
+                    subAccount.id = parseInt(row.dataset.subAccountId);
+                }
+                subAccounts.push(subAccount);
             }
         });
         return subAccounts;
@@ -632,6 +670,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const formData = {
             id: currentEditingSupplierId,
             companyId: document.getElementById('editCompany').value,
+            salesmanId: document.getElementById('editSalesman').value || null,
             supplierName: document.getElementById('editSupplierName').value.trim(),
             address: document.getElementById('editAddress').value.trim(),
             primaryPhone: document.getElementById('editPrimaryPhone').value.trim(),

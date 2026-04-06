@@ -41,6 +41,11 @@ $base_url = $protocol . '://' . $host . '/ledgerone_erp';
                         <button class="btn-filter" data-filter="quarter">This Quarter</button>
                         <button class="btn-filter" data-filter="year">This Year</button>
                     </div>
+                    <div class="currency-filter">
+                        <select class="form-control" id="currencyFilter">
+                            <option value="">Loading...</option>
+                        </select>
+                    </div>
                 </div>
             </div>
 

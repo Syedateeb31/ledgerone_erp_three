@@ -377,6 +377,7 @@
                 <p><strong>Branch:</strong> <span id="branchName">Loading...</span></p>
                 <p><strong>Currency:</strong> <span id="currency">Loading...</span></p>
                 <p><strong>Sales Officer:</strong> <span id="salesOfficer">-</span></p>
+                <p><strong>Supplier Man:</strong> <span id="supplierMan">-</span></p>
                 <p><strong>Bilty No:</strong> <span id="biltyNo">-</span></p>
                 <p><strong>Transport:</strong> <span id="transportName">-</span></p>
                 <p><strong>Remarks:</strong> <span id="remarks">-</span></p>
@@ -576,129 +577,165 @@
             const headerRow = document.getElementById('itemsTableHeader');
             headerRow.innerHTML = '';
 
-            columnConfig.forEach(col => {
-                // Skip if column is hidden
-                if (col.visible === false) return;
+            // First, determine max unit columns needed
+            let maxUnitColumns = 0;
+            
+            // We'll calculate this when we load the data
+            // For now, add Serial and Product columns
+            const serialCol = columnConfig.find(c => c.id === 'serial');
+            if (!serialCol || serialCol.visible !== false) {
+                const th = document.createElement('th');
+                th.width = '4%';
+                th.textContent = '#';
+                th.className = 'text-center';
+                th.dataset.colId = 'serial';
+                headerRow.appendChild(th);
+            }
+
+            const productCol = columnConfig.find(c => c.id === 'product');
+            if (!productCol || productCol.visible !== false) {
+                const th = document.createElement('th');
+                th.width = '20%';
+                th.textContent = 'Product';
+                th.dataset.colId = 'product';
+                headerRow.appendChild(th);
+            }
+
+            // Unit columns will be added dynamically when data loads
+            // Add a placeholder that we'll replace
+            const unitPlaceholder = document.createElement('th');
+            unitPlaceholder.id = 'unitColumnsPlaceholder';
+            unitPlaceholder.style.display = 'none';
+            headerRow.appendChild(unitPlaceholder);
+
+            // Add remaining columns
+            const remainingCols = ['price', 'gross', 'disc_pct', 'disc_amt', 'to_pct', 'to_amt', 'gst_pct', 'gst_amt', 'foc', 'net'];
+            remainingCols.forEach(colId => {
+                const col = columnConfig.find(c => c.id === colId);
+                if (col && col.visible === false) return;
 
                 const th = document.createElement('th');
-                th.width = col.width || 'auto';
-                th.textContent = col.label;
-                th.dataset.colId = col.id;
+                th.dataset.colId = colId;
+                th.className = 'text-right';
 
-                if (col.id === 'serial') {
-                    th.className = 'text-center';
-                } else if (['pcs', 'ctn', 'dz', 'qty', 'price', 'gross', 'disc_pct', 'disc_amt', 'to_pct', 'to_amt', 'gst_pct', 'gst_amt', 'foc', 'net'].includes(col.id)) {
-                    th.className = 'text-right';
+                switch(colId) {
+                    case 'price': th.textContent = 'Unit Price'; th.width = '8%'; break;
+                    case 'gross': th.textContent = 'Gross Amt'; th.width = '8%'; break;
+                    case 'disc_pct': th.textContent = 'Disc %'; th.width = '5%'; break;
+                    case 'disc_amt': th.textContent = 'Disc Amt'; th.width = '8%'; break;
+                    case 'to_pct': th.textContent = 'T.O %'; th.width = '5%'; break;
+                    case 'to_amt': th.textContent = 'T.O Amt'; th.width = '8%'; break;
+                    case 'gst_pct': th.textContent = 'GST %'; th.width = '5%'; break;
+                    case 'gst_amt': th.textContent = 'GST Amt'; th.width = '8%'; break;
+                    case 'foc': th.textContent = 'FOC Qty'; th.width = '5%'; break;
+                    case 'net': th.textContent = 'Net Amt'; th.width = '9%'; break;
                 }
 
                 // Apply visibility based on settings
-                if (col.id === 'pcs' && !enableCarton && !enableDozen) th.style.display = 'none';
-                if (col.id === 'ctn' && !enableCarton) th.style.display = 'none';
-                if (col.id === 'dz' && !enableDozen) th.style.display = 'none';
-                if (col.id === 'disc_pct' && !enableCashDiscountPercent) th.style.display = 'none';
-                if (col.id === 'disc_amt' && !enableCashDiscountAmount) th.style.display = 'none';
-                if (col.id === 'to_pct' && !enableTradeOfferDiscount) th.style.display = 'none';
-                if (col.id === 'to_amt' && !enableTradeOfferAmount) th.style.display = 'none';
-                if (col.id === 'gst_pct' && !enableTaxation) th.style.display = 'none';
-                if (col.id === 'gst_amt' && !enableTaxation) th.style.display = 'none';
-                if (col.id === 'foc' && !enableFOC) th.style.display = 'none';
+                if (colId === 'disc_pct' && !enableCashDiscountPercent) th.style.display = 'none';
+                if (colId === 'disc_amt' && !enableCashDiscountAmount) th.style.display = 'none';
+                if (colId === 'to_pct' && !enableTradeOfferDiscount) th.style.display = 'none';
+                if (colId === 'to_amt' && !enableTradeOfferAmount) th.style.display = 'none';
+                if (colId === 'gst_pct' && !enableTaxation) th.style.display = 'none';
+                if (colId === 'gst_amt' && !enableTaxation) th.style.display = 'none';
+                if (colId === 'foc' && !enableFOC) th.style.display = 'none';
 
                 headerRow.appendChild(th);
             });
         }
 
+        // Function to add unit columns to header
+        function addUnitColumnsToHeader(maxUnitColumns) {
+            const headerRow = document.getElementById('itemsTableHeader');
+            const placeholder = document.getElementById('unitColumnsPlaceholder');
+            
+            if (!placeholder) return;
+
+            // Insert unit columns before the placeholder
+            for (let i = 0; i < maxUnitColumns; i++) {
+                const th = document.createElement('th');
+                th.width = '8%';
+                th.className = 'text-right';
+                th.textContent = `Unit ${i + 1}`;
+                th.dataset.colId = `unit_${i}`;
+                headerRow.insertBefore(th, placeholder);
+            }
+
+            // Remove placeholder
+            placeholder.remove();
+        }
+
         // Build totals row based on customization
-        function buildTotalsRow() {
+        function buildTotalsRow(maxUnitColumns) {
             const totalsRow = document.querySelector('.items-table tfoot tr');
             totalsRow.innerHTML = '';
 
-            columnConfig.forEach(col => {
-                // Skip if column is hidden
-                if (col.visible === false) return;
+            // Serial column
+            const serialCol = columnConfig.find(c => c.id === 'serial');
+            if (!serialCol || serialCol.visible !== false) {
+                const th = document.createElement('th');
+                th.textContent = '';
+                totalsRow.appendChild(th);
+            }
+
+            // Product column with "Totals" text
+            const productCol = columnConfig.find(c => c.id === 'product');
+            if (!productCol || productCol.visible !== false) {
+                const th = document.createElement('th');
+                th.textContent = 'Totals';
+                totalsRow.appendChild(th);
+            }
+
+            // Unit columns - empty cells
+            for (let i = 0; i < maxUnitColumns; i++) {
+                const th = document.createElement('th');
+                th.className = 'text-right';
+                th.textContent = '';
+                totalsRow.appendChild(th);
+            }
+
+            // Remaining columns with totals
+            const remainingCols = [
+                { id: 'price', label: '', hasTotal: true, totalId: 'totalUnitPrice' },
+                { id: 'gross', label: '', hasTotal: true, totalId: 'totalGrossAmount' },
+                { id: 'disc_pct', label: '', hasTotal: false },
+                { id: 'disc_amt', label: '', hasTotal: true, totalId: 'totalDiscountAmountItems' },
+                { id: 'to_pct', label: '', hasTotal: false },
+                { id: 'to_amt', label: '', hasTotal: true, totalId: 'totalTradeOfferAmountItems' },
+                { id: 'gst_pct', label: '', hasTotal: false },
+                { id: 'gst_amt', label: '', hasTotal: true, totalId: 'totalGstAmountItems' },
+                { id: 'foc', label: '', hasTotal: true, totalId: 'totalFocQty' },
+                { id: 'net', label: '', hasTotal: true, totalId: 'totalNetAmountItems' }
+            ];
+
+            remainingCols.forEach(colDef => {
+                const col = columnConfig.find(c => c.id === colDef.id);
+                if (col && col.visible === false) return;
 
                 const th = document.createElement('th');
-                th.dataset.colId = col.id;
+                th.className = 'text-right';
+                th.dataset.colId = colDef.id;
 
-                // Apply visibility based on settings
-                let isVisible = true;
-                if (col.id === 'pcs' && !enableCarton && !enableDozen) isVisible = false;
-                if (col.id === 'ctn' && !enableCarton) isVisible = false;
-                if (col.id === 'dz' && !enableDozen) isVisible = false;
-                if (col.id === 'disc_pct' && !enableCashDiscountPercent) isVisible = false;
-                if (col.id === 'disc_amt' && !enableCashDiscountAmount) isVisible = false;
-                if (col.id === 'to_pct' && !enableTradeOfferDiscount) isVisible = false;
-                if (col.id === 'to_amt' && !enableTradeOfferAmount) isVisible = false;
-                if (col.id === 'gst_pct' && !enableTaxation) isVisible = false;
-                if (col.id === 'gst_amt' && !enableTaxation) isVisible = false;
-                if (col.id === 'foc' && !enableFOC) isVisible = false;
-
-                if (!isVisible) th.style.display = 'none';
-
-                // Set content based on column type
-                if (col.id === 'serial') {
-                    th.textContent = '';
-                } else if (col.id === 'product') {
-                    th.textContent = 'Totals';
-                } else if (col.id === 'unit') {
-                    // Empty cell for unit column
-                } else if (col.id === 'pcs') {
-                    th.className = 'text-right';
-                    th.id = 'totalPcs';
-                    th.textContent = '0.00';
-                } else if (col.id === 'ctn') {
-                    th.className = 'text-right';
-                    th.id = 'totalCtn';
-                    th.textContent = '0.00';
-                } else if (col.id === 'dz') {
-                    th.className = 'text-right';
-                    th.id = 'totalDz';
-                    th.textContent = '0.00';
-                } else if (col.id === 'qty') {
-                    th.className = 'text-right';
-                    th.id = 'totalQty';
-                    th.textContent = '0.00';
-                } else if (col.id === 'price') {
-                    th.className = 'text-right';
-                    th.id = 'totalUnitPrice';
-                    th.textContent = '0.00';
-                } else if (col.id === 'gross') {
-                    th.className = 'text-right';
-                    th.id = 'totalGrossAmount';
-                    th.textContent = '0.00';
-                } else if (col.id === 'disc_pct') {
-                    // Empty cell for percentage column
-                } else if (col.id === 'disc_amt') {
-                    th.className = 'text-right';
-                    th.id = 'totalDiscountAmountItems';
-                    th.textContent = '0.00';
-                } else if (col.id === 'to_pct') {
-                    // Empty cell for percentage column
-                } else if (col.id === 'to_amt') {
-                    th.className = 'text-right';
-                    th.id = 'totalTradeOfferAmountItems';
-                    th.textContent = '0.00';
-                } else if (col.id === 'gst_pct') {
-                    // Empty cell for percentage column
-                } else if (col.id === 'gst_amt') {
-                    th.className = 'text-right';
-                    th.id = 'totalGstAmountItems';
-                    th.textContent = '0.00';
-                } else if (col.id === 'foc') {
-                    th.className = 'text-right';
-                    th.id = 'totalFocQty';
-                    th.textContent = '0.00';
-                } else if (col.id === 'net') {
-                    th.className = 'text-right';
-                    th.id = 'totalNetAmountItems';
+                if (colDef.hasTotal) {
+                    th.id = colDef.totalId;
                     th.textContent = '0.00';
                 }
+
+                // Apply visibility
+                if (colDef.id === 'disc_pct' && !enableCashDiscountPercent) th.style.display = 'none';
+                if (colDef.id === 'disc_amt' && !enableCashDiscountAmount) th.style.display = 'none';
+                if (colDef.id === 'to_pct' && !enableTradeOfferDiscount) th.style.display = 'none';
+                if (colDef.id === 'to_amt' && !enableTradeOfferAmount) th.style.display = 'none';
+                if (colDef.id === 'gst_pct' && !enableTaxation) th.style.display = 'none';
+                if (colDef.id === 'gst_amt' && !enableTaxation) th.style.display = 'none';
+                if (colDef.id === 'foc' && !enableFOC) th.style.display = 'none';
 
                 totalsRow.appendChild(th);
             });
         }
 
         buildTableHeader();
-        buildTotalsRow();
+        // buildTotalsRow will be called after data loads with maxUnitColumns
 
         // Apply column visibility
         document.querySelectorAll('.disc-pct-col').forEach(el => el.style.display = enableCashDiscountPercent ? 'table-cell' : 'none');
@@ -836,6 +873,7 @@
             }
 
             const salesOfficerEl = document.getElementById('salesOfficer').closest('p');
+            const supplierManEl = document.getElementById('supplierMan').closest('p');
             const biltyNoEl = document.getElementById('biltyNo').closest('p');
             const transportNameEl = document.getElementById('transportName').closest('p');
             const remarksEl = document.getElementById('remarks').closest('p');
@@ -844,6 +882,12 @@
                 salesOfficerEl.style.display = 'none';
             } else {
                 document.getElementById('salesOfficer').textContent = invoice.sales_officer_name || '-';
+            }
+            
+            if (localStorage.getItem('hidePrintSupplierMan') === 'true') {
+                supplierManEl.style.display = 'none';
+            } else {
+                document.getElementById('supplierMan').textContent = invoice.supplier_man_name || '-';
             }
             if (localStorage.getItem('hidePrintBiltyNo') === 'true') {
                 biltyNoEl.style.display = 'none';
@@ -870,155 +914,184 @@
 
             let totalQty = 0, totalPcs = 0, totalCtn = 0, totalDz = 0, totalUnitPrice = 0, totalGrossAmount = 0, totalDiscountAmountItems = 0, totalTradeOfferAmountItems = 0, totalGstAmountItems = 0, totalFocQty = 0, totalNetAmountItems = 0;
 
-            if (childDisplayMode === 'inline') {
-                // Group children with their parents
-                const itemsById = {};
-                const parentItems = [];
-
-                items.forEach(item => {
-                    itemsById[item.id] = item;
-                    if (item.parent_row_id === null) {
-                        item.children = [];
-                        parentItems.push(item);
+            // Group items by product_id to reconstruct rows with multiple units
+            const itemsByProduct = {};
+            const childItems = [];
+            
+            items.forEach(item => {
+                if (item.parent_row_id === null) {
+                    const key = item.product_id;
+                    if (!itemsByProduct[key]) {
+                        itemsByProduct[key] = {
+                            baseItem: item,
+                            units: []
+                        };
                     }
-                });
+                    itemsByProduct[key].units.push({
+                        uom_name: item.uom_name,
+                        quantity: item.quantity
+                    });
+                } else {
+                    childItems.push(item);
+                }
+            });
 
-                // Attach children to parents
-                items.forEach(item => {
-                    if (item.parent_row_id !== null) {
-                        const parent = itemsById[item.parent_row_id];
-                        if (parent && parent.children) {
-                            parent.children.push(item);
+            // Calculate max unit columns needed
+            let maxUnitColumns = 0;
+            Object.values(itemsByProduct).forEach(productGroup => {
+                maxUnitColumns = Math.max(maxUnitColumns, productGroup.units.length);
+            });
+
+            // Add unit columns to header
+            addUnitColumnsToHeader(maxUnitColumns);
+            
+            // Build totals row with unit columns
+            buildTotalsRow(maxUnitColumns);
+
+            // Render items
+            let serialNumber = 0;
+            Object.values(itemsByProduct).forEach(productGroup => {
+                serialNumber++;
+                const item = productGroup.baseItem;
+                const row = tbody.insertRow();
+
+                // Serial column
+                const serialCol = columnConfig.find(c => c.id === 'serial');
+                if (!serialCol || serialCol.visible !== false) {
+                    const td = row.insertCell();
+                    td.className = 'text-center';
+                    td.textContent = serialNumber;
+                }
+
+                // Product column
+                const productCol = columnConfig.find(c => c.id === 'product');
+                if (!productCol || productCol.visible !== false) {
+                    const td = row.insertCell();
+                    td.textContent = item.product_name;
+                    
+                    // Add children if inline mode
+                    if (childDisplayMode === 'inline') {
+                        const productChildren = childItems.filter(c => c.parent_row_id === item.id);
+                        if (productChildren.length > 0) {
+                            td.innerHTML += '<br><span style="font-size: 10px; color: #666;">(' +
+                                productChildren.map(c => `${c.product_name}: ${parseFloat(c.quantity).toFixed(2)}`).join(' | ') +
+                                ')</span>';
                         }
                     }
+                }
+
+                // Unit columns - show unit name and quantity
+                for (let i = 0; i < maxUnitColumns; i++) {
+                    const td = row.insertCell();
+                    td.className = 'text-right';
+                    
+                    if (i < productGroup.units.length) {
+                        const unit = productGroup.units[i];
+                        td.innerHTML = `<div style="font-size: 10px; color: #666; text-align: left; margin-bottom: 2px;">${unit.uom_name}</div><div>${parseFloat(unit.quantity).toFixed(2)}</div>`;
+                    } else {
+                        td.style.background = '#f8f9fa';
+                        td.style.color = '#dee2e6';
+                        td.innerHTML = '<span style="opacity: 0.3;">-</span>';
+                    }
+                }
+
+                // Remaining columns
+                const remainingData = [
+                    { id: 'price', value: currencySymbol + ' ' + parseFloat(item.sale_price).toFixed(2), visible: true },
+                    { id: 'gross', value: currencySymbol + ' ' + parseFloat(item.gross_amount).toFixed(2), visible: true },
+                    { id: 'disc_pct', value: parseFloat(item.discount_percent || 0).toFixed(2) + '%', visible: enableCashDiscountPercent },
+                    { id: 'disc_amt', value: currencySymbol + ' ' + parseFloat(item.discount_amount || 0).toFixed(2), visible: enableCashDiscountAmount },
+                    { id: 'to_pct', value: parseFloat(item.trade_offer_percent || 0).toFixed(2) + '%', visible: enableTradeOfferDiscount },
+                    { id: 'to_amt', value: currencySymbol + ' ' + parseFloat(item.trade_offer_amount || 0).toFixed(2), visible: enableTradeOfferAmount },
+                    { id: 'gst_pct', value: parseFloat(item.gst_percent || 0).toFixed(2) + '%', visible: enableTaxation },
+                    { id: 'gst_amt', value: currencySymbol + ' ' + parseFloat(item.gst_amount || 0).toFixed(2), visible: enableTaxation },
+                    { id: 'foc', value: parseFloat(item.foc_quantity || 0).toFixed(2), visible: enableFOC },
+                    { id: 'net', value: currencySymbol + ' ' + parseFloat(item.net_amount).toFixed(2), visible: true }
+                ];
+
+                remainingData.forEach(colData => {
+                    const col = columnConfig.find(c => c.id === colData.id);
+                    if (col && col.visible === false) return;
+                    if (!colData.visible) return;
+
+                    const td = row.insertCell();
+                    td.className = 'text-right';
+                    td.textContent = colData.value;
+                    
+                    if (!colData.visible) {
+                        td.style.display = 'none';
+                    }
                 });
 
-                // Render grouped items
-                parentItems.forEach((item, index) => {
+                // Calculate totals (only count first unit to avoid duplication)
+                totalQty += productGroup.units.reduce((sum, u) => sum + parseFloat(u.quantity), 0);
+                totalPcs += parseFloat(item.piece || 0);
+                totalCtn += parseFloat(item.carton || 0);
+                totalDz += parseFloat(item.dozen || 0);
+                totalUnitPrice += parseFloat(item.sale_price);
+                totalGrossAmount += parseFloat(item.gross_amount);
+                totalDiscountAmountItems += parseFloat(item.discount_amount || 0);
+                totalTradeOfferAmountItems += parseFloat(item.trade_offer_amount || 0);
+                totalGstAmountItems += parseFloat(item.gst_amount || 0);
+                totalFocQty += parseFloat(item.foc_quantity || 0);
+                totalNetAmountItems += parseFloat(item.net_amount);
+            });
+            
+            // Render child items if separate mode
+            if (childDisplayMode !== 'inline') {
+                childItems.forEach(item => {
                     const row = tbody.insertRow();
+                    const indent = '<span style="margin-left: 20px;">↳ </span>';
+                    const textColor = 'color: #666;';
 
-                    // Build children text
-                    let childrenText = '';
-                    if (item.children && item.children.length > 0) {
-                        childrenText = '<br><span style="font-size: 10px; color: #666;">(' +
-                            item.children.map(c => `${c.product_name}: ${parseFloat(c.quantity).toFixed(2)}`).join(' | ') +
-                            ')</span>';
+                    // Serial column
+                    const serialCol = columnConfig.find(c => c.id === 'serial');
+                    if (!serialCol || serialCol.visible !== false) {
+                        const td = row.insertCell();
+                        td.className = 'text-center';
+                        td.textContent = '';
                     }
 
-                    // Build row based on column order
-                    columnConfig.forEach(col => {
-                        // Skip if column is hidden
-                        if (col.visible === false) return;
+                    // Product column
+                    const productCol = columnConfig.find(c => c.id === 'product');
+                    if (!productCol || productCol.visible !== false) {
+                        const td = row.insertCell();
+                        td.innerHTML = `<span style="${textColor}">${indent}${item.product_name}</span>`;
+                    }
+
+                    // Unit columns - show unit name and quantity for child
+                    for (let i = 0; i < maxUnitColumns; i++) {
+                        const td = row.insertCell();
+                        td.className = 'text-right';
+                        
+                        if (i === 0) {
+                            td.innerHTML = `<div style="font-size: 10px; color: #666; text-align: left; margin-bottom: 2px;">${item.uom_name || 'Unit'}</div><div>${parseFloat(item.quantity).toFixed(2)}</div>`;
+                        } else {
+                            td.style.background = '#f8f9fa';
+                            td.style.color = '#dee2e6';
+                            td.innerHTML = '<span style="opacity: 0.3;">-</span>';
+                        }
+                    }
+
+                    // Remaining columns - all dashes for child items
+                    const remainingCols = ['price', 'gross', 'disc_pct', 'disc_amt', 'to_pct', 'to_amt', 'gst_pct', 'gst_amt', 'foc', 'net'];
+                    remainingCols.forEach(colId => {
+                        const col = columnConfig.find(c => c.id === colId);
+                        if (col && col.visible === false) return;
 
                         const td = row.insertCell();
-                        td.className = ['qty', 'price', 'gross', 'disc_pct', 'disc_amt', 'to_pct', 'to_amt', 'gst_pct', 'gst_amt', 'foc', 'net'].includes(col.id) ? 'text-right' : '';
+                        td.className = 'text-right';
+                        td.textContent = '-';
 
                         // Apply visibility
-                        if (col.id === 'pcs' && !enableCarton && !enableDozen) td.style.display = 'none';
-                        if (col.id === 'ctn' && !enableCarton) td.style.display = 'none';
-                        if (col.id === 'dz' && !enableDozen) td.style.display = 'none';
-                        if (col.id === 'disc_pct' && !enableCashDiscountPercent) td.style.display = 'none';
-                        if (col.id === 'disc_amt' && !enableCashDiscountAmount) td.style.display = 'none';
-                        if (col.id === 'to_pct' && !enableTradeOfferDiscount) td.style.display = 'none';
-                        if (col.id === 'to_amt' && !enableTradeOfferAmount) td.style.display = 'none';
-                        if (col.id === 'gst_pct' && !enableTaxation) td.style.display = 'none';
-                        if (col.id === 'gst_amt' && !enableTaxation) td.style.display = 'none';
-                        if (col.id === 'foc' && !enableFOC) td.style.display = 'none';
-
-                        // Skip if column is hidden
-                        if (col.visible === false) {
-                            td.style.display = 'none';
-                        }
-
-                        // Set cell content
-                        switch (col.id) {
-                            case 'serial': td.innerHTML = `<div class="text-center">${index + 1}</div>`; break;
-                            case 'product': td.innerHTML = item.product_name + childrenText; break;
-                            case 'unit': td.textContent = item.uom_name || 'Unit'; break;
-                            case 'pcs': td.textContent = parseFloat(item.piece || 0).toFixed(2); break;
-                            case 'ctn': td.textContent = parseFloat(item.carton || 0).toFixed(2); break;
-                            case 'dz': td.textContent = parseFloat(item.dozen || 0).toFixed(2); break;
-                            case 'qty': td.textContent = parseFloat(item.quantity).toFixed(2); break;
-                            case 'price': td.textContent = currencySymbol + ' ' + parseFloat(item.sale_price).toFixed(2); break;
-                            case 'gross': td.textContent = currencySymbol + ' ' + parseFloat(item.gross_amount).toFixed(2); break;
-                            case 'disc_pct': td.textContent = parseFloat(item.discount_percent || 0).toFixed(2) + '%'; break;
-                            case 'disc_amt': td.textContent = currencySymbol + ' ' + parseFloat(item.discount_amount || 0).toFixed(2); break;
-                            case 'to_pct': td.textContent = parseFloat(item.trade_offer_percent || 0).toFixed(2) + '%'; break;
-                            case 'to_amt': td.textContent = currencySymbol + ' ' + parseFloat(item.trade_offer_amount || 0).toFixed(2); break;
-                            case 'gst_pct': td.textContent = parseFloat(item.gst_percent || 0).toFixed(2) + '%'; break;
-                            case 'gst_amt': td.textContent = currencySymbol + ' ' + parseFloat(item.gst_amount || 0).toFixed(2); break;
-                            case 'foc': td.textContent = parseFloat(item.foc_quantity || 0).toFixed(2); break;
-                            case 'net': td.textContent = currencySymbol + ' ' + parseFloat(item.net_amount).toFixed(2); break;
-                        }
+                        if (colId === 'disc_pct' && !enableCashDiscountPercent) td.style.display = 'none';
+                        if (colId === 'disc_amt' && !enableCashDiscountAmount) td.style.display = 'none';
+                        if (colId === 'to_pct' && !enableTradeOfferDiscount) td.style.display = 'none';
+                        if (colId === 'to_amt' && !enableTradeOfferAmount) td.style.display = 'none';
+                        if (colId === 'gst_pct' && !enableTaxation) td.style.display = 'none';
+                        if (colId === 'gst_amt' && !enableTaxation) td.style.display = 'none';
+                        if (colId === 'foc' && !enableFOC) td.style.display = 'none';
                     });
-
-                    totalQty += parseFloat(item.quantity);
-                    totalPcs += parseFloat(item.piece || 0);
-                    totalCtn += parseFloat(item.carton || 0);
-                    totalDz += parseFloat(item.dozen || 0);
-                    totalUnitPrice += parseFloat(item.sale_price);
-                    totalGrossAmount += parseFloat(item.gross_amount);
-                    totalDiscountAmountItems += parseFloat(item.discount_amount || 0);
-                    totalTradeOfferAmountItems += parseFloat(item.trade_offer_amount || 0);
-                    totalGstAmountItems += parseFloat(item.gst_amount || 0);
-                    totalFocQty += parseFloat(item.foc_quantity || 0);
-                    totalNetAmountItems += parseFloat(item.net_amount);
-                });
-            } else {
-                // Separate rows mode (current)
-                let serialNumber = 0;
-                items.forEach((item) => {
-                    const row = tbody.insertRow();
-
-                    // Check if this is a child item
-                    const isChild = item.parent_row_id !== null;
-                    
-                    // Increment serial only for parent items
-                    if (!isChild) {
-                        serialNumber++;
-                    }
-                    
-                    const indent = isChild ? '<span style="margin-left: 20px;">↳ </span>' : '';
-                    const textColor = isChild ? 'color: #666;' : '';
-
-                    // Check if serial column is visible
-                    const serialCol = columnConfig.find(c => c.id === 'serial');
-                    const serialVisible = serialCol && serialCol.visible !== false;
-
-                    row.innerHTML = `
-                    <td class="text-center" style="display: ${serialVisible ? 'table-cell' : 'none'}">${isChild ? '' : serialNumber}</td>
-                    <td style="${textColor}">${indent}${item.product_name}</td>
-                    <td>${item.uom_name || 'Unit'}</td>
-                    <td class="text-right" style="display: ${enableCarton || enableDozen ? 'table-cell' : 'none'}">${isChild ? '-' : parseFloat(item.piece || 0).toFixed(2)}</td>
-                    <td class="text-right" style="display: ${enableCarton ? 'table-cell' : 'none'}">${isChild ? '-' : parseFloat(item.carton || 0).toFixed(2)}</td>
-                    <td class="text-right" style="display: ${enableDozen ? 'table-cell' : 'none'}">${isChild ? '-' : parseFloat(item.dozen || 0).toFixed(2)}</td>
-                    <td class="text-right">${parseFloat(item.quantity).toFixed(2)}</td>
-                    <td class="text-right">${isChild ? '-' : currencySymbol + ' ' + parseFloat(item.sale_price).toFixed(2)}</td>
-                    <td class="text-right">${isChild ? '-' : currencySymbol + ' ' + parseFloat(item.gross_amount).toFixed(2)}</td>
-                    <td class="text-right disc-pct-col" style="display: ${enableCashDiscountPercent ? 'table-cell' : 'none'}">${isChild ? '-' : parseFloat(item.discount_percent || 0).toFixed(2) + '%'}</td>
-                    <td class="text-right disc-amt-col" style="display: ${enableCashDiscountAmount ? 'table-cell' : 'none'}">${isChild ? '-' : currencySymbol + ' ' + parseFloat(item.discount_amount || 0).toFixed(2)}</td>
-                    <td class="text-right to-pct-col" style="display: ${enableTradeOfferDiscount ? 'table-cell' : 'none'}">${isChild ? '-' : parseFloat(item.trade_offer_percent || 0).toFixed(2) + '%'}</td>
-                    <td class="text-right to-amt-col" style="display: ${enableTradeOfferAmount ? 'table-cell' : 'none'}">${isChild ? '-' : currencySymbol + ' ' + parseFloat(item.trade_offer_amount || 0).toFixed(2)}</td>
-                    <td class="text-right gst-pct-col" style="display: ${enableTaxation ? 'table-cell' : 'none'}">${isChild ? '-' : parseFloat(item.gst_percent || 0).toFixed(2) + '%'}</td>
-                    <td class="text-right gst-amt-col" style="display: ${enableTaxation ? 'table-cell' : 'none'}">${isChild ? '-' : currencySymbol + ' ' + parseFloat(item.gst_amount || 0).toFixed(2)}</td>
-                    <td class="text-right foc-col" style="display: ${enableFOC ? 'table-cell' : 'none'}">${isChild ? '-' : parseFloat(item.foc_quantity || 0).toFixed(2)}</td>
-                    <td class="text-right">${isChild ? '-' : currencySymbol + ' ' + parseFloat(item.net_amount).toFixed(2)}</td>
-                `;
-
-                    // Calculate totals only for non-child items
-                    if (!isChild) {
-                        totalQty += parseFloat(item.quantity);
-                        totalPcs += parseFloat(item.piece || 0);
-                        totalCtn += parseFloat(item.carton || 0);
-                        totalDz += parseFloat(item.dozen || 0);
-                        totalUnitPrice += parseFloat(item.sale_price);
-                        totalGrossAmount += parseFloat(item.gross_amount);
-                        totalDiscountAmountItems += parseFloat(item.discount_amount || 0);
-                        totalTradeOfferAmountItems += parseFloat(item.trade_offer_amount || 0);
-                        totalGstAmountItems += parseFloat(item.gst_amount || 0);
-                        totalFocQty += parseFloat(item.foc_quantity || 0);
-                        totalNetAmountItems += parseFloat(item.net_amount);
-                    }
                 });
             }
 

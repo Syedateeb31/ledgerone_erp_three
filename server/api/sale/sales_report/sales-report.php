@@ -241,6 +241,27 @@ try {
     $stmt->execute($params);
     $customer_sales = $stmt->fetchAll();
 
+    // Supplier Man Wise Sales
+    $stmt = $pdo->prepare("
+        SELECT 
+            si.supplier_man_id,
+            CONCAT('SM-', LPAD(si.supplier_man_id, 3, '0')) as supplier_man_id_display,
+            COALESCE(e.full_name, 'Unknown') as supplier_man_name,
+            COALESCE(e.employee_id, '-') as employee_id,
+            COUNT(DISTINCT si.id) as total_invoices,
+            SUM(si.net_amount) as total_sales,
+            'Active' as status
+        FROM sale_invoice si
+        LEFT JOIN employees e ON si.supplier_man_id = e.id AND e.tenant_id = ?
+        WHERE si.tenant_id = ? AND si.sale_date BETWEEN ? AND ? AND si.status = 'Posted' AND si.supplier_man_id IS NOT NULL" . ($company_id ? " AND si.company_id = ?" : "") . "
+        GROUP BY si.supplier_man_id, e.full_name, e.employee_id
+        ORDER BY total_sales DESC
+    ");
+    $params = [$tenant_id, $tenant_id, $date_from, $date_to];
+    if ($company_id) $params[] = $company_id;
+    $stmt->execute($params);
+    $supplier_man_sales = $stmt->fetchAll();
+
     echo json_encode([
         'success' => true,
         'data' => [
@@ -252,6 +273,7 @@ try {
             'invoice_sales' => $invoice_sales,
             'vendor_sales' => $vendor_sales,
             'customer_sales' => $customer_sales,
+            'supplier_man_sales' => $supplier_man_sales,
             'trend' => $trend,
             'categories' => $categories
         ]

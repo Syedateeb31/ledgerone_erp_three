@@ -73,32 +73,78 @@
                         <thead>
                             <tr>
                                 <th>Material</th>
-                                <th>Required Qty</th>
-                                <th>UOM</th>
-                                <th>Issued Qty</th>
-                                <th>Status</th>
+        `;
+
+        // Group materials by product and find max units
+        const materialsByProduct = {};
+        let maxUnits = 0;
+        
+        if (order.materials && order.materials.length > 0) {
+            order.materials.forEach(mat => {
+                if (!materialsByProduct[mat.material_id]) {
+                    materialsByProduct[mat.material_id] = {
+                        code: mat.material_code,
+                        name: mat.material_name,
+                        units: []
+                    };
+                }
+                materialsByProduct[mat.material_id].units.push({
+                    required_qty: mat.required_qty,
+                    issued_qty: mat.issued_qty || 0,
+                    unit_name: mat.unit_name || mat.uom_name || 'N/A'
+                });
+            });
+            
+            // Find max units
+            for (const productId in materialsByProduct) {
+                const unitCount = materialsByProduct[productId].units.length;
+                if (unitCount > maxUnits) maxUnits = unitCount;
+            }
+        }
+        
+        // Create dynamic headers
+        for (let i = 0; i < maxUnits; i++) {
+            html += `
+                                <th>Required</th>
+                                <th>Unit</th>
+                                <th>Issued</th>
+            `;
+        }
+        
+        html += `
                             </tr>
                         </thead>
                         <tbody>
         `;
 
         if (order.materials && order.materials.length > 0) {
-            order.materials.forEach(mat => {
-                const unitName = mat.unit_name ? mat.unit_name : (mat.uom_name ? mat.uom_name : 'N/A');
-                const issuedQty = mat.issued_qty ? mat.issued_qty : 0;
-                const status = mat.status ? mat.status : 'Pending';
-                html += `
-                    <tr>
-                        <td><strong>${mat.material_code} - ${mat.material_name}</strong></td>
-                        <td>${mat.required_qty}</td>
-                        <td>${unitName}</td>
-                        <td>${issuedQty}</td>
-                        <td><span class="badge ${status.toLowerCase()}">${status}</span></td>
-                    </tr>
-                `;
-            });
+            // Display grouped materials
+            for (const productId in materialsByProduct) {
+                const product = materialsByProduct[productId];
+                html += `<tr><td><strong>${product.code} - ${product.name}</strong></td>`;
+                
+                // Add unit cells
+                for (let i = 0; i < maxUnits; i++) {
+                    if (i < product.units.length) {
+                        const unit = product.units[i];
+                        html += `
+                            <td>${unit.required_qty}</td>
+                            <td>${unit.unit_name}</td>
+                            <td>${unit.issued_qty}</td>
+                        `;
+                    } else {
+                        html += `
+                            <td style="background:#F2F4F8; color:#9AA1AE;">-</td>
+                            <td style="background:#F2F4F8; color:#9AA1AE;">-</td>
+                            <td style="background:#F2F4F8; color:#9AA1AE;">-</td>
+                        `;
+                    }
+                }
+                
+                html += '</tr>';
+            }
         } else {
-            html += '<tr><td colspan="5" style="text-align:center;">No materials found</td></tr>';
+            html += `<tr><td colspan="${1 + maxUnits * 3}" style="text-align:center;">No materials found</td></tr>`;
         }
 
         html += `

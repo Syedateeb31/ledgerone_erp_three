@@ -189,9 +189,8 @@
             <thead>
                 <tr>
                     <th width="5%">#</th>
-                    <th width="25%">Product</th>
-                    <th width="8%">Unit</th>
-                    <th width="8%" class="text-right">Qty</th>
+                    <th width="30%">Product</th>
+                    <th width="15%">Quantities</th>
                     <th width="10%" class="text-right">Unit Price</th>
                     <th width="10%" class="text-right">Gross Amt</th>
                     <th width="7%" class="text-right">Disc %</th>
@@ -212,7 +211,6 @@
             <tfoot>
                 <tr style="background-color: #f5f5f5; font-weight: bold;">
                     <th colspan="3">Totals</th>
-                    <th class="text-right" id="totalQty">0.00</th>
                     <th class="text-right" id="totalUnitPrice">0.00</th>
                     <th class="text-right" id="totalGrossAmount">0.00</th>
                     <th></th>
@@ -250,7 +248,7 @@
                     <td class="text-right" id="gstAmount">0.00</td>
                 </tr>
                 <tr id="shippingFeesRow">
-                    <td>Shipping Fees:</td>
+                    <td><span id="shippingFeesLabel">Shipping Fees:</span></td>
                     <td class="text-right" id="shippingFees">0.00</td>
                 </tr>
                 <tr class="total-row">
@@ -298,6 +296,7 @@
         }
         
         // Apply invoice settings to hide/show columns
+        applyInvoiceSettings();
         function applyInvoiceSettings() {
             const enableInlineCashDiscount = localStorage.getItem('enableInlineCashDiscount') === 'true';
             const enableInlineCashDiscountAmount = localStorage.getItem('enableInlineCashDiscountAmount') === 'true';
@@ -311,23 +310,23 @@
             
             // Hide/show table headers
             const headers = document.querySelectorAll('.items-table thead th');
-            headers[6].style.display = enableInlineCashDiscount ? '' : 'none'; // Disc %
-            headers[7].style.display = enableInlineCashDiscountAmount ? '' : 'none'; // Disc Amt
-            headers[8].style.display = enableTradeOffer ? '' : 'none'; // TO %
-            headers[9].style.display = enableTradeOfferAmount ? '' : 'none'; // TO Amt
-            headers[10].style.display = enableTaxation ? '' : 'none'; // GST %
-            headers[11].style.display = enableTaxation ? '' : 'none'; // GST Amt
-            headers[12].style.display = enableFOC ? '' : 'none'; // FOC Qty
+            headers[5].style.display = enableInlineCashDiscount ? '' : 'none'; // Disc %
+            headers[6].style.display = enableInlineCashDiscountAmount ? '' : 'none'; // Disc Amt
+            headers[7].style.display = enableTradeOffer ? '' : 'none'; // TO %
+            headers[8].style.display = enableTradeOfferAmount ? '' : 'none'; // TO Amt
+            headers[9].style.display = enableTaxation ? '' : 'none'; // GST %
+            headers[10].style.display = enableTaxation ? '' : 'none'; // GST Amt
+            headers[11].style.display = enableFOC ? '' : 'none'; // FOC Qty
             
             // Hide/show footer cells
             const footerCells = document.querySelectorAll('.items-table tfoot th');
-            footerCells[4].style.display = enableInlineCashDiscount ? '' : 'none';
-            footerCells[5].style.display = enableInlineCashDiscountAmount ? '' : 'none';
-            footerCells[6].style.display = enableTradeOffer ? '' : 'none';
-            footerCells[7].style.display = enableTradeOfferAmount ? '' : 'none';
+            footerCells[3].style.display = enableInlineCashDiscount ? '' : 'none';
+            footerCells[4].style.display = enableInlineCashDiscountAmount ? '' : 'none';
+            footerCells[5].style.display = enableTradeOffer ? '' : 'none';
+            footerCells[6].style.display = enableTradeOfferAmount ? '' : 'none';
+            footerCells[7].style.display = enableTaxation ? '' : 'none';
             footerCells[8].style.display = enableTaxation ? '' : 'none';
-            footerCells[9].style.display = enableTaxation ? '' : 'none';
-            footerCells[10].style.display = enableFOC ? '' : 'none';
+            footerCells[9].style.display = enableFOC ? '' : 'none';
             
             // Hide/show totals section rows
             document.getElementById('discountPercentRow').style.display = enableInvoiceCashDiscount ? '' : 'none';
@@ -402,7 +401,9 @@
             const tbody = document.getElementById('itemsTableBody');
             tbody.innerHTML = '';
             
-            let totalQty = 0, totalUnitPrice = 0, totalGrossAmount = 0, totalDiscountAmountItems = 0, totalTradeOfferAmountItems = 0, totalGSTAmountItems = 0, totalFOCQty = 0, totalNetAmountItems = 0;
+            applyInvoiceSettings();
+            
+            let totalUnitPrice = 0, totalGrossAmount = 0, totalDiscountAmountItems = 0, totalTradeOfferAmountItems = 0, totalGSTAmountItems = 0, totalFOCQty = 0, totalNetAmountItems = 0;
             
             const enableInlineCashDiscount = localStorage.getItem('enableInlineCashDiscount') === 'true';
             const enableInlineCashDiscountAmount = localStorage.getItem('enableInlineCashDiscountAmount') === 'true';
@@ -412,12 +413,31 @@
             const enableTaxation = localStorage.getItem('enableTaxation') === 'true';
             
             items.forEach((item, index) => {
+                // Build unit quantities display
+                const unitMap = {};
+                item.unit_entries.forEach(entry => {
+                    const qty = parseFloat(entry.quantity);
+                    if (qty > 0) {
+                        const unitName = entry.uom_name || 'Unit';
+                        if (unitMap[unitName]) {
+                            unitMap[unitName] += qty;
+                        } else {
+                            unitMap[unitName] = qty;
+                        }
+                    }
+                });
+                
+                let unitQtyDisplay = '';
+                Object.keys(unitMap).forEach(unitName => {
+                    if (unitQtyDisplay) unitQtyDisplay += ', ';
+                    unitQtyDisplay += `${unitMap[unitName].toFixed(2)} ${unitName}`;
+                });
+                
                 const row = tbody.insertRow();
                 row.innerHTML = `
                     <td class="text-center">${index + 1}</td>
                     <td>${item.product_name}</td>
-                    <td>Unit</td>
-                    <td class="text-right">${parseFloat(item.quantity).toFixed(2)}</td>
+                    <td>${unitQtyDisplay || '-'}</td>
                     <td class="text-right">${currencySymbol} ${parseFloat(item.purchase_price).toFixed(2)}</td>
                     <td class="text-right">${currencySymbol} ${parseFloat(item.gross_amount).toFixed(2)}</td>
                     <td class="text-right" style="display: ${enableInlineCashDiscount ? '' : 'none'}">${parseFloat(item.discount_percent).toFixed(2)}%</td>
@@ -431,7 +451,6 @@
                 `;
                 
                 // Calculate totals
-                totalQty += parseFloat(item.quantity);
                 totalUnitPrice += parseFloat(item.purchase_price);
                 totalGrossAmount += parseFloat(item.gross_amount);
                 totalDiscountAmountItems += parseFloat(item.discount_amount);
@@ -442,7 +461,6 @@
             });
             
             // Update totals row
-            document.getElementById('totalQty').textContent = totalQty.toFixed(2);
             document.getElementById('totalUnitPrice').textContent = `${currencySymbol} ${totalUnitPrice.toFixed(2)}`;
             document.getElementById('totalGrossAmount').textContent = `${currencySymbol} ${totalGrossAmount.toFixed(2)}`;
             document.getElementById('totalDiscountAmountItems').textContent = `${currencySymbol} ${totalDiscountAmountItems.toFixed(2)}`;
@@ -457,7 +475,13 @@
             document.getElementById('discountAmount').textContent = `${currencySymbol} ${parseFloat(invoice.total_discount_amount).toFixed(2)}`;
             document.getElementById('gstPercent').textContent = parseFloat(invoice.total_gst_percent || 0).toFixed(2) + '%';
             document.getElementById('gstAmount').textContent = `${currencySymbol} ${parseFloat(invoice.total_gst_amount || 0).toFixed(2)}`;
+            
+            // Display shipping fees with +/- indicator
+            const shippingFeesType = invoice.shipping_fees_type || 'add';
+            const shippingFeesSymbol = shippingFeesType === 'add' ? '+' : '-';
+            document.getElementById('shippingFeesLabel').textContent = `Shipping Fees (${shippingFeesSymbol}):`;
             document.getElementById('shippingFees').textContent = `${currencySymbol} ${parseFloat(invoice.shipping_fees || 0).toFixed(2)}`;
+            
             document.getElementById('netAmount').textContent = `${currencySymbol} ${parseFloat(invoice.net_amount).toFixed(2)}`;
             
             // Convert net amount to words

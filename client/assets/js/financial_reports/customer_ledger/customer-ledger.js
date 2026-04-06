@@ -29,12 +29,15 @@ document.addEventListener('DOMContentLoaded', function () {
     const distribution = document.getElementById('distribution');
     const subAccount = document.getElementById('sub-account');
     const subAccountGroup = document.getElementById('sub-account-group');
+    const currencyFilter = document.getElementById('currency-filter');
 
     let currentPage = 1;
     let totalPages = 1;
     let allData = [];
     const itemsPerPage = 10;
     let expandedRows = new Set();
+    let allCustomers = [];
+    let currentCurrencySymbol = window.currencySymbol;
 
     // Set default dates
     const today = new Date();
@@ -45,8 +48,8 @@ document.addEventListener('DOMContentLoaded', function () {
     toDate.value = '';
 
     // Load customers on page load
-    let allCustomers = [];
     loadCompanies();
+    loadCurrencies();
     loadCustomers();
     loadDistributions();
 
@@ -67,6 +70,37 @@ document.addEventListener('DOMContentLoaded', function () {
             })
             .catch(error => console.error('Error loading companies:', error));
     }
+    
+    // Load currencies
+    async function loadCurrencies() {
+        try {
+            const response = await fetch('../../../../server/api/financial_reports/customer_ledger/customer-ledger.php?type=currencies');
+            const result = await response.json();
+            
+            if (result.success) {
+                currencyFilter.innerHTML = '';
+                result.data.forEach(currency => {
+                    const isBase = currency.is_base_currency == 1;
+                    currencyFilter.innerHTML += `<option value="${currency.id}" ${isBase ? 'selected' : ''}>${currency.name} (${currency.symbol})${isBase ? ' - Base' : ''}</option>`;
+                    if (isBase) {
+                        currentCurrencySymbol = currency.symbol;
+                    }
+                });
+            }
+        } catch (error) {
+            console.error('Error loading currencies:', error);
+        }
+    }
+    
+    // Update currency symbol when currency changes
+    currencyFilter.addEventListener('change', async function() {
+        const selectedOption = currencyFilter.options[currencyFilter.selectedIndex];
+        const symbolMatch = selectedOption.text.match(/\((.+?)\)/);
+        if (symbolMatch) {
+            currentCurrencySymbol = symbolMatch[1];
+        }
+        await loadLedgerData();
+    });
     
     // Reload customers when company changes
     document.getElementById('company').addEventListener('change', function() {
@@ -328,6 +362,10 @@ document.addEventListener('DOMContentLoaded', function () {
         if (company.value) {
             params.append('company_id', company.value);
         }
+        
+        if (currencyFilter.value) {
+            params.append('currency_id', currencyFilter.value);
+        }
 
         try {
             const response = await fetch(`../../../../server/api/financial_reports/customer_ledger/customer-ledger.php?${params}`);
@@ -380,10 +418,10 @@ document.addEventListener('DOMContentLoaded', function () {
             tbody.innerHTML += `
                 <tr>
                     <td>${row.customer_name}</td>
-                    <td class="${opening >= 0 ? 'balance-positive' : 'balance-negative'}">${window.currencySymbol}${Math.abs(opening).toFixed(2)} ${opening >= 0 ? 'Dr' : 'Cr'}</td>
-                    <td>${window.currencySymbol}${debit.toFixed(2)}</td>
-                    <td>${window.currencySymbol}${credit.toFixed(2)}</td>
-                    <td class="${closing >= 0 ? 'balance-positive' : 'balance-negative'}">${window.currencySymbol}${Math.abs(closing).toFixed(2)} ${closing >= 0 ? 'Dr' : 'Cr'}</td>
+                    <td class="${opening >= 0 ? 'balance-positive' : 'balance-negative'}">${currentCurrencySymbol}${Math.abs(opening).toFixed(2)} ${opening >= 0 ? 'Dr' : 'Cr'}</td>
+                    <td>${currentCurrencySymbol}${debit.toFixed(2)}</td>
+                    <td>${currentCurrencySymbol}${credit.toFixed(2)}</td>
+                    <td class="${closing >= 0 ? 'balance-positive' : 'balance-negative'}">${currentCurrencySymbol}${Math.abs(closing).toFixed(2)} ${closing >= 0 ? 'Dr' : 'Cr'}</td>
                 </tr>
             `;
         });
@@ -400,10 +438,10 @@ document.addEventListener('DOMContentLoaded', function () {
         tbody.innerHTML += `
             <tr class="totals-row">
                 <td><strong>Totals</strong></td>
-                <td><strong class="${grandTotalOpening >= 0 ? 'balance-positive' : 'balance-negative'}">${window.currencySymbol}${Math.abs(grandTotalOpening).toFixed(2)} ${grandTotalOpening >= 0 ? 'Dr' : 'Cr'}</strong></td>
-                <td><strong>${window.currencySymbol}${grandTotalDebit.toFixed(2)}</strong></td>
-                <td><strong>${window.currencySymbol}${grandTotalCredit.toFixed(2)}</strong></td>
-                <td><strong class="${grandTotalClosing >= 0 ? 'balance-positive' : 'balance-negative'}">${window.currencySymbol}${Math.abs(grandTotalClosing).toFixed(2)} ${grandTotalClosing >= 0 ? 'Dr' : 'Cr'}</strong></td>
+                <td><strong class="${grandTotalOpening >= 0 ? 'balance-positive' : 'balance-negative'}">${currentCurrencySymbol}${Math.abs(grandTotalOpening).toFixed(2)} ${grandTotalOpening >= 0 ? 'Dr' : 'Cr'}</strong></td>
+                <td><strong>${currentCurrencySymbol}${grandTotalDebit.toFixed(2)}</strong></td>
+                <td><strong>${currentCurrencySymbol}${grandTotalCredit.toFixed(2)}</strong></td>
+                <td><strong class="${grandTotalClosing >= 0 ? 'balance-positive' : 'balance-negative'}">${currentCurrencySymbol}${Math.abs(grandTotalClosing).toFixed(2)} ${grandTotalClosing >= 0 ? 'Dr' : 'Cr'}</strong></td>
             </tr>
         `;
     }
@@ -433,7 +471,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         <td>${row.reference}</td>
                         <td></td>
                         <td></td>
-                        <td class="${balance >= 0 ? 'balance-positive' : 'balance-negative'}">${window.currencySymbol}${Math.abs(balance).toFixed(2)} ${balance >= 0 ? 'Dr' : 'Cr'}</td>
+                        <td class="${balance >= 0 ? 'balance-positive' : 'balance-negative'}">${currentCurrencySymbol}${Math.abs(balance).toFixed(2)} ${balance >= 0 ? 'Dr' : 'Cr'}</td>
                     </tr>
                 `;
             } else if (row.type === 'sub_account_header') {
@@ -454,9 +492,9 @@ document.addEventListener('DOMContentLoaded', function () {
                         <td colspan="3" style="text-align: right; padding: 12px 16px;">
                             <strong>${row.sub_account_name} Total:</strong>
                         </td>
-                        <td><strong>${window.currencySymbol}${parseFloat(row.total_debit).toFixed(2)}</strong></td>
-                        <td><strong>${window.currencySymbol}${parseFloat(row.total_credit).toFixed(2)}</strong></td>
-                        <td class="${balance >= 0 ? 'balance-positive' : 'balance-negative'}"><strong>${window.currencySymbol}${Math.abs(balance).toFixed(2)} ${balance >= 0 ? 'Dr' : 'Cr'}</strong></td>
+                        <td><strong>${currentCurrencySymbol}${parseFloat(row.total_debit).toFixed(2)}</strong></td>
+                        <td><strong>${currentCurrencySymbol}${parseFloat(row.total_credit).toFixed(2)}</strong></td>
+                        <td class="${balance >= 0 ? 'balance-positive' : 'balance-negative'}"><strong>${currentCurrencySymbol}${Math.abs(balance).toFixed(2)} ${balance >= 0 ? 'Dr' : 'Cr'}</strong></td>
                     </tr>
                 `;
             } else {
@@ -471,8 +509,8 @@ document.addEventListener('DOMContentLoaded', function () {
                     totalCredit += credit;
                 }
                 
-                const creditDisplay = credit > 0 ? window.currencySymbol + credit.toFixed(2) : 
-                                      (pdcDisplay > 0 ? `(${window.currencySymbol}${pdcDisplay.toFixed(2)})` : '');
+                const creditDisplay = credit > 0 ? currentCurrencySymbol + credit.toFixed(2) : 
+                                      (pdcDisplay > 0 ? `(${currentCurrencySymbol}${pdcDisplay.toFixed(2)})` : '');
                 
                 tbody.innerHTML += `
                     <tr class="ledger-row" data-row-id="${rowIndex}">
@@ -482,9 +520,9 @@ document.addEventListener('DOMContentLoaded', function () {
                             ${row.description}
                         </td>
                         <td>${row.reference}</td>
-                        <td>${debit > 0 ? window.currencySymbol + debit.toFixed(2) : ''}</td>
+                        <td>${debit > 0 ? currentCurrencySymbol + debit.toFixed(2) : ''}</td>
                         <td>${creditDisplay}</td>
-                        <td class="${balance >= 0 ? 'balance-positive' : 'balance-negative'}">${window.currencySymbol}${Math.abs(balance).toFixed(2)} ${balance >= 0 ? 'Dr' : 'Cr'}</td>
+                        <td class="${balance >= 0 ? 'balance-positive' : 'balance-negative'}">${currentCurrencySymbol}${Math.abs(balance).toFixed(2)} ${balance >= 0 ? 'Dr' : 'Cr'}</td>
                     </tr>
                 `;
                 
@@ -507,8 +545,8 @@ document.addEventListener('DOMContentLoaded', function () {
                                                 <tr>
                                                     <td>${item.product_name}</td>
                                                     <td>${parseFloat(item.quantity).toFixed(2)} ${item.uom_name || ''}</td>
-                                                    <td>${window.currencySymbol}${parseFloat(item.sale_price).toFixed(2)}</td>
-                                                    <td>${window.currencySymbol}${parseFloat(item.net_amount).toFixed(2)}</td>
+                                                    <td>${currentCurrencySymbol}${parseFloat(item.sale_price).toFixed(2)}</td>
+                                                    <td>${currentCurrencySymbol}${parseFloat(item.net_amount).toFixed(2)}</td>
                                                 </tr>
                                             `).join('')}
                                         </tbody>
@@ -529,9 +567,9 @@ document.addEventListener('DOMContentLoaded', function () {
                 <td><strong>Totals</strong></td>
                 <td></td>
                 <td></td>
-                <td><strong>${window.currencySymbol}${totalDebit.toFixed(2)}</strong></td>
-                <td><strong>${window.currencySymbol}${totalCredit.toFixed(2)}</strong></td>
-                <td><strong class="${finalBalance >= 0 ? 'balance-positive' : 'balance-negative'}">${window.currencySymbol}${Math.abs(finalBalance).toFixed(2)} ${finalBalance >= 0 ? 'Dr' : 'Cr'}</strong></td>
+                <td><strong>${currentCurrencySymbol}${totalDebit.toFixed(2)}</strong></td>
+                <td><strong>${currentCurrencySymbol}${totalCredit.toFixed(2)}</strong></td>
+                <td><strong class="${finalBalance >= 0 ? 'balance-positive' : 'balance-negative'}">${currentCurrencySymbol}${Math.abs(finalBalance).toFixed(2)} ${finalBalance >= 0 ? 'Dr' : 'Cr'}</strong></td>
             </tr>
         `;
         
@@ -626,6 +664,10 @@ document.addEventListener('DOMContentLoaded', function () {
         
         if (company.value) {
             params.append('company_id', company.value);
+        }
+        
+        if (currencyFilter.value) {
+            params.append('currency_id', currencyFilter.value);
         }
         
         window.open(`print.php?${params}`, '_blank');

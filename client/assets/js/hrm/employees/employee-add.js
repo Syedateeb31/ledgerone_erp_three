@@ -521,3 +521,237 @@ document.querySelectorAll('input, select, textarea').forEach(field => {
         }
     });
 });
+
+
+// Department Modal Functions
+async function openDepartmentModal() {
+    document.getElementById('departmentModal').classList.add('active');
+    await loadDepartmentsList();
+}
+
+function closeDepartmentModal() {
+    document.getElementById('departmentModal').classList.remove('active');
+    document.getElementById('newDepartmentName').value = '';
+}
+
+async function loadDepartmentsList() {
+    try {
+        const response = await fetch('../../../../server/api/hrm/employees/manage-departments.php');
+        const result = await response.json();
+        
+        if (result.success) {
+            const list = document.getElementById('departmentList');
+            list.innerHTML = '';
+            
+            result.departments.forEach(dept => {
+                const canDelete = dept.tenant_id !== 0;
+                list.innerHTML += `
+                    <div class="dept-item">
+                        <span>${dept.department_name}</span>
+                        ${canDelete ? `<button onclick="deleteDepartment(${dept.id})"><i class="fas fa-trash"></i> Delete</button>` : '<span style="font-size: 11px; color: #6b7280;">System</span>'}
+                    </div>
+                `;
+            });
+        }
+    } catch (error) {
+        console.error('Error loading departments:', error);
+    }
+}
+
+async function saveDepartment() {
+    const name = document.getElementById('newDepartmentName').value.trim();
+    
+    if (!name) {
+        alert('Please enter department name');
+        return;
+    }
+    
+    try {
+        const response = await fetch('../../../../server/api/hrm/employees/manage-departments.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'add', name })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            document.getElementById('newDepartmentName').value = '';
+            await loadDepartmentsList();
+            
+            // Reload department dropdown
+            const deptSelect = document.getElementById('department');
+            const option = document.createElement('option');
+            option.value = result.id;
+            option.textContent = name;
+            option.selected = true;
+            deptSelect.appendChild(option);
+            
+            alert('Department added successfully');
+        } else {
+            alert('Error: ' + result.message);
+        }
+    } catch (error) {
+        alert('Error saving department');
+    }
+}
+
+async function deleteDepartment(id) {
+    if (!confirm('Are you sure you want to delete this department?')) return;
+    
+    try {
+        const response = await fetch('../../../../server/api/hrm/employees/manage-departments.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'delete', id })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            await loadDepartmentsList();
+            
+            // Remove from dropdown
+            const deptSelect = document.getElementById('department');
+            const option = deptSelect.querySelector(`option[value="${id}"]`);
+            if (option) option.remove();
+            
+            alert('Department deleted successfully');
+        } else {
+            alert('Error: ' + result.message);
+        }
+    } catch (error) {
+        alert('Error deleting department');
+    }
+}
+
+// Position Modal Functions
+async function openPositionModal() {
+    document.getElementById('positionModal').classList.add('active');
+    await loadDepartmentsForPosition();
+}
+
+function closePositionModal() {
+    document.getElementById('positionModal').classList.remove('active');
+    document.getElementById('newPositionName').value = '';
+}
+
+async function loadDepartmentsForPosition() {
+    try {
+        const response = await fetch('../../../../server/api/hrm/employees/manage-departments.php');
+        const result = await response.json();
+        
+        if (result.success) {
+            const select = document.getElementById('positionDepartment');
+            select.innerHTML = '<option value="">Select Department</option>';
+            
+            result.departments.forEach(dept => {
+                select.innerHTML += `<option value="${dept.id}">${dept.department_name}</option>`;
+            });
+        }
+    } catch (error) {
+        console.error('Error loading departments:', error);
+    }
+}
+
+async function loadPositionsList() {
+    const deptId = document.getElementById('positionDepartment').value;
+    
+    if (!deptId) {
+        document.getElementById('positionList').innerHTML = '';
+        return;
+    }
+    
+    try {
+        const response = await fetch(`../../../../server/api/hrm/employees/manage-positions.php?department_id=${deptId}`);
+        const result = await response.json();
+        
+        if (result.success) {
+            const list = document.getElementById('positionList');
+            list.innerHTML = '';
+            
+            result.positions.forEach(pos => {
+                const canDelete = pos.tenant_id !== 0;
+                list.innerHTML += `
+                    <div class="pos-item">
+                        <span>${pos.position_title}</span>
+                        ${canDelete ? `<button onclick="deletePosition(${pos.id})"><i class="fas fa-trash"></i> Delete</button>` : '<span style="font-size: 11px; color: #6b7280;">System</span>'}
+                    </div>
+                `;
+            });
+        }
+    } catch (error) {
+        console.error('Error loading positions:', error);
+    }
+}
+
+async function savePosition() {
+    const name = document.getElementById('newPositionName').value.trim();
+    const deptId = document.getElementById('positionDepartment').value;
+    
+    if (!name || !deptId) {
+        alert('Please enter position name and select department');
+        return;
+    }
+    
+    try {
+        const response = await fetch('../../../../server/api/hrm/employees/manage-positions.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'add', name, department_id: deptId })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            document.getElementById('newPositionName').value = '';
+            await loadPositionsList();
+            
+            // Reload position dropdown if same department
+            const currentDept = document.getElementById('department').value;
+            if (currentDept == deptId) {
+                const posSelect = document.getElementById('position');
+                const option = document.createElement('option');
+                option.value = result.id;
+                option.textContent = name;
+                option.selected = true;
+                posSelect.appendChild(option);
+            }
+            
+            alert('Position added successfully');
+        } else {
+            alert('Error: ' + result.message);
+        }
+    } catch (error) {
+        alert('Error saving position');
+    }
+}
+
+async function deletePosition(id) {
+    if (!confirm('Are you sure you want to delete this position?')) return;
+    
+    try {
+        const response = await fetch('../../../../server/api/hrm/employees/manage-positions.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'delete', id })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            await loadPositionsList();
+            
+            // Remove from dropdown
+            const posSelect = document.getElementById('position');
+            const option = posSelect.querySelector(`option[value="${id}"]`);
+            if (option) option.remove();
+            
+            alert('Position deleted successfully');
+        } else {
+            alert('Error: ' + result.message);
+        }
+    } catch (error) {
+        alert('Error deleting position');
+    }
+}

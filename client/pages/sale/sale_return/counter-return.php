@@ -128,6 +128,14 @@ $user_employee_id = $user['employee_id'] ?? null;
                             <input type="hidden" id="salesOfficer">
                         </div>
                     </div>
+                    <div class="header-item">
+                        <div class="header-label">SUPPLIER MAN</div>
+                        <div style="position: relative;">
+                            <input type="text" id="supplierManSearch" placeholder="Search supplier man..." autocomplete="off" style="font-weight: 600;">
+                            <div id="supplierManOptions" class="dropdown-options"></div>
+                            <input type="hidden" id="supplierMan">
+                        </div>
+                    </div>
                 </div>
             </div>
 

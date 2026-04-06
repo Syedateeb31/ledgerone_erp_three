@@ -34,6 +34,9 @@ if (!$user_id) {
                 <p>Define geographical hierarchy for your organization</p>
             </div>
             <div>
+                <button class="btn btn-secondary" onclick="window.location.href='territory-list.php'" style="margin-right: 10px;">
+                    <i class="fas fa-list"></i> Go to List
+                </button>
                 <button class="btn btn-secondary" id="helpBtn">
                     <i class="fas fa-question-circle"></i> Help
                 </button>

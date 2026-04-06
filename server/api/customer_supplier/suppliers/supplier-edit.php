@@ -53,6 +53,7 @@ try {
         // Update supplier
         $sql = "UPDATE suppliers SET 
                 company_id = ?, 
+                salesman_id = ?, 
                 supplier_name = ?, 
                 address = ?, 
                 primary_phone = ?, 
@@ -70,6 +71,7 @@ try {
         $stmt = $pdo->prepare($sql);
         $stmt->execute([
             !empty($input['companyId']) ? (int)$input['companyId'] : null,
+            !empty($input['salesmanId']) ? (int)$input['salesmanId'] : null,
             trim($input['supplierName']),
             !empty($input['address']) ? trim($input['address']) : null,
             !empty($input['primaryPhone']) ? trim($input['primaryPhone']) : null,
@@ -87,10 +89,6 @@ try {
 
         // Delete existing opening balance ledger entries
         $stmt = $pdo->prepare("DELETE FROM accounting_ledger WHERE tenant_id = ? AND transaction_type = 'supplier_opening' AND reference_table = 'suppliers' AND reference_id = ?");
-        $stmt->execute([$tenant_id, $supplier_id]);
-
-        // Delete existing sub accounts
-        $stmt = $pdo->prepare("DELETE FROM supplier_sub_accounts WHERE tenant_id = ? AND supplier_id = ?");
         $stmt->execute([$tenant_id, $supplier_id]);
 
         // Insert new opening balance ledger entries
@@ -118,22 +116,56 @@ try {
             $stmt->execute([$tenant_id, 'supplier_opening', 'suppliers', $supplier_id, 14, 'Supplier Opening Credit - ' . $supplierName, 0, $openingCredit]);
         }
 
-        // Insert new sub accounts
+        // Update/Insert/Delete sub accounts
         if (!empty($input['subAccounts']) && is_array($input['subAccounts'])) {
-            $subAccountSql = "INSERT INTO supplier_sub_accounts (tenant_id, supplier_id, sub_account_name, debit, credit) VALUES (?, ?, ?, ?, ?)";
-            $stmt = $pdo->prepare($subAccountSql);
+            // Get existing sub accounts
+            $stmt = $pdo->prepare("SELECT id, sub_account_name FROM supplier_sub_accounts WHERE tenant_id = ? AND supplier_id = ?");
+            $stmt->execute([$tenant_id, $supplier_id]);
+            $existingSubAccounts = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $existingIds = array_column($existingSubAccounts, 'id');
+            $processedIds = [];
             
             foreach ($input['subAccounts'] as $subAccount) {
                 if (!empty(trim($subAccount['name']))) {
-                    $stmt->execute([
-                        $tenant_id, 
-                        $supplier_id, 
-                        trim($subAccount['name']),
-                        floatval($subAccount['debit'] ?? 0),
-                        floatval($subAccount['credit'] ?? 0)
-                    ]);
+                    $subAccountId = $subAccount['id'] ?? null;
+                    
+                    if ($subAccountId && in_array($subAccountId, $existingIds)) {
+                        // Update existing sub account
+                        $stmt = $pdo->prepare("UPDATE supplier_sub_accounts SET sub_account_name = ?, debit = ?, credit = ? WHERE id = ? AND tenant_id = ? AND supplier_id = ?");
+                        $stmt->execute([
+                            trim($subAccount['name']),
+                            floatval($subAccount['debit'] ?? 0),
+                            floatval($subAccount['credit'] ?? 0),
+                            $subAccountId,
+                            $tenant_id,
+                            $supplier_id
+                        ]);
+                        $processedIds[] = $subAccountId;
+                    } else {
+                        // Insert new sub account
+                        $stmt = $pdo->prepare("INSERT INTO supplier_sub_accounts (tenant_id, supplier_id, sub_account_name, debit, credit) VALUES (?, ?, ?, ?, ?)");
+                        $stmt->execute([
+                            $tenant_id,
+                            $supplier_id,
+                            trim($subAccount['name']),
+                            floatval($subAccount['debit'] ?? 0),
+                            floatval($subAccount['credit'] ?? 0)
+                        ]);
+                    }
                 }
             }
+            
+            // Delete sub accounts that were removed
+            $idsToDelete = array_diff($existingIds, $processedIds);
+            if (!empty($idsToDelete)) {
+                $placeholders = implode(',', array_fill(0, count($idsToDelete), '?'));
+                $stmt = $pdo->prepare("DELETE FROM supplier_sub_accounts WHERE id IN ($placeholders) AND tenant_id = ? AND supplier_id = ?");
+                $stmt->execute(array_merge($idsToDelete, [$tenant_id, $supplier_id]));
+            }
+        } else {
+            // Delete all sub accounts if none provided
+            $stmt = $pdo->prepare("DELETE FROM supplier_sub_accounts WHERE tenant_id = ? AND supplier_id = ?");
+            $stmt->execute([$tenant_id, $supplier_id]);
         }
 
         echo json_encode(['success' => true, 'message' => 'Supplier updated successfully']);

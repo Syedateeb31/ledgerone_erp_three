@@ -67,43 +67,118 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         exit;
     }
     
-    // Load Products with WIP Cost
+    // Load Products with WIP Cost - Dynamic UOM
     if ($action === 'products' && isset($_GET['po_id'])) {
+        ob_start();
         $poId = $_GET['po_id'];
         
-        $stmt = $pdo->prepare("
-            SELECT 
-                po.product_id,
-                po.order_qty,
-                p.code as product_code,
-                p.name as product_name,
-                p.default_unit_id,
-                p.purchase_price as unit_cost,
-                u.uom_name
-            FROM production_orders po
-            JOIN products p ON po.product_id = p.id
-            LEFT JOIN uom u ON p.default_unit_id = u.id
-            WHERE po.id = ? AND po.tenant_id = ?
-        ");
-        $stmt->execute([$poId, $tenant_id]);
-        $product = $stmt->fetch(PDO::FETCH_ASSOC);
-        
-        if ($product) {
-            $compStmt = $pdo->prepare("
-                SELECT COALESCE(SUM(cp.completed_qty), 0) as completed_qty
-                FROM completed_products cp
-                JOIN production_completions pc ON cp.production_completion_id = pc.id
-                WHERE pc.production_order_id = ?
+        try {
+            $stmt = $pdo->prepare("
+                SELECT 
+                    po.product_id,
+                    po.order_qty,
+                    p.code as product_code,
+                    p.name as product_name,
+                    p.uom_type,
+                    p.default_unit_id,
+                    p.uom_group_id
+                FROM production_orders po
+                JOIN products p ON po.product_id = p.id
+                WHERE po.id = ? AND po.tenant_id = ?
             ");
-            $compStmt->execute([$poId]);
-            $comp = $compStmt->fetch(PDO::FETCH_ASSOC);
+            $stmt->execute([$poId, $tenant_id]);
+            $product = $stmt->fetch(PDO::FETCH_ASSOC);
             
-            $product['completed_qty'] = $comp['completed_qty'];
-            $product['uom_id'] = $product['default_unit_id'];
+            if (!$product) {
+                ob_end_clean();
+                echo json_encode(['success' => false, 'message' => 'Product not found']);
+                exit;
+            }
             
-            echo json_encode(['success' => true, 'data' => [$product]]);
-        } else {
-            echo json_encode(['success' => false, 'message' => 'Product not found']);
+            // Get total WIP cost
+            $wipStmt = $pdo->prepare("
+                SELECT COALESCE(SUM(total_cost), 0) as total_wip_cost
+                FROM work_in_progress
+                WHERE production_order_id = ?
+            ");
+            $wipStmt->execute([$poId]);
+            $wip = $wipStmt->fetch(PDO::FETCH_ASSOC);
+            $totalWipCost = $wip['total_wip_cost'];
+            
+            // Get units based on uom_type
+            $units = [];
+            
+            if ($product['uom_type'] === 'single' || $product['uom_type'] === 'unit') {
+                // Single unit
+                $unitStmt = $pdo->prepare("SELECT id, uom_name, conversion_factor, is_base_unit FROM uom WHERE id = ?");
+                $unitStmt->execute([$product['default_unit_id']]);
+                $unit = $unitStmt->fetch(PDO::FETCH_ASSOC);
+                
+                if ($unit) {
+                    $units[] = [
+                        'unit_id' => $unit['id'],
+                        'uom_name' => $unit['uom_name'],
+                        'conversion_factor' => $unit['conversion_factor'],
+                        'is_base_unit' => $unit['is_base_unit']
+                    ];
+                }
+            } else {
+                // UOM Group - get all units
+                $unitStmt = $pdo->prepare("
+                    SELECT u.id, u.uom_name, u.conversion_factor, u.is_base_unit
+                    FROM uom_group_units ugu
+                    JOIN uom u ON ugu.uom_id = u.id
+                    WHERE ugu.uom_group_id = ?
+                    ORDER BY u.is_base_unit DESC, u.id
+                ");
+                $unitStmt->execute([$product['uom_group_id']]);
+                $unitsData = $unitStmt->fetchAll(PDO::FETCH_ASSOC);
+                
+                foreach ($unitsData as $unit) {
+                    $units[] = [
+                        'unit_id' => $unit['id'],
+                        'uom_name' => $unit['uom_name'],
+                        'conversion_factor' => $unit['conversion_factor'],
+                        'is_base_unit' => $unit['is_base_unit']
+                    ];
+                }
+            }
+            
+            // Calculate unit cost (total WIP cost / order qty)
+            $baseUnitCost = $product['order_qty'] > 0 ? $totalWipCost / $product['order_qty'] : 0;
+            
+            // Create product entries for each unit
+            $productData = [];
+            foreach ($units as $unit) {
+                // Get completed qty for this unit
+                $compStmt = $pdo->prepare("
+                    SELECT COALESCE(SUM(cp.completed_qty), 0) as completed_qty
+                    FROM completed_products cp
+                    JOIN production_completions pc ON cp.production_completion_id = pc.id
+                    WHERE pc.production_order_id = ? AND cp.uom_id = ?
+                ");
+                $compStmt->execute([$poId, $unit['unit_id']]);
+                $comp = $compStmt->fetch(PDO::FETCH_ASSOC);
+                
+                $productData[] = [
+                    'product_id' => $product['product_id'],
+                    'product_code' => $product['product_code'],
+                    'product_name' => $product['product_name'],
+                    'order_qty' => $product['order_qty'],
+                    'completed_qty' => $comp['completed_qty'],
+                    'uom_id' => $unit['unit_id'],
+                    'uom_name' => $unit['uom_name'],
+                    'unit_cost' => $baseUnitCost,
+                    'total_wip_cost' => $totalWipCost
+                ];
+            }
+            
+            ob_end_clean();
+            echo json_encode(['success' => true, 'data' => $productData]);
+        } catch (Exception $e) {
+            ob_end_clean();
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
         }
         exit;
     }
@@ -220,25 +295,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $wipStmt->execute([$po_id]);
             $wipMaterials = $wipStmt->fetchAll(PDO::FETCH_ASSOC);
             
-            // 1. WIP OUT for each material (account_id = 116)
-            foreach ($wipMaterials as $mat) {
-                $stmt = $pdo->prepare("
-                    INSERT INTO stock_ledger
-                    (tenant_id, account_id, branch_id, product_id, reference_table, reference_id,
-                     qty_out, unit_cost, unit_id, transaction_type, transaction_date, created_at)
-                    VALUES (?, 116, ?, ?, 'production_completions', ?, ?, ?, ?, 'WIP_OUT', ?, NOW())
-                ");
-                $stmt->execute([
-                    $tenant_id,
-                    $branch_id,
-                    $mat['material_id'],
-                    $completion_id,
-                    $mat['issue_qty'],
-                    $mat['unit_cost'],
-                    $mat['uom_id'],
-                    $complete_date
-                ]);
-            }
+            // 1. WIP OUT for finished product (account_id = 116)
+            $stmt = $pdo->prepare("
+                INSERT INTO stock_ledger
+                (tenant_id, account_id, branch_id, product_id, reference_table, reference_id,
+                 qty_out, unit_cost, unit_id, transaction_type, transaction_date, created_at)
+                VALUES (?, 116, ?, ?, 'production_completions', ?, ?, ?, ?, 'WIP_OUT', ?, NOW())
+            ");
+            $stmt->execute([
+                $tenant_id,
+                $branch_id,
+                $prod['product_id'],
+                $completion_id,
+                $prod['completed_qty'],
+                $prod['unit_cost'],
+                $prod['uom_id'],
+                $complete_date
+            ]);
             
             // 2. Finished Goods IN (account_id = 117)
             $stmt = $pdo->prepare("

@@ -152,6 +152,7 @@ function initializePage(permissions) {
                     codeOption.setAttribute('data-value', customer.id);
                     codeOption.setAttribute('data-balance', customer.current_balance);
                     codeOption.setAttribute('data-address', customer.address || '');
+                    codeOption.setAttribute('data-supplier-man', customer.supplier_man_id || '');
                     codeOption.textContent = `${customer.customer_code} - ${customer.customer_name}`;
                     fragment.appendChild(codeOption);
                 });
@@ -263,13 +264,20 @@ function initializePage(permissions) {
             
             if (data.success) {
                 const salesOfficerSelect = document.getElementById('salesOfficer');
+                const supplierManSelect = document.getElementById('supplierMan');
                 salesOfficerSelect.innerHTML = '<option value="">Select Sales Officer</option>';
+                supplierManSelect.innerHTML = '<option value="">Select Supplier Man</option>';
                 
                 data.employees.forEach(employee => {
-                    const option = document.createElement('option');
-                    option.value = employee.id;
-                    option.textContent = `${employee.employee_id} - ${employee.full_name}`;
-                    salesOfficerSelect.appendChild(option);
+                    const option1 = document.createElement('option');
+                    option1.value = employee.id;
+                    option1.textContent = `${employee.employee_id} - ${employee.full_name}`;
+                    salesOfficerSelect.appendChild(option1);
+                    
+                    const option2 = document.createElement('option');
+                    option2.value = employee.id;
+                    option2.textContent = `${employee.employee_id} - ${employee.full_name}`;
+                    supplierManSelect.appendChild(option2);
                 });
             }
         } catch (error) {
@@ -505,6 +513,11 @@ function initializePage(permissions) {
                     document.getElementById('salesOfficer').value = invoice.sale_officer_id;
                 }
                 
+                // Set supplier man if exists
+                if (invoice.supplier_man_id) {
+                    document.getElementById('supplierMan').value = invoice.supplier_man_id;
+                }
+                
                 // Load sub-accounts and set value
                 if (invoice.customer_id) {
                     await loadSubAccounts(invoice.customer_id);
@@ -649,6 +662,13 @@ function initializePage(permissions) {
                     if (addressEl) {
                         const address = e.target.getAttribute('data-address');
                         addressEl.textContent = address || 'No address available';
+                    }
+                    
+                    // Auto-populate Supplier Man
+                    const supplierManId = e.target.getAttribute('data-supplier-man');
+                    const supplierManSelect = document.getElementById('supplierMan');
+                    if (supplierManSelect && supplierManId && supplierManId !== 'null' && supplierManId !== '') {
+                        supplierManSelect.value = supplierManId;
                     }
                     
                     // Load sub-accounts for selected customer
@@ -1729,6 +1749,7 @@ function saveInvoice(status = 'Posted') {
         paymentMethod: document.getElementById('paymentMethod').value,
         bankAccountId: document.getElementById('bankAccount').value || null,
         salesOfficerId: document.getElementById('salesOfficer').value || null,
+        supplierManId: document.getElementById('supplierMan').value || null,
         subAccountId: document.getElementById('subAccount').value || null,
         amountPaid: parseFloat(document.getElementById('amountPaid').value) || 0,
         remainingBalance: parseFloat(document.getElementById('remainingBalance').value) || 0,

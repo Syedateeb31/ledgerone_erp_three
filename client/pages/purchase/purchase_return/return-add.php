@@ -93,10 +93,13 @@ if (!$user_id) {
 
                     <div class="form-group">
                         <label for="subAccount">Sub Account</label>
-                        <select id="subAccount">
-                            <option value="">Select Sub Account</option>
-                            <!-- Options loaded dynamically -->
-                        </select>
+                        <div class="searchable-dropdown">
+                            <input type="text" class="search-input" autocomplete="off" placeholder="Search sub account..." id="subAccountSearch">
+                            <div class="dropdown-options" id="subAccountOptions">
+                                <!-- Options loaded dynamically -->
+                            </div>
+                            <input type="hidden" id="subAccount">
+                        </div>
                     </div>
 
                     <div class="form-group">
@@ -138,9 +141,8 @@ if (!$user_id) {
                         <thead>
                             <tr>
                                 <th width="4%">S#</th>
-                                <th width="16%">Product Code / Name</th>
-                                <th width="6%">Unit</th>
-                                <th width="5%">Qty</th>
+                                <th width="20%">Product Code / Name</th>
+                                <!-- Dynamic unit columns will be inserted here -->
                                 <th width="8%"><span id="purchasePriceLabel">Purchase Price</span></th>
                                 <th width="8%"><span id="grossAmountLabel">Gross Amount</span></th>
                                 <th width="5%">Disc %</th>
@@ -159,8 +161,8 @@ if (!$user_id) {
                         </tbody>
                         <tfoot>
                             <tr class="totals-row">
-                                <th colspan="3">Totals</th>
-                                <th id="totalQty">0.00</th>
+                                <th colspan="2">Totals</th>
+                                <!-- Dynamic unit totals will be inserted here -->
                                 <th id="totalPurchasePrice">0.00</th>
                                 <th id="totalGrossAmount">0.00</th>
                                 <th></th>
@@ -322,6 +324,7 @@ if (!$user_id) {
         </div>
     </div>
 
+    <script src="../../../assets/js/purchase/purchase_return/return-add-uom.js"></script>
     <script src="../../../assets/js/purchase/purchase_return/return-add.js"></script>
 </body>
 </html>

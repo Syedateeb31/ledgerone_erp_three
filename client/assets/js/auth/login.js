@@ -111,6 +111,7 @@ if (loginForm && loginButton) {
             sessionStorage.setItem('user_data', JSON.stringify(result.user));
             sessionStorage.setItem('tenant_data', JSON.stringify(result.tenant));
             sessionStorage.setItem('subscription_status', result.subscription.status);
+            sessionStorage.setItem('billing_type', result.subscription.billing_type);
             sessionStorage.setItem('subscription_end_date', result.subscription.end_date);
             sessionStorage.setItem('subscription_expired', result.subscription.is_expired);
             

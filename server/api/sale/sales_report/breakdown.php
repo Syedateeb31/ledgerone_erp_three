@@ -23,6 +23,18 @@ try {
             ORDER BY si.sale_date DESC
         ");
         $stmt->execute([$tenant_id, $id, $date_from, $date_to]);
+    } elseif ($type === 'supplier_man') {
+        $stmt = $pdo->prepare("
+            SELECT 
+                si.sale_date as date,
+                COUNT(si.id) as invoices,
+                SUM(si.net_amount) as revenue
+            FROM sale_invoice si
+            WHERE si.tenant_id = ? AND si.supplier_man_id = ? AND si.sale_date BETWEEN ? AND ? AND si.status = 'Posted'
+            GROUP BY si.sale_date
+            ORDER BY si.sale_date DESC
+        ");
+        $stmt->execute([$tenant_id, $id, $date_from, $date_to]);
     } elseif ($type === 'product') {
         $stmt = $pdo->prepare("
             SELECT 

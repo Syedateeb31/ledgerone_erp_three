@@ -1,0 +1,210 @@
+    function addRow() {
+        const rowCount = itemsTable.rows.length;
+        const row = itemsTable.insertRow();
+
+        // Cell 0: Serial number
+        const cell0 = row.insertCell(0);
+        cell0.textContent = rowCount + 1;
+
+        // Cell 1: Product Code / Name
+        const cell1 = row.insertCell(1);
+        const codeContainer = document.createElement('div');
+        codeContainer.className = 'searchable-dropdown';
+        const codeOptionsHtml = productsData.map(product => {
+            const codes = [];
+            if (product.qr_code) codes.push(product.qr_code);
+            if (product.barcode) codes.push(product.barcode);
+            const codeDisplay = codes.length > 0 ? ` (${codes.join(' - ')})` : '';
+            const photoHtml = product.photo ? `<img src="../../../assets/uploads/products/${product.photo}" alt="${product.name}" style="width: 30px; height: 30px; object-fit: cover; margin-right: 8px; border-radius: 4px;">` : '';
+            return `<div class="dropdown-option" data-product='${JSON.stringify(product)}' style="display: flex; align-items: center;">${photoHtml}${product.code} - ${product.name}${codeDisplay}</div>`;
+        }).join('');
+
+        codeContainer.innerHTML = `
+            <input type="text" class="search-input table-input" placeholder="Search product..." autocomplete="off">
+            <input type="hidden" class="item-code" required>
+        `;
+
+        const dropdownOptions = document.createElement('div');
+        dropdownOptions.className = 'dropdown-options';
+        dropdownOptions.innerHTML = codeOptionsHtml;
+        dropdownOptions.style.position = 'absolute';
+        dropdownOptions.style.display = 'none';
+        dropdownOptions.style.zIndex = '9999';
+        document.body.appendChild(dropdownOptions);
+
+        codeContainer.querySelector('.search-input').dropdownOptions = dropdownOptions;
+        cell1.appendChild(codeContainer);
+        initTableDropdown(codeContainer, row);
+
+        // Cell 2: Sale Price
+        const priceCell = row.insertCell(2);
+        priceCell.className = 'price-cell';
+        const priceInput = document.createElement('input');
+        priceInput.type = 'number';
+        priceInput.className = 'table-input';
+        priceInput.min = '0';
+        priceInput.step = '0.01';
+        priceInput.required = true;
+        priceInput.addEventListener('input', function() {
+            if (row.dataset.productUomData) {
+                calculateTotalQuantity(row);
+            }
+        });
+        priceCell.appendChild(priceInput);
+
+        // Cell 3: Gross Amount
+        const grossCell = row.insertCell(3);
+        grossCell.className = 'gross-cell';
+        const grossInput = document.createElement('input');
+        grossInput.type = 'text';
+        grossInput.className = 'table-input';
+        grossInput.readOnly = true;
+        grossInput.value = '0.00';
+        grossInput.tabIndex = -1;
+        grossCell.appendChild(grossInput);
+
+        // Cell 4: Discount %
+        const discPercentCell = row.insertCell(4);
+        discPercentCell.className = 'disc-percent-cell';
+        const discPercentInput = document.createElement('input');
+        discPercentInput.type = 'number';
+        discPercentInput.className = 'table-input';
+        discPercentInput.min = '0';
+        discPercentInput.max = '100';
+        discPercentInput.step = '0.01';
+        discPercentInput.value = '0';
+        discPercentInput.addEventListener('input', function() {
+            if (row.dataset.productUomData) {
+                calculateTotalQuantity(row);
+            }
+        });
+        discPercentCell.appendChild(discPercentInput);
+
+        // Cell 5: Discount Amount
+        const discAmountCell = row.insertCell(5);
+        discAmountCell.className = 'disc-amount-cell';
+        const discAmountInput = document.createElement('input');
+        discAmountInput.type = 'number';
+        discAmountInput.className = 'table-input';
+        discAmountInput.min = '0';
+        discAmountInput.step = '0.01';
+        discAmountInput.value = '0.00';
+        discAmountCell.appendChild(discAmountInput);
+
+        // Cell 6: Trade Offer %
+        const toPercentCell = row.insertCell(6);
+        toPercentCell.className = 'to-percent-cell';
+        const toPercentInput = document.createElement('input');
+        toPercentInput.type = 'number';
+        toPercentInput.className = 'table-input';
+        toPercentInput.min = '0';
+        toPercentInput.max = '100';
+        toPercentInput.step = '0.01';
+        toPercentInput.value = '0';
+        toPercentInput.addEventListener('input', function() {
+            if (row.dataset.productUomData) {
+                calculateTotalQuantity(row);
+            }
+        });
+        toPercentCell.appendChild(toPercentInput);
+
+        // Cell 7: Trade Offer Amount
+        const toAmountCell = row.insertCell(7);
+        toAmountCell.className = 'to-amount-cell';
+        const toAmountInput = document.createElement('input');
+        toAmountInput.type = 'number';
+        toAmountInput.className = 'table-input';
+        toAmountInput.min = '0';
+        toAmountInput.step = '0.01';
+        toAmountInput.value = '0.00';
+        toAmountCell.appendChild(toAmountInput);
+
+        // Cell 8: GST %
+        const gstPercentCell = row.insertCell(8);
+        gstPercentCell.className = 'gst-percent-cell';
+        const gstPercentInput = document.createElement('input');
+        gstPercentInput.type = 'number';
+        gstPercentInput.className = 'table-input';
+        gstPercentInput.min = '0';
+        gstPercentInput.max = '100';
+        gstPercentInput.step = '0.01';
+        gstPercentInput.value = '0';
+        gstPercentInput.addEventListener('input', function() {
+            if (row.dataset.productUomData) {
+                calculateTotalQuantity(row);
+            }
+        });
+        gstPercentCell.appendChild(gstPercentInput);
+
+        // Cell 9: GST Amount
+        const gstAmountCell = row.insertCell(9);
+        gstAmountCell.className = 'gst-amount-cell';
+        const gstAmountInput = document.createElement('input');
+        gstAmountInput.type = 'number';
+        gstAmountInput.className = 'table-input';
+        gstAmountInput.min = '0';
+        gstAmountInput.step = '0.01';
+        gstAmountInput.value = '0.00';
+        gstAmountCell.appendChild(gstAmountInput);
+
+        // Cell 10: FOC Qty
+        const focCell = row.insertCell(10);
+        focCell.className = 'foc-cell';
+        const focInput = document.createElement('input');
+        focInput.type = 'number';
+        focInput.className = 'table-input';
+        focInput.min = '0';
+        focInput.step = '0.01';
+        focInput.value = '0';
+        focCell.appendChild(focInput);
+
+        // Cell 11: Net Amount
+        const netCell = row.insertCell(11);
+        netCell.className = 'net-cell';
+        const netInput = document.createElement('input');
+        netInput.type = 'text';
+        netInput.className = 'table-input';
+        netInput.readOnly = true;
+        netInput.value = '0.00';
+        netInput.tabIndex = -1;
+        netCell.appendChild(netInput);
+
+        // Cell 12: Actions
+        const actionsCell = row.insertCell(12);
+        const deleteBtn = document.createElement('button');
+        deleteBtn.type = 'button';
+        deleteBtn.className = 'btn btn-danger btn-sm';
+        deleteBtn.innerHTML = '<i class="fas fa-trash"></i>';
+        deleteBtn.addEventListener('click', function() {
+            const searchInput = row.cells[1].querySelector('.search-input');
+            if (searchInput.dropdownOptions) {
+                searchInput.dropdownOptions.remove();
+            }
+            row.remove();
+            updateSerialNumbers();
+            recalculateMaxColumns();
+            updateInvoiceSummary();
+        });
+        actionsCell.appendChild(deleteBtn);
+
+        // Apply settings visibility
+        const enableCashDiscountPercent = localStorage.getItem('enableCashDiscountPercent') === 'true';
+        const enableCashDiscountAmount = localStorage.getItem('enableCashDiscountAmount') === 'true';
+        const enableTradeOfferDiscount = localStorage.getItem('enableTradeOfferDiscount') === 'true';
+        const enableTradeOfferAmount = localStorage.getItem('enableTradeOfferAmount') === 'true';
+        const enableFOC = localStorage.getItem('enableFOC') === 'true';
+        const enableTaxation = localStorage.getItem('enableTaxation') === 'true';
+
+        discPercentCell.style.display = enableCashDiscountPercent ? '' : 'none';
+        discAmountCell.style.display = enableCashDiscountAmount ? '' : 'none';
+        toPercentCell.style.display = enableTradeOfferDiscount ? '' : 'none';
+        toAmountCell.style.display = enableTradeOfferAmount ? '' : 'none';
+        gstPercentCell.style.display = enableTaxation ? '' : 'none';
+        gstAmountCell.style.display = enableTaxation ? '' : 'none';
+        focCell.style.display = enableFOC ? '' : 'none';
+
+        // Focus on product search
+        setTimeout(() => {
+            row.cells[1].querySelector('.search-input').focus();
+        }, 10);
+    }

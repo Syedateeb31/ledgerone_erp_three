@@ -531,6 +531,7 @@ body {
   min-width: 160px;
   z-index: 1000;
   display: none;
+  margin-top: 4px;
 }
 
 .dropdown:hover .dropdown-menu {
@@ -553,6 +554,19 @@ body {
 .dropdown-item i {
   margin-right: 8px;
   width: 16px;
+}
+
+.dropdown-menu label {
+  margin: 0;
+  padding: 4px 0;
+  user-select: none;
+}
+
+.dropdown-menu label:hover {
+  background-color: var(--surface-1);
+  border-radius: 4px;
+  padding-left: 4px;
+  padding-right: 4px;
 }
 
 /* Pagination Styles */

@@ -52,6 +52,7 @@ try {
     $data = [
         'tenant_id' => $tenant_id,
         'company_id' => (int)$input['companyId'],
+        'customer_type_id' => !empty($input['customerTypeId']) ? (int)$input['customerTypeId'] : null,
         'customer_code' => $customer_code,
         'customer_name' => trim($input['customerName']),
         'address' => !empty($input['address']) ? trim($input['address']) : null,
@@ -65,6 +66,7 @@ try {
         'city_zone_id' => !empty($input['cityZoneId']) ? (int)$input['cityZoneId'] : null,
         'area_id' => !empty($input['areaId']) ? (int)$input['areaId'] : null,
         'associated_sales_officer_id' => !empty($input['salesOfficerId']) ? (int)$input['salesOfficerId'] : null,
+        'supplier_man_id' => !empty($input['supplierManId']) ? (int)$input['supplierManId'] : null,
         'is_sales_tax_registered' => isset($input['isSalesTaxRegistered']) ? (int)$input['isSalesTaxRegistered'] : 0,
         'strn' => !empty($input['strn']) ? trim($input['strn']) : null,
         'is_filer' => isset($input['isFiler']) ? (int)$input['isFiler'] : 0,
@@ -88,13 +90,14 @@ try {
     $data['id'] = $new_id;
     
     // Insert customer
-    $sql = "INSERT INTO customers (id, tenant_id, company_id, customer_code, customer_name, address, primary_phone, secondary_phone, identity_card_no, email, country_id, region_id, city_id, city_zone_id, area_id, associated_sales_officer_id, is_sales_tax_registered, strn, is_filer, ntn, advance_income_tax_percentage, default_discount_percentage, opening_debit_amount, opening_credit_amount, credit_limit, credit_period_limit_days, is_wholesaler, is_blacklisted, created_by, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+    $sql = "INSERT INTO customers (id, tenant_id, company_id, customer_type_id, customer_code, customer_name, address, primary_phone, secondary_phone, identity_card_no, email, country_id, region_id, city_id, city_zone_id, area_id, associated_sales_officer_id, supplier_man_id, is_sales_tax_registered, strn, is_filer, ntn, advance_income_tax_percentage, default_discount_percentage, opening_debit_amount, opening_credit_amount, credit_limit, credit_period_limit_days, is_wholesaler, is_blacklisted, created_by, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
     
     $stmt = $pdo->prepare($sql);
     $stmt->execute([
         $data['id'],
         $data['tenant_id'],
         $data['company_id'],
+        $data['customer_type_id'],
         $data['customer_code'],
         $data['customer_name'],
         $data['address'],
@@ -108,6 +111,7 @@ try {
         $data['city_zone_id'],
         $data['area_id'],
         $data['associated_sales_officer_id'],
+        $data['supplier_man_id'],
         $data['is_sales_tax_registered'],
         $data['strn'],
         $data['is_filer'],

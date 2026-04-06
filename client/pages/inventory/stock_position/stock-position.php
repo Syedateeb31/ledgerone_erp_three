@@ -97,6 +97,49 @@ $currency_symbol = $currency['symbol'];
                         <button class="btn btn-secondary" id="collapseAllBtn" style="margin-right: 8px;">
                             <i class="fas fa-minus-square"></i> Collapse All
                         </button>
+                        <div class="dropdown" style="margin-right: 8px;">
+                            <button class="btn btn-secondary dropdown-toggle" type="button" data-toggle="dropdown">
+                                <i class="fas fa-eye"></i> Columns
+                            </button>
+                            <div class="dropdown-menu" style="padding: 12px; min-width: 200px;">
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin-bottom: 8px;">
+                                    <input type="checkbox" id="toggle-branch" checked style="width: 16px; height: 16px;">
+                                    <span>Branch</span>
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin-bottom: 8px;">
+                                    <input type="checkbox" id="toggle-inventory-type" checked style="width: 16px; height: 16px;">
+                                    <span>Inventory Type</span>
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin-bottom: 8px;">
+                                    <input type="checkbox" id="toggle-opening-balance" checked style="width: 16px; height: 16px;">
+                                    <span>Opening Balance</span>
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin-bottom: 8px;">
+                                    <input type="checkbox" id="toggle-qty-in" checked style="width: 16px; height: 16px;">
+                                    <span>Total Qty In</span>
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin-bottom: 8px;">
+                                    <input type="checkbox" id="toggle-qty-out" checked style="width: 16px; height: 16px;">
+                                    <span>Total Qty Out</span>
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin-bottom: 8px;">
+                                    <input type="checkbox" id="toggle-current-stock" checked style="width: 16px; height: 16px;">
+                                    <span>Current Stock</span>
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin-bottom: 8px;">
+                                    <input type="checkbox" id="toggle-unit-cost" checked style="width: 16px; height: 16px;">
+                                    <span>Unit Cost</span>
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin-bottom: 8px;">
+                                    <input type="checkbox" id="toggle-stock-value" checked style="width: 16px; height: 16px;">
+                                    <span>Stock Value</span>
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                    <input type="checkbox" id="toggle-status" checked style="width: 16px; height: 16px;">
+                                    <span>Status</span>
+                                </label>
+                            </div>
+                        </div>
                         <div class="dropdown">
                             <button class="btn btn-primary dropdown-toggle" type="button" data-toggle="dropdown">
                                 <i class="fas fa-file-export"></i> Export
@@ -165,12 +208,27 @@ $currency_symbol = $currency['symbol'];
                         </select>
                     </div>
                     <div class="form-group">
+                        <label class="form-label" for="stock-level-filter">Stock Level</label>
+                        <select class="form-control" id="stock-level-filter">
+                            <option value="">All Levels</option>
+                            <option value="zero-or-less">Current Stock = 0 or Less</option>
+                            <option value="greater-than-zero">Current Stock > 0</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
                         <label class="form-label" for="valuation-method">Valuation Method</label>
                         <select class="form-control" id="valuation-method">
                             <option value="AVCO">AVCO (Average Cost)</option>
                             <option value="FIFO">FIFO (First In First Out)</option>
                             <option value="LIFO">LIFO (Last In First Out)</option>
+                            <option value="TRADE_PRICE">Market Value - Trade Price</option>
                         </select>
+                    </div>
+                    <div class="form-group" style="display: flex; align-items: flex-end;">
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <input type="checkbox" id="show-base-units" style="width: 18px; height: 18px;">
+                            <span>Show in Base Units</span>
+                        </label>
                     </div>
                     <div class="form-group" style="display: flex; align-items: flex-end; gap: 8px;">
                         <button class="btn btn-primary" id="applyPositionFilters">
@@ -182,19 +240,30 @@ $currency_symbol = $currency['symbol'];
                     </div>
                 </div>
                 <div class="table-container">
+                    <div id="trade-price-note" style="display: none; background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%); border-left: 4px solid #f39c12; padding: 16px; margin-bottom: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(243, 156, 18, 0.15);">
+                        <div style="display: flex; align-items: start; gap: 12px;">
+                            <i class="fas fa-info-circle" style="color: #f39c12; font-size: 20px; margin-top: 2px;"></i>
+                            <div>
+                                <div style="font-weight: 600; color: #856404; margin-bottom: 4px; font-size: 14px;">Market Value Estimation</div>
+                                <div style="color: #856404; font-size: 13px; line-height: 1.6;">
+                                    This report shows estimated market value based on trade price. It is not an accounting valuation and should not be used for financial reporting.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                     <table class="table">
                         <thead>
                             <tr>
                                 <th>Product</th>
-                                <th>Branch</th>
-                                <th>Inventory Type</th>
-                                <th>Opening Balance</th>
-                                <th>Total Qty In</th>
-                                <th>Total Qty Out</th>
-                                <th>Current Stock</th>
-                                <th>Unit Cost</th>
-                                <th>Stock Value</th>
-                                <th>Status</th>
+                                <th class="col-branch">Branch</th>
+                                <th class="col-inventory-type">Inventory Type</th>
+                                <th class="col-opening-balance">Opening Balance</th>
+                                <th class="col-qty-in">Total Qty In</th>
+                                <th class="col-qty-out">Total Qty Out</th>
+                                <th class="col-current-stock">Current Stock</th>
+                                <th class="col-unit-cost">Unit Cost</th>
+                                <th class="col-stock-value">Stock Value</th>
+                                <th class="col-status">Status</th>
                             </tr>
                         </thead>
                         <tbody>

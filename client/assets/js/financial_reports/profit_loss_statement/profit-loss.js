@@ -3,6 +3,7 @@ const startDateEl = document.getElementById('startDate');
 const endDateEl = document.getElementById('endDate');
 const branchFilterEl = document.getElementById('branchFilter');
 const companyFilterEl = document.getElementById('companyFilter');
+const currencyFilterEl = document.getElementById('currencyFilter');
 const detailLevelEl = document.getElementById('detailLevel');
 const includeGraphsEl = document.getElementById('includeGraphs');
 const generateReportBtn = document.getElementById('generateReportBtn');
@@ -36,6 +37,7 @@ const zakatNetProfitEl = document.getElementById('zakatNetProfit');
 const zakatPercentageEl = document.getElementById('zakatPercentage');
 const zakatAmountEl = document.getElementById('zakatAmount');
 let currentNetProfit = 0;
+let currentCurrencySymbol = CURRENCY_SYMBOL;
 
 // Set default dates (current month)
 const today = new Date();
@@ -52,6 +54,7 @@ endDateEl.value = formatDate(lastDay);
 
 // Load companies
 loadCompanies();
+loadCurrencies();
 
 async function loadCompanies() {
     try {
@@ -73,27 +76,67 @@ async function loadCompanies() {
     }
 }
 
+// Load currencies
+async function loadCurrencies() {
+    try {
+        const response = await fetch('../../../../server/api/financial_reports/customer_ledger/customer-ledger.php?type=currencies');
+        const result = await response.json();
+        
+        if (result.success) {
+            currencyFilterEl.innerHTML = '';
+            result.data.forEach(currency => {
+                const isBase = currency.is_base_currency == 1;
+                currencyFilterEl.innerHTML += `<option value="${currency.id}" ${isBase ? 'selected' : ''}>${currency.name} (${currency.symbol})${isBase ? ' - Base' : ''}</option>`;
+                if (isBase) {
+                    currentCurrencySymbol = currency.symbol;
+                }
+            });
+        }
+    } catch (error) {
+        console.error('Error loading currencies:', error);
+    }
+}
+
+// Update currency symbol when currency changes
+currencyFilterEl.addEventListener('change', async function() {
+    const selectedOption = currencyFilterEl.options[currencyFilterEl.selectedIndex];
+    const symbolMatch = selectedOption.text.match(/\((.+?)\)/);
+    if (symbolMatch) {
+        currentCurrencySymbol = symbolMatch[1];
+    }
+    // Regenerate report if already generated
+    if (reportResults.style.display !== 'none') {
+        await generateReport();
+    }
+});
+
 
 
 // Format currency
 function formatCurrency(amount) {
-    return CURRENCY_SYMBOL + amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return currentCurrencySymbol + amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 // Calculate percentages
 function calculatePercentage(amount, totalRevenue) {
-    if (totalRevenue === 0) return '0.00%';
-    return ((amount / totalRevenue) * 100).toFixed(2) + '%';
+    if (totalRevenue === 0 || totalRevenue < 100) return 'N/A';
+    const percentage = ((amount / totalRevenue) * 100).toFixed(2);
+    const percentValue = parseFloat(percentage);
+    if (percentValue > 100 || percentValue < -100) return '>100%';
+    return percentage + '%';
 }
 
 // Fetch P&L data from API
-async function fetchPLData(startDate, endDate, branchId, companyId) {
+async function fetchPLData(startDate, endDate, branchId, companyId, currencyId) {
     let url = `../../../../server/api/financial_reports/profit_loss_statement/profit-loss.php?start_date=${startDate}&end_date=${endDate}`;
     if (branchId && branchId !== 'all') {
         url += `&branch_id=${branchId}`;
     }
     if (companyId) {
         url += `&company_id=${companyId}`;
+    }
+    if (currencyId) {
+        url += `&currency_id=${currencyId}`;
     }
     const response = await fetch(url);
     const result = await response.json();
@@ -126,8 +169,6 @@ function validateForm() {
         isValid = false;
     }
 
-
-
     // Show validation message
     if (!isValid) {
         validationMessage.className = 'validation-message validation-error';
@@ -151,7 +192,7 @@ async function generateReport() {
         validationMessage.style.display = 'flex';
 
         // Fetch data from API
-        const data = await fetchPLData(startDateEl.value, endDateEl.value, branchFilterEl.value, companyFilterEl.value);
+        const data = await fetchPLData(startDateEl.value, endDateEl.value, branchFilterEl.value, companyFilterEl.value, currencyFilterEl.value);
         
         console.log('API Response:', data);
         console.log('Sales Revenue:', data.sales_revenue);

@@ -3,9 +3,12 @@ const startDateEl = document.getElementById('startDate');
 const endDateEl = document.getElementById('endDate');
 const branchFilterEl = document.getElementById('branchFilter');
 const companyFilterEl = document.getElementById('companyFilter');
+const categoryFilterEl = document.getElementById('categoryFilter');
 const customerFilterEl = document.getElementById('customerFilter');
 const productFilterEl = document.getElementById('productFilter');
 const invoiceFilterEl = document.getElementById('invoiceFilter');
+const currencyFilterEl = document.getElementById('currencyFilter');
+const categoryFilterSearchEl = document.getElementById('categoryFilterSearch');
 const customerFilterSearchEl = document.getElementById('customerFilterSearch');
 const productFilterSearchEl = document.getElementById('productFilterSearch');
 const invoiceFilterSearchEl = document.getElementById('invoiceFilterSearch');
@@ -30,9 +33,11 @@ const profitMarginEl = document.getElementById('profitMargin');
 
 // Table elements
 const itemTableBody = document.getElementById('itemTableBody');
+const categoryTableBody = document.getElementById('categoryTableBody');
 const customerTableBody = document.getElementById('customerTableBody');
 const invoiceTableBody = document.getElementById('invoiceTableBody');
 const reportPeriodItem = document.getElementById('reportPeriodItem');
+const reportPeriodCategory = document.getElementById('reportPeriodCategory');
 const reportPeriodCustomer = document.getElementById('reportPeriodCustomer');
 const reportPeriodInvoice = document.getElementById('reportPeriodInvoice');
 
@@ -96,10 +101,39 @@ function initSearchableDropdown(searchInput, optionsContainer, hiddenInput, data
 }
 
 // Load dropdowns
+loadCurrencies();
 loadCompanies();
+loadCategories();
 loadCustomers();
 loadProducts();
 loadInvoices();
+
+async function loadCurrencies() {
+    try {
+        const response = await fetch('../../../../server/api/financial_reports/profit_loss_detail/get-currencies.php');
+        const result = await response.json();
+        
+        if (result.success) {
+            currencyFilterEl.innerHTML = '';
+            result.data.forEach(currency => {
+                const option = document.createElement('option');
+                option.value = currency.id;
+                option.textContent = `${currency.name} (${currency.symbol})`;
+                option.dataset.symbol = currency.symbol;
+                if (currency.is_base) option.selected = true;
+                currencyFilterEl.appendChild(option);
+            });
+            
+            // Set initial currency symbol
+            const selectedOption = currencyFilterEl.options[currencyFilterEl.selectedIndex];
+            if (selectedOption && selectedOption.dataset.symbol) {
+                window.CURRENCY_SYMBOL = selectedOption.dataset.symbol;
+            }
+        }
+    } catch (error) {
+        console.error('Error loading currencies:', error);
+    }
+}
 
 async function loadCompanies() {
     try {
@@ -118,6 +152,27 @@ async function loadCompanies() {
         }
     } catch (error) {
         console.error('Error loading companies:', error);
+    }
+}
+
+async function loadCategories() {
+    try {
+        const response = await fetch('../../../../server/api/financial_reports/profit_loss_detail/get-categories.php');
+        const result = await response.json();
+        
+        if (result.success) {
+            const categoriesData = [{id: '', name: 'All Categories'}, ...result.data];
+            initSearchableDropdown(
+                categoryFilterSearchEl,
+                document.getElementById('categoryFilterOptions'),
+                categoryFilterEl,
+                categoriesData,
+                'id',
+                'name'
+            );
+        }
+    } catch (error) {
+        console.error('Error loading categories:', error);
     }
 }
 
@@ -186,7 +241,9 @@ async function loadInvoices() {
 
 // Format currency
 function formatCurrency(amount) {
-    return CURRENCY_SYMBOL + amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const selectedOption = currencyFilterEl.options[currencyFilterEl.selectedIndex];
+    const symbol = selectedOption && selectedOption.dataset.symbol ? selectedOption.dataset.symbol : CURRENCY_SYMBOL;
+    return symbol + amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 // Validate form
@@ -226,13 +283,15 @@ function validateForm() {
 }
 
 // Fetch data from API
-async function fetchReportData(startDate, endDate, branchId, companyId, customerId, productId, invoiceId) {
+async function fetchReportData(startDate, endDate, branchId, companyId, categoryId, customerId, productId, invoiceId, currencyId) {
     let url = `../../../../server/api/financial_reports/profit_loss_detail/get-report.php?start_date=${startDate}&end_date=${endDate}`;
     if (branchId && branchId !== 'all') url += `&branch_id=${branchId}`;
     if (companyId) url += `&company_id=${companyId}`;
+    if (categoryId) url += `&category_id=${categoryId}`;
     if (customerId) url += `&customer_id=${customerId}`;
     if (productId) url += `&product_id=${productId}`;
     if (invoiceId) url += `&invoice_id=${invoiceId}`;
+    if (currencyId) url += `&currency_id=${currencyId}`;
     
     const response = await fetch(url);
     const result = await response.json();
@@ -258,9 +317,11 @@ async function generateReport() {
             endDateEl.value, 
             branchFilterEl.value, 
             companyFilterEl.value,
+            categoryFilterEl.value,
             customerFilterEl.value,
             productFilterEl.value,
-            invoiceFilterEl.value
+            invoiceFilterEl.value,
+            currencyFilterEl.value
         );
 
         console.log('Report Data:', data);
@@ -281,9 +342,12 @@ async function generateReport() {
         let profitMargin = totalRevenue > 0 ? ((grossProfit / totalRevenue) * 100).toFixed(2) : 0;
 
         // Update summary cards
-        totalRevenueEl.textContent = formatCurrency(totalRevenue);
-        totalCOGSEl.textContent = formatCurrency(totalCOGS);
-        grossProfitEl.textContent = formatCurrency(grossProfit);
+        const selectedOption = currencyFilterEl.options[currencyFilterEl.selectedIndex];
+        const currentSymbol = selectedOption && selectedOption.dataset.symbol ? selectedOption.dataset.symbol : CURRENCY_SYMBOL;
+        
+        totalRevenueEl.textContent = currentSymbol + totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        totalCOGSEl.textContent = currentSymbol + totalCOGS.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        grossProfitEl.textContent = currentSymbol + grossProfit.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         profitMarginEl.textContent = profitMargin + '%';
 
         // Update report period
@@ -292,6 +356,7 @@ async function generateReport() {
         const options = { month: 'short', day: 'numeric', year: 'numeric' };
         const periodText = `Period: ${startDate.toLocaleDateString('en-US', options)} - ${endDate.toLocaleDateString('en-US', options)}`;
         reportPeriodItem.textContent = periodText;
+        reportPeriodCategory.textContent = periodText;
         reportPeriodCustomer.textContent = periodText;
         reportPeriodInvoice.textContent = periodText;
 
@@ -336,6 +401,48 @@ async function generateReport() {
         `;
 
         itemTableBody.innerHTML = itemHTML;
+
+        // Build category-wise table
+        let categoryHTML = '';
+        let catTotalRevenue = 0;
+        let catTotalCOGS = 0;
+        let catTotalProfit = 0;
+
+        data.categorywise.forEach(category => {
+            const revenue = parseFloat(category.revenue);
+            const cogs = parseFloat(category.cogs);
+            const profit = revenue - cogs;
+            const margin = revenue > 0 ? ((profit / revenue) * 100).toFixed(2) : 0;
+
+            catTotalRevenue += revenue;
+            catTotalCOGS += cogs;
+            catTotalProfit += profit;
+
+            categoryHTML += `
+                <tr>
+                    <td>${category.category_name || 'Uncategorized'}</td>
+                    <td class="amount-cell">${category.product_count}</td>
+                    <td class="amount-cell positive">${formatCurrency(revenue)}</td>
+                    <td class="amount-cell negative">${formatCurrency(cogs)}</td>
+                    <td class="amount-cell ${profit >= 0 ? 'positive' : 'negative'}">${formatCurrency(profit)}</td>
+                    <td class="amount-cell">${margin}%</td>
+                </tr>
+            `;
+        });
+
+        const catTotalMargin = catTotalRevenue > 0 ? ((catTotalProfit / catTotalRevenue) * 100).toFixed(2) : 0;
+        categoryHTML += `
+            <tr class="total-row">
+                <td><strong>TOTAL</strong></td>
+                <td class="amount-cell"></td>
+                <td class="amount-cell positive">${formatCurrency(catTotalRevenue)}</td>
+                <td class="amount-cell negative">${formatCurrency(catTotalCOGS)}</td>
+                <td class="amount-cell ${catTotalProfit >= 0 ? 'positive' : 'negative'}">${formatCurrency(catTotalProfit)}</td>
+                <td class="amount-cell">${catTotalMargin}%</td>
+            </tr>
+        `;
+
+        categoryTableBody.innerHTML = categoryHTML;
 
         // Build customer-wise table
         let customerHTML = '';
@@ -446,9 +553,11 @@ function resetForm() {
     endDateEl.value = formatDate(today);
     branchFilterEl.value = 'all';
     companyFilterEl.value = '';
+    categoryFilterEl.value = '';
     customerFilterEl.value = '';
     productFilterEl.value = '';
     invoiceFilterEl.value = '';
+    categoryFilterSearchEl.value = '';
     customerFilterSearchEl.value = '';
     productFilterSearchEl.value = '';
     invoiceFilterSearchEl.value = '';
@@ -480,6 +589,8 @@ function printReport() {
     
     if (activeTab === 'itemwise') {
         reportData = window.currentData.itemwise;
+    } else if (activeTab === 'categorywise') {
+        reportData = window.currentData.categorywise;
     } else if (activeTab === 'customerwise') {
         reportData = window.currentData.customerwise;
     } else if (activeTab === 'invoicewise') {
@@ -487,7 +598,7 @@ function printReport() {
     }
     
     const dataJson = encodeURIComponent(JSON.stringify(reportData));
-    const url = `print.php?start_date=${startDateEl.value}&end_date=${endDateEl.value}&report_type=${activeTab}&data=${dataJson}`;
+    const url = `print.php?start_date=${startDateEl.value}&end_date=${endDateEl.value}&report_type=${activeTab}&data=${dataJson}&currency_id=${currencyFilterEl.value}`;
     window.open(url, '_blank');
 }
 
@@ -518,3 +629,14 @@ printBtn.addEventListener('click', printReport);
 refreshBtn.addEventListener('click', generateReport);
 startDateEl.addEventListener('change', validateForm);
 endDateEl.addEventListener('change', validateForm);
+currencyFilterEl.addEventListener('change', function() {
+    // Update currency symbol when currency changes
+    const selectedOption = currencyFilterEl.options[currencyFilterEl.selectedIndex];
+    if (selectedOption && selectedOption.dataset.symbol) {
+        window.CURRENCY_SYMBOL = selectedOption.dataset.symbol;
+    }
+    // Regenerate report if data exists
+    if (window.currentData) {
+        generateReport();
+    }
+});

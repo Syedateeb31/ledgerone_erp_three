@@ -77,22 +77,64 @@
             return;
         }
         
-        tbody.innerHTML = '';
-        prods.forEach((prod, idx) => {
-            const remaining = parseFloat(prod.order_qty) - parseFloat(prod.completed_qty || 0);
-            
-            const row = document.createElement('tr');
-            row.innerHTML = `
-                <td><strong>${prod.product_code} - ${prod.product_name}</strong></td>
-                <td>${prod.order_qty}</td>
-                <td>${remaining.toFixed(2)}</td>
-                <td><input type="number" class="complete-qty" data-idx="${idx}" step="0.01" min="0" max="${remaining}" value="${remaining}" required></td>
-                <td>${prod.uom_name || 'N/A'}</td>
-                <td class="unit-cost-${idx}">${parseFloat(prod.unit_cost).toFixed(2)}</td>
-                <td class="total-cost-${idx}">${(remaining * prod.unit_cost).toFixed(2)}</td>
-            `;
-            tbody.appendChild(row);
+        // Update table headers
+        updateTableHeaders();
+        
+        // Group products by product_id
+        const productsByProduct = {};
+        
+        prods.forEach(prod => {
+            if (!productsByProduct[prod.product_id]) {
+                productsByProduct[prod.product_id] = {
+                    code: prod.product_code,
+                    name: prod.product_name,
+                    order_qty: prod.order_qty,
+                    units: []
+                };
+            }
+            productsByProduct[prod.product_id].units.push(prod);
         });
+        
+        tbody.innerHTML = '';
+        let globalIdx = 0;
+        
+        for (const productId in productsByProduct) {
+            const product = productsByProduct[productId];
+            
+            // Each unit gets its own row
+            product.units.forEach((prod, unitIdx) => {
+                const remaining = parseFloat(prod.order_qty) - parseFloat(prod.completed_qty || 0);
+                
+                products[globalIdx] = prod;
+                
+                const row = document.createElement('tr');
+                
+                // Show product name only in first row
+                if (unitIdx === 0) {
+                    row.innerHTML = `
+                        <td rowspan="${product.units.length}" style="font-weight:600; vertical-align:middle; border-right:2px solid #E5E7EB;">${product.code}<br>${product.name}</td>
+                        <td>${prod.order_qty}</td>
+                        <td>${remaining.toFixed(2)}</td>
+                        <td><input type="number" class="complete-qty" data-idx="${globalIdx}" step="0.01" min="0" max="${remaining}" value="${remaining}" required style="width:80px;"></td>
+                        <td>${prod.uom_name || 'N/A'}</td>
+                        <td class="unit-cost-${globalIdx}">${parseFloat(prod.unit_cost).toFixed(2)}</td>
+                        <td class="total-cost-${globalIdx}">${(remaining * prod.unit_cost).toFixed(2)}</td>
+                    `;
+                } else {
+                    row.innerHTML = `
+                        <td>${prod.order_qty}</td>
+                        <td>${remaining.toFixed(2)}</td>
+                        <td><input type="number" class="complete-qty" data-idx="${globalIdx}" step="0.01" min="0" max="${remaining}" value="${remaining}" required style="width:80px;"></td>
+                        <td>${prod.uom_name || 'N/A'}</td>
+                        <td class="unit-cost-${globalIdx}">${parseFloat(prod.unit_cost).toFixed(2)}</td>
+                        <td class="total-cost-${globalIdx}">${(remaining * prod.unit_cost).toFixed(2)}</td>
+                    `;
+                }
+                
+                tbody.appendChild(row);
+                globalIdx++;
+            });
+        }
 
         document.querySelectorAll('.complete-qty').forEach(input => {
             input.addEventListener('input', function() {
@@ -101,6 +143,26 @@
                 calculateTotals();
             });
         });
+    }
+    
+    function updateTableHeaders() {
+        const table = document.querySelector('table');
+        if (!table) return;
+        
+        let thead = table.querySelector('thead');
+        if (!thead) return;
+        
+        thead.innerHTML = `
+            <tr>
+                <th style="min-width:200px;">Product</th>
+                <th>Planned Qty</th>
+                <th>Remaining Qty</th>
+                <th>Completed Qty</th>
+                <th>UOM</th>
+                <th>Unit Cost</th>
+                <th>Total Cost</th>
+            </tr>
+        `;
     }
 
     function calculateRowTotal(idx) {

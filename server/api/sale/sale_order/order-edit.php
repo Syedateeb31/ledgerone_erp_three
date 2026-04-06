@@ -42,6 +42,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 cur.code as currency_code,
                 cur.name as currency_name,
                 e.full_name as sales_officer_name,
+                sm.full_name as supplier_man_name,
                 COALESCE(rv.amount, 0) as amount_paid,
                 CASE 
                     WHEN rv.payment_method_id = 1 THEN 'Cash'
@@ -54,6 +55,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             LEFT JOIN branches pb ON b.parent_branch_id = pb.id
             LEFT JOIN ledgerone_public.currencies cur ON si.currency_id = cur.id
             LEFT JOIN employees e ON si.sale_officer_id = e.id
+            LEFT JOIN employees sm ON si.supplier_man_id = sm.id
             LEFT JOIN receive_voucher rv ON si.bill_no = rv.bill_no AND si.tenant_id = rv.tenant_id
             WHERE si.id = ? AND si.tenant_id = ?
         ");
@@ -66,20 +68,90 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             exit;
         }
 
-        // Get invoice items
+        // Get invoice items grouped by product
         $itemStmt = $pdo->prepare("
             SELECT 
                 sii.*,
                 p.name as product_name,
                 p.code as product_code,
+                p.uom_type,
+                p.uom_group_id,
+                p.default_unit_id,
                 u.uom_name
             FROM sale_order_items sii
             LEFT JOIN products p ON sii.product_id = p.id
             LEFT JOIN uom u ON sii.uom_id = u.id
             WHERE sii.sale_invoice_id = ? AND sii.tenant_id = ?
+            ORDER BY sii.id
         ");
         $itemStmt->execute([$invoice_id, $tenant_id]);
-        $items = $itemStmt->fetchAll(PDO::FETCH_ASSOC);
+        $rawItems = $itemStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Group items by product_id
+        $productGroups = [];
+        foreach ($rawItems as $item) {
+            $productGroups[$item['product_id']][] = $item;
+        }
+
+        $groupedItems = [];
+        $itemIndex = 0;
+
+        foreach ($productGroups as $productId => $items) {
+            $uomMap = [];
+            $firstItem = null;
+            $totalGross = 0;
+            $totalDiscount = 0;
+            $totalTradeOffer = 0;
+            $totalGst = 0;
+            $totalFoc = 0;
+            $totalNet = 0;
+
+            foreach ($items as $item) {
+                if (!$firstItem) $firstItem = $item;
+
+                $uomId = $item['uom_id'];
+                if (!isset($uomMap[$uomId])) {
+                    $uomMap[$uomId] = [
+                        'uom_id' => $uomId,
+                        'uom_name' => $item['uom_name'],
+                        'quantity' => 0
+                    ];
+                }
+                $uomMap[$uomId]['quantity'] += floatval($item['quantity']);
+
+                if (floatval($item['gross_amount']) > 0) {
+                    $totalGross += floatval($item['gross_amount']);
+                    $totalDiscount += floatval($item['discount_amount']);
+                    $totalTradeOffer += floatval($item['trade_offer_amount']);
+                    $totalGst += floatval($item['gst_amount']);
+                    $totalFoc += floatval($item['foc_quantity']);
+                    $totalNet += floatval($item['net_amount']);
+                }
+            }
+
+            $itemIndex++;
+            $groupedItems[$itemIndex] = [
+                'product_id' => $productId,
+                'product_name' => $firstItem['product_name'],
+                'product_code' => $firstItem['product_code'],
+                'uom_type' => $firstItem['uom_type'],
+                'uom_group_id' => $firstItem['uom_group_id'],
+                'default_unit_id' => $firstItem['default_unit_id'],
+                'sale_price' => $firstItem['sale_price'],
+                'gross_amount' => $totalGross,
+                'discount_percent' => $firstItem['discount_percent'],
+                'discount_amount' => $totalDiscount,
+                'trade_offer_percent' => $firstItem['trade_offer_percent'],
+                'trade_offer_amount' => $totalTradeOffer,
+                'gst_percent' => $firstItem['gst_percent'],
+                'gst_amount' => $totalGst,
+                'foc_quantity' => $totalFoc,
+                'net_amount' => $totalNet,
+                'unit_entries' => array_values($uomMap)
+            ];
+        }
+
+        $items = array_values($groupedItems);
 
         echo json_encode([
             'success' => true,
@@ -110,7 +182,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
         $stmt = $pdo->prepare("
             UPDATE sale_order SET
                 company_id = ?, currency_id = ?, sale_date = ?, customer_id = ?, branch_id = ?,
-                previous_balance = ?, sale_officer_id = ?, bilty_no = ?, transport_name = ?, total_bill = ?, total_discount_percent = ?,
+                previous_balance = ?, sale_officer_id = ?, supplier_man_id = ?, bilty_no = ?, transport_name = ?, total_bill = ?, total_discount_percent = ?,
                 total_discount_amount = ?, net_amount = ?, remarks = ?, status = ?, updated_by = ?
             WHERE id = ? AND tenant_id = ?
         ");
@@ -122,6 +194,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
             $input['branchId'],
             extractBalanceAmount($input['previousBalance'] ?? '0.00'),
             $input['salesOfficerId'] ?? null,
+            $input['supplierManId'] ?? null,
             $input['biltyNo'] ?? null,
             $input['transportName'] ?? null,
             $input['totalBill'],
@@ -135,45 +208,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
             $tenant_id
         ]);
 
-        // Delete existing items and related records
+        // Delete existing items
         $pdo->prepare("DELETE FROM sale_order_items WHERE sale_invoice_id = ? AND tenant_id = ?")->execute([$invoice_id, $tenant_id]);
 
-        $status = $input['status'] ?? 'Posted';
-
-        // Insert new items
+        // Insert new items with dynamic UOM support
         $item_stmt = $pdo->prepare("
             INSERT INTO sale_order_items (
                 tenant_id, sale_invoice_id, product_id, uom_id,
                 quantity, sale_price, gross_amount, discount_percent,
                 discount_amount, trade_offer_percent, trade_offer_amount,
-                gst_percent, gst_amount, foc_quantity, net_amount, parent_row_id, piece, carton, dozen, created_by, updated_by
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                gst_percent, gst_amount, foc_quantity, net_amount, created_by, updated_by
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ");
 
         foreach ($input['items'] as $item) {
-            $item_stmt->execute([
-                $tenant_id,
-                $invoice_id,
-                $item['productId'],
-                $item['uomId'],
-                $item['quantity'],
-                $item['salePrice'],
-                $item['grossAmount'],
-                $item['discountPercent'] ?? 0.00,
-                $item['discountAmount'] ?? 0.00,
-                $item['tradeOfferPercent'] ?? 0.00,
-                $item['tradeOfferAmount'] ?? 0.00,
-                $item['gstPercent'] ?? 0.00,
-                $item['gstAmount'] ?? 0.00,
-                $item['focQty'] ?? 0.00,
-                $item['netAmount'],
-                $item['parentRowId'] ?? null,
-                $item['pcs'] ?? 0,
-                $item['ctn'] ?? 0,
-                $item['dz'] ?? 0,
-                $user_id,
-                $user_id
-            ]);
+            // Each item can have multiple unit entries
+            $isFirstEntry = true;
+            foreach ($item['unitEntries'] as $unitEntry) {
+                $item_stmt->execute([
+                    $tenant_id,
+                    $invoice_id,
+                    $item['productId'],
+                    $unitEntry['uomId'],
+                    $unitEntry['quantity'],
+                    $item['salePrice'],
+                    $isFirstEntry ? $item['grossAmount'] : 0,
+                    $item['discountPercent'] ?? 0.00,
+                    $isFirstEntry ? $item['discountAmount'] : 0,
+                    $item['tradeOfferPercent'] ?? 0.00,
+                    $isFirstEntry ? $item['tradeOfferAmount'] : 0,
+                    $item['gstPercent'] ?? 0.00,
+                    $isFirstEntry ? $item['gstAmount'] : 0,
+                    $item['focQty'] ?? 0,
+                    $isFirstEntry ? $item['netAmount'] : 0,
+                    $user_id,
+                    $user_id
+                ]);
+                $isFirstEntry = false;
+            }
         }
 
         $pdo->commit();

@@ -981,6 +981,13 @@ $user_employee_id = $user['employee_id'] ?? null;
                 </div>
 
                 <div class="form-group-micro">
+                    <div class="form-label">SUPPLIER MAN</div>
+                    <select id="supplierMan" class="font-bold">
+                        <option value="">Select Supplier Man</option>
+                    </select>
+                </div>
+
+                <div class="form-group-micro">
                     <div class="form-label">PAYMENT METHOD</div>
                     <select id="paymentMethod">
                         <option value="cash" selected>Cash</option>
@@ -1278,7 +1285,7 @@ $user_employee_id = $user['employee_id'] ?? null;
         </div>
     </div>
 
-    <script src="../../../assets/js/sale/pos_invoice/counter-invoice.js"></script>
+    <script src="../../../assets/js/sale/pos_invoice/counter-invoice.js?v=<?php echo time(); ?>"></script>
     <script>
         const userEmployeeId = <?php echo json_encode($user_employee_id); ?>;
         let stockData = [];
@@ -1299,30 +1306,6 @@ $user_employee_id = $user['employee_id'] ?? null;
             await loadStockData();
             updateStockDisplay();
             setInterval(() => loadStockData(), 30000);
-
-            // Quick add product on Enter
-            document.getElementById('quickProduct').addEventListener('keypress', function (e) {
-                if (e.key === 'Enter') {
-                    document.getElementById('quickAddBtn').click();
-                }
-            });
-
-            // Quick add button
-            document.getElementById('quickAddBtn').addEventListener('click', function() {
-                const productInput = document.getElementById('quickProduct').value.trim();
-                if (!productInput) return;
-                
-                const product = productsData.find(p => 
-                    p.name.toLowerCase().includes(productInput.toLowerCase()) ||
-                    p.code.toLowerCase().includes(productInput.toLowerCase()) ||
-                    (p.barcode && p.barcode.toLowerCase() === productInput.toLowerCase()) ||
-                    (p.qr_code && p.qr_code.toLowerCase() === productInput.toLowerCase())
-                );
-                
-                if (product) {
-                    selectProduct(product);
-                }
-            });
 
             // Quick Pay
             document.getElementById('quickPayBtn').addEventListener('click', quickPay);
@@ -1357,7 +1340,15 @@ $user_employee_id = $user['employee_id'] ?? null;
                         break;
                     case 'F12':
                         e.preventDefault();
-                        clearInvoice();
+                        if (confirm('Clear current invoice?')) {
+                            currentInvoice.items = [];
+                            renderItems();
+                            updateSummary();
+                            document.getElementById('invoiceDiscountPercent').value = 0;
+                            document.getElementById('invoiceDiscountAmount').value = 0;
+                            document.getElementById('amountReceived').value = 0;
+                            document.getElementById('amountReturned').value = 0;
+                        }
                         break;
                 }
             });

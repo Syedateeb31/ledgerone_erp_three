@@ -190,6 +190,7 @@
                 <p><strong>Branch:</strong> <span id="branchName">Loading...</span></p>
                 <p><strong>Currency:</strong> <span id="currency">Loading...</span></p>
                 <p><strong>Sales Officer:</strong> <span id="salesOfficer">-</span></p>
+                <p><strong>Supplier Man:</strong> <span id="supplierMan">-</span></p>
                 <p><strong>Bilty No:</strong> <span id="biltyNo">-</span></p>
                 <p><strong>Transport:</strong> <span id="transportName">-</span></p>
                 <p><strong>Remarks:</strong> <span id="remarks">-</span></p>
@@ -201,8 +202,8 @@
                 <tr>
                     <th width="4%">#</th>
                     <th width="20%">Product</th>
-                    <th width="6%">Unit</th>
-                    <th width="6%" class="text-right">Qty</th>
+                    <th width="15%">Quantities</th>
+                    <th width="6%" class="text-right">-</th>
                     <th width="8%" class="text-right">Unit Price</th>
                     <th width="8%" class="text-right">Gross Amt</th>
                     <th width="5%" class="text-right">Disc %</th>
@@ -222,8 +223,7 @@
             </tbody>
             <tfoot>
                 <tr style="background-color: #f5f5f5; font-weight: bold;">
-                    <th colspan="3">Totals</th>
-                    <th class="text-right" id="totalQty">0.00</th>
+                    <th colspan="4">Totals</th>
                     <th class="text-right" id="totalUnitPrice">0.00</th>
                     <th class="text-right" id="totalGrossAmount">0.00</th>
                     <th></th>
@@ -372,6 +372,7 @@
             document.getElementById('branchName').textContent = branchText;
             document.getElementById('currency').textContent = invoice.currency_name;
             document.getElementById('salesOfficer').textContent = invoice.sales_officer_name || '-';
+            document.getElementById('supplierMan').textContent = invoice.supplier_man_name || '-';
             document.getElementById('biltyNo').textContent = invoice.bilty_no || '-';
             document.getElementById('transportName').textContent = invoice.transport_name || '-';
             document.getElementById('remarks').textContent = invoice.remarks || '-';
@@ -385,16 +386,24 @@
 
             let totalQty = 0, totalUnitPrice = 0, totalGrossAmount = 0, totalDiscountAmountItems = 0, totalTradeOfferAmountItems = 0, totalGstAmountItems = 0, totalFocQty = 0, totalNetAmountItems = 0;
 
-            const parentItems = items.filter(item => !item.parent_row_id);
-            const childItems = items.filter(item => item.parent_row_id);
-
-            parentItems.forEach((item, index) => {
+            items.forEach((item, index) => {
                 const row = tbody.insertRow();
+                
+                // Build quantities display from unit_entries
+                let quantitiesDisplay = '';
+                if (item.unit_entries && item.unit_entries.length > 0) {
+                    quantitiesDisplay = item.unit_entries.map(entry => 
+                        `${entry.uom_name}: ${parseFloat(entry.quantity).toFixed(2)}`
+                    ).join(' | ');
+                } else {
+                    quantitiesDisplay = '-';
+                }
+                
                 row.innerHTML = `
                     <td class="text-center">${index + 1}</td>
                     <td>${item.product_name}</td>
-                    <td>${item.uom_name || 'Unit'}</td>
-                    <td class="text-right">${parseFloat(item.quantity).toFixed(2)}</td>
+                    <td>${quantitiesDisplay}</td>
+                    <td class="text-right">-</td>
                     <td class="text-right">${currencySymbol} ${parseFloat(item.sale_price).toFixed(2)}</td>
                     <td class="text-right">${currencySymbol} ${parseFloat(item.gross_amount).toFixed(2)}</td>
                     <td class="text-right">${parseFloat(item.discount_percent || 0).toFixed(2)}%</td>
@@ -403,45 +412,21 @@
                     <td class="text-right">${currencySymbol} ${parseFloat(item.trade_offer_amount || 0).toFixed(2)}</td>
                     <td class="text-right">${parseFloat(item.gst_percent || 0).toFixed(2)}%</td>
                     <td class="text-right">${currencySymbol} ${parseFloat(item.gst_amount || 0).toFixed(2)}</td>
-                    <td class="text-right">${parseFloat(item.foc_qty || 0).toFixed(2)}</td>
+                    <td class="text-right">${parseFloat(item.foc_quantity || 0).toFixed(2)}</td>
                     <td class="text-right">${currencySymbol} ${parseFloat(item.net_amount).toFixed(2)}</td>
                 `;
 
                 // Calculate totals
-                totalQty += parseFloat(item.quantity);
                 totalUnitPrice += parseFloat(item.sale_price);
                 totalGrossAmount += parseFloat(item.gross_amount);
                 totalDiscountAmountItems += parseFloat(item.discount_amount || 0);
                 totalTradeOfferAmountItems += parseFloat(item.trade_offer_amount || 0);
                 totalGstAmountItems += parseFloat(item.gst_amount || 0);
-                totalFocQty += parseFloat(item.foc_qty || 0);
+                totalFocQty += parseFloat(item.foc_quantity || 0);
                 totalNetAmountItems += parseFloat(item.net_amount);
-                
-                // Add child items
-                const children = childItems.filter(child => child.parent_row_id === (index + 1));
-                const childDisplay = localStorage.getItem('childDisplay') || 'separate';
-                
-                if (children.length > 0 && childDisplay === 'inline') {
-                    const childText = children.map(c => `${c.product_name}: ${parseFloat(c.quantity).toFixed(2)}`).join(' | ');
-                    const lastCell = row.cells[1];
-                    lastCell.innerHTML += `<br><small style="color: #666; font-style: italic;">${childText}</small>`;
-                } else {
-                    children.forEach(child => {
-                        const childRow = tbody.insertRow();
-                        childRow.style.backgroundColor = '#f9f9f9';
-                        childRow.innerHTML = `
-                            <td class="text-center" style="padding-left: 20px;">↳</td>
-                            <td style="padding-left: 20px; font-size: 11px; color: #666;">${child.product_name}</td>
-                            <td>${child.uom_name || 'Unit'}</td>
-                            <td class="text-right">${parseFloat(child.quantity).toFixed(2)}</td>
-                            <td colspan="10" style="text-align: center; color: #999;">-</td>
-                        `;
-                    });
-                }
             });
 
             // Update totals row
-            document.getElementById('totalQty').textContent = totalQty.toFixed(2);
             document.getElementById('totalUnitPrice').textContent = `${currencySymbol} ${totalUnitPrice.toFixed(2)}`;
             document.getElementById('totalGrossAmount').textContent = `${currencySymbol} ${totalGrossAmount.toFixed(2)}`;
             document.getElementById('totalDiscountAmountItems').textContent = `${currencySymbol} ${totalDiscountAmountItems.toFixed(2)}`;

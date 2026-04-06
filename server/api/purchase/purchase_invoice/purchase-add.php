@@ -62,9 +62,9 @@ try {
             tenant_id, company_id, currency_id, bill_no, purchase_date, supplier_id, branch_id,
             previous_balance, total_bill, total_discount_percent, 
             total_discount_amount, total_gst_percent, total_gst_amount, 
-            shipping_fees, net_amount, supplier_invoice_no, supplier_invoice_date, 
+            shipping_fees, shipping_fees_type, net_amount, supplier_invoice_no, supplier_invoice_date, 
             purchase_order_id, bilty_no, transport_name, remarks, sub_account_id, created_by, updated_by
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ");
     
     $stmt->execute([
@@ -82,6 +82,7 @@ try {
         $input['totalGSTPercent'] ?? 0.00,
         $input['totalGSTAmount'] ?? 0.00,
         $input['shippingFees'] ?? 0.00,
+        $input['shippingFeesType'] ?? 'add',
         $input['netAmount'],
         $input['supplierInvoiceNo'],
         $input['supplierInvoiceDate'],
@@ -99,80 +100,65 @@ try {
     // Insert invoice items
     $item_stmt = $pdo->prepare("
         INSERT INTO purchase_invoice_items (
-            tenant_id, purchase_invoice_id, product_id, uom_id, vehicle_no,
+            tenant_id, purchase_invoice_id, product_id, uom_id,
             quantity, purchase_price, gross_amount, discount_percent,
             discount_amount, trade_offer_percent, trade_offer_amount,
-            gst_percent, gst_amount, foc_quantity, net_amount, parent_row_id,
-            piece, carton, dozen, created_by, updated_by
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            gst_percent, gst_amount, foc_quantity, net_amount, 
+            created_by, updated_by
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ");
     
-    $itemRowCounter = 0;
-    $itemIdMap = [];
-    
     foreach ($input['items'] as $item) {
-        $itemRowCounter++;
-        
-        // Map parent_row_id to actual database ID
-        $parentRowId = null;
-        if (isset($item['parentRowId']) && $item['parentRowId'] !== null) {
-            $parentRowId = $itemIdMap[$item['parentRowId']] ?? null;
-        }
-        
-        $item_stmt->execute([
-            $tenant_id,
-            $invoice_id,
-            $item['productId'],
-            $item['uomId'],
-            $item['vehicleNo'] ?? null,
-            $item['quantity'],
-            $item['purchasePrice'],
-            $item['grossAmount'],
-            $item['discountPercent'] ?? 0.00,
-            $item['discountAmount'] ?? 0.00,
-            $item['tradeOfferPercent'] ?? 0.00,
-            $item['tradeOfferAmount'] ?? 0.00,
-            $item['gstPercent'] ?? 0.00,
-            $item['gstAmount'] ?? 0.00,
-            $item['focQty'] ?? 0,
-            $item['netAmount'],
-            $parentRowId,
-            $item['pcs'] ?? 0,
-            $item['ctn'] ?? 0,
-            $item['dz'] ?? 0,
-            $user_id,
-            $user_id
-        ]);
-        
-        $itemId = $pdo->lastInsertId();
-        $itemIdMap[$itemRowCounter] = $itemId;
-        
-        // Skip stock_ledger if stock_affects = 0
-        $stockAffects = $item['stockAffects'] ?? 1;
-        if ($stockAffects == 1) {
-            // Get product's inventory_account_id
-            $product_stmt = $pdo->prepare("SELECT inventory_account_id FROM products WHERE id = ?");
-            $product_stmt->execute([$item['productId']]);
-            $account_id = $product_stmt->fetchColumn();
-            
-            // Insert into stock_ledger
-            $stock_stmt = $pdo->prepare("
-                INSERT INTO stock_ledger (
-                    tenant_id, account_id, branch_id, product_id, reference_table, reference_id,
-                    qty_in, unit_cost, unit_id, transaction_type, transaction_date
-                ) VALUES (?, ?, ?, ?, 'purchase_invoice', ?, ?, ?, ?, 'Purchase Invoice', ?)
-            ");
-            $stock_stmt->execute([
+        // Each item can have multiple unit entries
+        $isFirstEntry = true;
+        foreach ($item['unitEntries'] as $unitEntry) {
+            $item_stmt->execute([
                 $tenant_id,
-                $account_id,
-                $input['branchId'],
-                $item['productId'],
                 $invoice_id,
-                $item['quantity'],
+                $item['productId'],
+                $unitEntry['uomId'],
+                $unitEntry['quantity'],
                 $item['purchasePrice'],
-                $item['uomId'],
-                $input['purchaseDate']
+                $isFirstEntry ? $item['grossAmount'] : 0,
+                $item['discountPercent'] ?? 0.00,
+                $isFirstEntry ? $item['discountAmount'] : 0,
+                $item['tradeOfferPercent'] ?? 0.00,
+                $isFirstEntry ? $item['tradeOfferAmount'] : 0,
+                $item['gstPercent'] ?? 0.00,
+                $isFirstEntry ? $item['gstAmount'] : 0,
+                $item['focQty'] ?? 0,
+                $isFirstEntry ? $item['netAmount'] : 0,
+                $user_id,
+                $user_id
             ]);
+            
+            // Stock ledger entry for each unit
+            $stockAffects = $item['stockAffects'] ?? 1;
+            if ($stockAffects == 1) {
+                $product_stmt = $pdo->prepare("SELECT inventory_account_id FROM products WHERE id = ?");
+                $product_stmt->execute([$item['productId']]);
+                $account_id = $product_stmt->fetchColumn();
+                
+                $stock_stmt = $pdo->prepare("
+                    INSERT INTO stock_ledger (
+                        tenant_id, account_id, branch_id, product_id, reference_table, reference_id,
+                        qty_in, unit_cost, unit_id, transaction_type, transaction_date
+                    ) VALUES (?, ?, ?, ?, 'purchase_invoice', ?, ?, ?, ?, 'Purchase Invoice', ?)
+                ");
+                $stock_stmt->execute([
+                    $tenant_id,
+                    $account_id,
+                    $input['branchId'],
+                    $item['productId'],
+                    $invoice_id,
+                    $unitEntry['quantity'],
+                    $item['purchasePrice'],
+                    $unitEntry['uomId'],
+                    $input['purchaseDate']
+                ]);
+            }
+            
+            $isFirstEntry = false;
         }
     }
     

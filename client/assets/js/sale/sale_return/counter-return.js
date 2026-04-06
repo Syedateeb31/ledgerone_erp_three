@@ -1,4 +1,4 @@
-let currentReturn = { items: [], customer: null, branch: null, currency: null, salesOfficer: null, subAccount: null, company: null };
+let currentReturn = { items: [], customer: null, branch: null, currency: null, salesOfficer: null, supplierMan: null, subAccount: null, company: null };
 let productsData = [], customersData = [], branchesData = [], currenciesData = [], bankAccountsData = [], uomData = [], invoicesData = [], employeesData = [], subAccountsData = [], companiesData = [];
 
 const defaultShortcuts = { product: 'F1', customer: 'F2', branch: 'F3', qty: 'F4', save: 'F10', clear: 'F12' };
@@ -11,10 +11,27 @@ document.addEventListener('DOMContentLoaded', async function() {
     await loadNextReturnNo();
     
     initDropdown('branchSearch', 'branchOptions', 'branch', branchesData, (b) => `${b.branch_code} - ${b.branch_name} (${b.branch_type})`, (id) => { currentReturn.branch = parseInt(id); localStorage.setItem('lastSelectedBranch', id); });
-    initDropdown('customerSearch', 'customerOptions', 'customer', customersData, (c) => `${c.customer_code} - ${c.customer_name}`, (id) => { currentReturn.customer = parseInt(id); filterInvoicesByCustomer(id); loadSubAccounts(id); });
+    initDropdown('customerSearch', 'customerOptions', 'customer', customersData, (c) => `${c.customer_code} - ${c.customer_name}`, (id) => { 
+        currentReturn.customer = parseInt(id); 
+        
+        // Auto-populate Supplier Man
+        const customer = customersData.find(cust => cust.id == id);
+        if (customer && customer.supplier_man_id) {
+            const supplierMan = employeesData.find(e => e.id == customer.supplier_man_id);
+            if (supplierMan) {
+                document.getElementById('supplierManSearch').value = `${supplierMan.employee_id} - ${supplierMan.full_name}`;
+                document.getElementById('supplierMan').value = customer.supplier_man_id;
+                currentReturn.supplierMan = parseInt(customer.supplier_man_id);
+            }
+        }
+        
+        filterInvoicesByCustomer(id); 
+        loadSubAccounts(id); 
+    });
     initDropdown('subAccountSearch', 'subAccountOptions', 'subAccount', subAccountsData, (s) => s.sub_account_name, (id) => currentReturn.subAccount = parseInt(id));
     initDropdown('invoiceSearch', 'invoiceOptions', 'saleInvoice', invoicesData, (i) => `${i.bill_no} - ${i.customer_name} (${i.sale_date})`, (id) => loadInvoiceData(id));
     initDropdown('salesOfficerSearch', 'salesOfficerOptions', 'salesOfficer', employeesData, (e) => `${e.employee_id} - ${e.full_name}`, (id) => currentReturn.salesOfficer = parseInt(id));
+    initDropdown('supplierManSearch', 'supplierManOptions', 'supplierMan', employeesData, (e) => `${e.employee_id} - ${e.full_name}`, (id) => currentReturn.supplierMan = parseInt(id));
     
     const savedBranchId = localStorage.getItem('lastSelectedBranch');
     if (savedBranchId && branchesData.find(b => b.id == savedBranchId)) {
@@ -119,6 +136,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         if (!e.target.closest('#subAccountSearch') && !e.target.closest('#subAccountOptions')) document.getElementById('subAccountOptions').style.display = 'none';
         if (!e.target.closest('#invoiceSearch') && !e.target.closest('#invoiceOptions')) document.getElementById('invoiceOptions').style.display = 'none';
         if (!e.target.closest('#salesOfficerSearch') && !e.target.closest('#salesOfficerOptions')) document.getElementById('salesOfficerOptions').style.display = 'none';
+        if (!e.target.closest('#supplierManSearch') && !e.target.closest('#supplierManOptions')) document.getElementById('supplierManOptions').style.display = 'none';
         if (!e.target.closest('.quick-entry')) document.getElementById('productSuggestions').style.display = 'none';
     });
 });
@@ -422,6 +440,8 @@ async function saveReturn() {
     const paymentMethod = document.getElementById('paymentMethod').value;
     if (paymentMethod === 'bank_transfer' && !document.getElementById('bankAccount').value) { alert('Please select a bank account!'); return; }
     
+    const supplierManId = parseInt(document.getElementById('supplierMan').value) || currentReturn.supplierMan || null;
+    
     const returnData = {
         saleDate: document.getElementById('currentDate').value,
         companyId: currentReturn.company,
@@ -429,6 +449,7 @@ async function saveReturn() {
         branchId: currentReturn.branch,
         currencyId: currentReturn.currency,
         salesOfficerId: currentReturn.salesOfficer,
+        supplierManId: supplierManId,
         subAccountId: currentReturn.subAccount,
         saleInvoiceId: document.getElementById('saleInvoice').value || null,
         paymentMethod: paymentMethod,
@@ -537,6 +558,16 @@ async function loadInvoiceData(invoiceId) {
                     document.getElementById('salesOfficerSearch').value = `${officer.employee_id} - ${officer.full_name}`;
                     document.getElementById('salesOfficer').value = invoice.sale_officer_id;
                     currentReturn.salesOfficer = invoice.sale_officer_id;
+                }
+            }
+            
+            // Auto-populate supplier man
+            if (invoice.supplier_man_id) {
+                const supplierMan = employeesData.find(e => e.id == invoice.supplier_man_id);
+                if (supplierMan) {
+                    document.getElementById('supplierManSearch').value = `${supplierMan.employee_id} - ${supplierMan.full_name}`;
+                    document.getElementById('supplierMan').value = invoice.supplier_man_id;
+                    currentReturn.supplierMan = invoice.supplier_man_id;
                 }
             }
             

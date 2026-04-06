@@ -151,6 +151,15 @@ $company_id = $_GET['company_id'] ?? null;
                 html += '</tbody></table>';
             }
             
+            // Supplier Man Sales
+            if (reportType === 'all' || reportType === 'supplier_man') {
+                html += '<table><caption>Supplier Man Wise Sales</caption><thead><tr><th>Employee ID</th><th>Supplier Man Name</th><th>Total Invoices</th><th>Total Sales</th><th>Status</th></tr></thead><tbody>';
+                (data.supplier_man_sales || []).forEach(item => {
+                    html += `<tr><td>${item.employee_id}</td><td>${item.supplier_man_name}</td><td>${parseFloat(item.total_invoices || 0).toLocaleString()}</td><td>${CURRENCY_SYMBOL}${parseFloat(item.total_sales || 0).toLocaleString()}</td><td>${item.status}</td></tr>`;
+                });
+                html += '</tbody></table>';
+            }
+            
             // Product Sales
             if (reportType === 'all' || reportType === 'product') {
                 html += '<table><caption>Product Wise Sales</caption><thead><tr><th>Product ID</th><th>Product Name</th><th>Category</th><th>Quantity Sold</th><th>Revenue</th></tr></thead><tbody>';

@@ -27,14 +27,56 @@ try {
     $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 10;
     $offset = ($page - 1) * $limit;
     
+    // Get filters
+    $dateFrom = $_GET['dateFrom'] ?? null;
+    $dateTo = $_GET['dateTo'] ?? null;
+    $companyFilter = $_GET['company'] ?? null;
+    $customerFilter = $_GET['customer'] ?? null;
+    $search = $_GET['search'] ?? null;
+    
+    // Build WHERE clause
+    $whereConditions = ["si.tenant_id = ?", "si.status = 'Posted'"];
+    $params = [$tenant_id];
+    
+    if ($dateFrom) {
+        $whereConditions[] = "si.sale_date >= ?";
+        $params[] = $dateFrom;
+    }
+    if ($dateTo) {
+        $whereConditions[] = "si.sale_date <= ?";
+        $params[] = $dateTo;
+    }
+    if ($companyFilter) {
+        $whereConditions[] = "co.company_name = ?";
+        $params[] = $companyFilter;
+    }
+    if ($customerFilter) {
+        $whereConditions[] = "c.customer_name = ?";
+        $params[] = $customerFilter;
+    }
+    if ($search) {
+        $whereConditions[] = "(si.bill_no LIKE ? OR c.customer_name LIKE ?)";
+        $searchParam = "%{$search}%";
+        $params[] = $searchParam;
+        $params[] = $searchParam;
+    }
+    
+    $whereClause = implode(' AND ', $whereConditions);
+    
     // Get total count
-    $countStmt = $pdo->prepare("SELECT COUNT(*) FROM sale_invoice WHERE tenant_id = ? AND status = 'Posted'");
-    $countStmt->execute([$tenant_id]);
+    $countQuery = "SELECT COUNT(DISTINCT si.id) FROM sale_invoice si 
+                   LEFT JOIN customers c ON si.customer_id = c.id 
+                   LEFT JOIN companies co ON si.company_id = co.id 
+                   WHERE {$whereClause}";
+    $countStmt = $pdo->prepare($countQuery);
+    $countStmt->execute($params);
     $totalRecords = $countStmt->fetchColumn();
     
     // Get paginated data
-    $stmt = $pdo->prepare("
-        SELECT 
+    $limit = (int)$limit;
+    $offset = (int)$offset;
+    
+    $query = "SELECT 
             si.id,
             si.bill_no,
             si.sale_date,
@@ -48,16 +90,13 @@ try {
         LEFT JOIN companies co ON si.company_id = co.id
         LEFT JOIN sale_invoice_items sii ON si.id = sii.sale_invoice_id
         LEFT JOIN ledgerone_public.currencies cur ON si.currency_id = cur.id
-        WHERE si.tenant_id = ? AND si.status = 'Posted'
+        WHERE {$whereClause}
         GROUP BY si.id
         ORDER BY si.sale_date DESC, si.id DESC
-        LIMIT ? OFFSET ?
-    ");
+        LIMIT {$limit} OFFSET {$offset}";
     
-    $stmt->bindParam(1, $tenant_id, PDO::PARAM_INT);
-    $stmt->bindParam(2, $limit, PDO::PARAM_INT);
-    $stmt->bindParam(3, $offset, PDO::PARAM_INT);
-    $stmt->execute();
+    $stmt = $pdo->prepare($query);
+    $stmt->execute($params);
     $invoices = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
     echo json_encode([

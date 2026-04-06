@@ -97,51 +97,38 @@ try {
     // Insert order items
     $item_stmt = $pdo->prepare("
         INSERT INTO purchase_order_items (
-            tenant_id, purchase_invoice_id, product_id, uom_id, vehicle_no,
-            quantity, piece, carton, dozen, purchase_price, gross_amount, discount_percent,
+            tenant_id, purchase_invoice_id, product_id, uom_id,
+            quantity, purchase_price, gross_amount, discount_percent,
             discount_amount, trade_offer_percent, trade_offer_amount,
             gst_percent, gst_amount, foc_quantity, net_amount, 
             created_by, updated_by
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ");
     
-    $parent_item_ids = [];
-    
     foreach ($input['items'] as $item) {
-        $item_stmt->execute([
-            $tenant_id,
-            $invoice_id,
-            $item['productId'],
-            $item['uomId'],
-            $item['vehicleNo'] ?? null,
-            $item['quantity'],
-            $item['pcs'] ?? 0,
-            $item['ctn'] ?? 0,
-            $item['dz'] ?? 0,
-            $item['purchasePrice'],
-            $item['grossAmount'],
-            $item['discountPercent'] ?? 0.00,
-            $item['discountAmount'] ?? 0.00,
-            $item['tradeOfferPercent'] ?? 0.00,
-            $item['tradeOfferAmount'] ?? 0.00,
-            $item['gstPercent'] ?? 0.00,
-            $item['gstAmount'] ?? 0.00,
-            $item['focQty'] ?? 0,
-            $item['netAmount'],
-            $user_id,
-            $user_id
-        ]);
-        
-        $item_id = $pdo->lastInsertId();
-        
-        if (isset($item['parentRowId'])) {
-            $parent_row_index = $item['parentRowId'] - 1;
-            if (isset($parent_item_ids[$parent_row_index])) {
-                $pdo->prepare("UPDATE purchase_order_items SET parent_row_id = ? WHERE id = ?")
-                    ->execute([$parent_item_ids[$parent_row_index], $item_id]);
-            }
-        } else {
-            $parent_item_ids[] = $item_id;
+        // Each item can have multiple unit entries
+        $isFirstEntry = true;
+        foreach ($item['unitEntries'] as $unitEntry) {
+            $item_stmt->execute([
+                $tenant_id,
+                $invoice_id,
+                $item['productId'],
+                $unitEntry['uomId'],
+                $unitEntry['quantity'],
+                $item['purchasePrice'],
+                $isFirstEntry ? $item['grossAmount'] : 0,
+                $item['discountPercent'] ?? 0.00,
+                $isFirstEntry ? $item['discountAmount'] : 0,
+                $item['tradeOfferPercent'] ?? 0.00,
+                $isFirstEntry ? $item['tradeOfferAmount'] : 0,
+                $item['gstPercent'] ?? 0.00,
+                $isFirstEntry ? $item['gstAmount'] : 0,
+                $item['focQty'] ?? 0,
+                $isFirstEntry ? $item['netAmount'] : 0,
+                $user_id,
+                $user_id
+            ]);
+            $isFirstEntry = false;
         }
     }
     

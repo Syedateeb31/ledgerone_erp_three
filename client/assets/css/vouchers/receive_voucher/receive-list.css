@@ -553,3 +553,45 @@ td {
   background-color: var(--surface-2);
   color: var(--subtext);
 }
+
+/* Searchable Dropdown */
+.searchable-dropdown {
+  position: relative;
+}
+
+.searchable-dropdown .search-input {
+  width: 100%;
+  padding: 0 14px;
+}
+
+.dropdown-options {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: var(--surface-0);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius);
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 1000;
+  display: none;
+  box-shadow: var(--shadow);
+  margin-top: 4px;
+}
+
+.dropdown-option {
+  padding: 10px 14px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border-default);
+  color: var(--body);
+  transition: background 0.2s;
+}
+
+.dropdown-option:hover {
+  background: var(--surface-1);
+}
+
+.dropdown-option:last-child {
+  border-bottom: none;
+}

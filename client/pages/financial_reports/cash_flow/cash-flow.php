@@ -120,6 +120,12 @@ $currency_symbol = $currency['symbol'];
                         <option value="outflow">Outflow Only</option>
                     </select>
                 </div>
+                <div class="filter-group">
+                    <label class="filter-label">Currency</label>
+                    <select class="filter-input" id="currencyFilter">
+                        <option value="">Loading...</option>
+                    </select>
+                </div>
             </div>
             <div class="form-actions">
                 <button class="btn btn-ghost" id="resetFiltersBtn">

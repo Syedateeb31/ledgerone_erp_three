@@ -26,11 +26,31 @@ function initializeListPage(permissions) {
     let currentPage = 1;
     let totalPages = 1;
     const invoicesTable = document.getElementById('invoicesTable').getElementsByTagName('tbody')[0];
+    
+    // Filter elements
+    const dateFrom = document.getElementById('dateFrom');
+    const dateTo = document.getElementById('dateTo');
+    const companyFilter = document.getElementById('companyFilter');
+    const customerFilter = document.getElementById('customerFilter');
+    const searchInput = document.getElementById('searchInput');
 
     // Load invoices from API
     async function loadInvoices(page = 1) {
         try {
-            const response = await fetch(`../../../../server/api/sale/pos_invoice/pos-list.php?page=${page}&limit=10`);
+            // Build query parameters
+            const params = new URLSearchParams({
+                page: page,
+                limit: 10
+            });
+            
+            // Add filters if present
+            if (dateFrom.value) params.append('dateFrom', dateFrom.value);
+            if (dateTo.value) params.append('dateTo', dateTo.value);
+            if (companyFilter.value) params.append('company', companyFilter.value);
+            if (customerFilter.value) params.append('customer', customerFilter.value);
+            if (searchInput.value) params.append('search', searchInput.value);
+            
+            const response = await fetch(`../../../../server/api/sale/pos_invoice/pos-list.php?${params.toString()}`);
             const data = await response.json();
             
             if (data.success) {
@@ -128,13 +148,6 @@ function initializeListPage(permissions) {
     loadInvoices();
     loadCustomers();
     loadCompanies();
-
-    // Filter functionality
-    const dateFrom = document.getElementById('dateFrom');
-    const dateTo = document.getElementById('dateTo');
-    const companyFilter = document.getElementById('companyFilter');
-    const customerFilter = document.getElementById('customerFilter');
-    const searchInput = document.getElementById('searchInput');
     
     // Load customers for filter
     async function loadCustomers() {
@@ -226,47 +239,7 @@ function initializeListPage(permissions) {
     }
 
     function applyFilters() {
-        let filteredInvoices = [...invoices];
-
-        // Date filter
-        if (dateFrom.value) {
-            filteredInvoices = filteredInvoices.filter(invoice =>
-                new Date(invoice.date) >= new Date(dateFrom.value)
-            );
-        }
-
-        if (dateTo.value) {
-            filteredInvoices = filteredInvoices.filter(invoice =>
-                new Date(invoice.date) <= new Date(dateTo.value)
-            );
-        }
-
-        // Customer filter
-        if (customerFilter.value) {
-            filteredInvoices = filteredInvoices.filter(invoice =>
-                invoice.customer === customerFilter.value
-            );
-        }
-
-        // Company filter
-        if (companyFilter.value) {
-            filteredInvoices = filteredInvoices.filter(invoice =>
-                invoice.company === companyFilter.value
-            );
-        }
-
-
-
-        // Search filter
-        if (searchInput.value) {
-            const searchTerm = searchInput.value.toLowerCase();
-            filteredInvoices = filteredInvoices.filter(invoice =>
-                invoice.invoiceNo.toLowerCase().includes(searchTerm) ||
-                invoice.customer.toLowerCase().includes(searchTerm)
-            );
-        }
-
-        populateTable(filteredInvoices);
+        loadInvoices(1); // Reset to page 1 when filters change
     }
 
     // Add event listeners for filters
@@ -303,8 +276,34 @@ function initializeListPage(permissions) {
         });
         container.appendChild(prevBtn);
         
+        // Calculate page range to show
+        const maxButtons = 5;
+        let startPage = Math.max(1, currentPage - Math.floor(maxButtons / 2));
+        let endPage = Math.min(totalPages, startPage + maxButtons - 1);
+        
+        // Adjust start if we're near the end
+        if (endPage - startPage < maxButtons - 1) {
+            startPage = Math.max(1, endPage - maxButtons + 1);
+        }
+        
+        // First page button
+        if (startPage > 1) {
+            const firstBtn = document.createElement('button');
+            firstBtn.className = 'pagination-btn';
+            firstBtn.textContent = '1';
+            firstBtn.addEventListener('click', () => loadInvoices(1));
+            container.appendChild(firstBtn);
+            
+            if (startPage > 2) {
+                const dots = document.createElement('span');
+                dots.textContent = '...';
+                dots.style.padding = '0 8px';
+                container.appendChild(dots);
+            }
+        }
+        
         // Page number buttons
-        for (let i = 1; i <= totalPages; i++) {
+        for (let i = startPage; i <= endPage; i++) {
             const pageBtn = document.createElement('button');
             pageBtn.className = `pagination-btn ${i === currentPage ? 'active' : ''}`;
             pageBtn.textContent = i;
@@ -312,6 +311,22 @@ function initializeListPage(permissions) {
                 if (i !== currentPage) loadInvoices(i);
             });
             container.appendChild(pageBtn);
+        }
+        
+        // Last page button
+        if (endPage < totalPages) {
+            if (endPage < totalPages - 1) {
+                const dots = document.createElement('span');
+                dots.textContent = '...';
+                dots.style.padding = '0 8px';
+                container.appendChild(dots);
+            }
+            
+            const lastBtn = document.createElement('button');
+            lastBtn.className = 'pagination-btn';
+            lastBtn.textContent = totalPages;
+            lastBtn.addEventListener('click', () => loadInvoices(totalPages));
+            container.appendChild(lastBtn);
         }
         
         // Next button

@@ -69,6 +69,21 @@ if (!$user_id) {
                             </div>
                         </div>
 
+                        <div class="form-group col-4">
+                            <label for="customerType">
+                                <i class="fas fa-tag"></i>
+                                Customer Type
+                            </label>
+                            <div style="display: flex; gap: 8px;">
+                                <select id="customerType" style="flex: 1;">
+                                    <option value="">Select Customer Type</option>
+                                </select>
+                                <button type="button" class="btn btn-secondary btn-sm" id="manageTypesBtn" style="padding: 0 16px;">
+                                    <i class="fas fa-cog"></i>
+                                </button>
+                            </div>
+                        </div>
+
                         <div class="form-group col-8">
                             <label for="customerName" class="required">
                                 <i class="fas fa-user"></i>
@@ -153,13 +168,23 @@ if (!$user_id) {
                             Sales Information
                         </h3>
 
-                        <div class="form-group col-12">
+                        <div class="form-group col-6">
                             <label for="salesOfficer">
                                 <i class="fas fa-user-tie"></i>
                                 Associated Sales Officer
                             </label>
                             <select id="salesOfficer">
                                 <option value="">Select Sales Officer</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group col-6">
+                            <label for="supplierMan">
+                                <i class="fas fa-user-tag"></i>
+                                Supplier Man
+                            </label>
+                            <select id="supplierMan">
+                                <option value="">Select Supplier Man</option>
                             </select>
                         </div>
                     </div>
@@ -478,6 +503,66 @@ if (!$user_id) {
         <button class="notification-close" id="notificationClose">
             <i class="fas fa-times"></i>
         </button>
+    </div>
+
+    <!-- Customer Types Modal -->
+    <div class="modal" id="typesModal">
+        <div class="modal-content" style="max-width: 700px;">
+            <div class="modal-header">
+                <h3><i class="fas fa-tags"></i> Manage Customer Types</h3>
+                <button class="modal-close" id="typesModalClose">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div style="margin-bottom: 20px;">
+                    <button type="button" class="btn btn-primary btn-sm" id="addTypeBtn">
+                        <i class="fas fa-plus"></i> Add New Type
+                    </button>
+                </div>
+                <div class="table-container" style="border-radius: 12px; border: 1px solid var(--border-default);">
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <thead style="background: var(--surface-2);">
+                            <tr>
+                                <th style="padding: 12px; text-align: left; border-bottom: 1px solid var(--border-default);">Type Name</th>
+                                <th style="padding: 12px; text-align: center; width: 100px; border-bottom: 1px solid var(--border-default);">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="typesTableBody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="typesCloseBtn">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add/Edit Type Modal -->
+    <div class="modal" id="typeFormModal">
+        <div class="modal-content" style="max-width: 400px;">
+            <div class="modal-header">
+                <h3 id="typeFormTitle"><i class="fas fa-plus"></i> Add Customer Type</h3>
+                <button class="modal-close" id="typeFormModalClose">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form id="typeForm">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="typeName" class="required">Type Name</label>
+                        <input type="text" id="typeName" required placeholder="Enter type name">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" id="typeFormCancelBtn">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="typeFormSaveBtn">
+                        <i class="fas fa-save"></i> Save
+                    </button>
+                </div>
+            </form>
+        </div>
     </div>
 
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>

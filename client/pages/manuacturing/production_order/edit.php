@@ -93,18 +93,14 @@ $order_id = $_GET['id'] ?? null;
                 <div class="raw-title">Material Requirements</div>
 
                 <div class="table-responsive">
-                    <table>
-                        <thead>
+                    <table id="materialsTableEl">
+                        <thead id="materialsTableHead">
                             <tr>
                                 <th>Material</th>
-                                <th>Required Qty</th>
-                                <th>UOM</th>
-                                <th>Available Stock</th>
-                                <th>Status</th>
                             </tr>
                         </thead>
                         <tbody id="materialsTable">
-                            <tr><td colspan="5" style="text-align:center; padding:32px; color:#6B7280;">Loading materials...</td></tr>
+                            <tr><td colspan="10" style="text-align:center; padding:32px; color:#6B7280;">Loading materials...</td></tr>
                         </tbody>
                     </table>
                 </div>

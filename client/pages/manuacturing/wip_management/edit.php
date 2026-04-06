@@ -19,7 +19,12 @@ $view_mode = isset($_GET['mode']) && $_GET['mode'] === 'view';
 
 $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
 $host = $_SERVER['HTTP_HOST'];
-$base_url = $protocol . '://' . $host . '/ledgerone_erp';
+// Check if running on production or local
+if (strpos($host, 'unisensystems.com') !== false) {
+    $base_url = $protocol . '://' . $host;
+} else {
+    $base_url = $protocol . '://' . $host . '/ledgerone_erp';
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -87,21 +92,9 @@ $base_url = $protocol . '://' . $host . '/ledgerone_erp';
 
                 <div class="table-responsive">
                     <table>
-                        <thead>
-                            <tr>
-                                <th>Material</th>
-                                <th>Required</th>
-                                <th>Issued</th>
-                                <th>Available</th>
-                                <th>Issue Qty</th>
-                                <th>UOM</th>
-                                <th>Unit Cost</th>
-                                <th>Total Cost</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
+                        <thead></thead>
                         <tbody id="materialsTable">
-                            <tr><td colspan="9" style="text-align:center; padding:32px; color:#6B7280;">Loading...</td></tr>
+                            <tr><td colspan="20" style="text-align:center; padding:32px; color:#6B7280;">Loading...</td></tr>
                         </tbody>
                     </table>
                 </div>

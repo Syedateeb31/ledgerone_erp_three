@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once '../../../../includes/connection.php';
+require_once 'currency-converter.php';
 
 header('Content-Type: application/json');
 
@@ -20,8 +21,18 @@ if (!$user_id || !$tenant_id) {
 }
 
 try {
+    // Initialize currency converter
+    $converter = new CurrencyConverter($pdo, $tenant_id);
+    
+    // Get base currency
+    $stmt = $pdo->prepare("SELECT currency_id FROM tenant_currencies WHERE tenant_id = ? AND is_base_currency = 1");
+    $stmt->execute([$tenant_id]);
+    $baseCurrency = $stmt->fetch(PDO::FETCH_ASSOC);
+    $base_currency_id = $baseCurrency['currency_id'];
+    
     // Get filters
     $date_range = $_GET['date_range'] ?? 'month';
+    $target_currency_id = $_GET['currency_id'] ?? $base_currency_id;
     $from_date = $_GET['from_date'] ?? '';
     $to_date = $_GET['to_date'] ?? '';
     $description = $_GET['description'] ?? '';
@@ -268,7 +279,8 @@ try {
             CAST(pm.name AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci as method,
             CAST(COALESCE(ba.bank_name, '-') AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci as bank_account,
             rv.amount as inflow,
-            0 as outflow
+            0 as outflow,
+            rv.currency_id
         FROM receive_voucher rv
         LEFT JOIN customers c ON rv.customer_id = c.id
         LEFT JOIN accounts pm ON rv.payment_method_id = pm.id
@@ -292,7 +304,8 @@ try {
             CAST(pm.name AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci as method,
             CAST(COALESCE(ba.bank_name, '-') AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci as bank_account,
             0 as inflow,
-            pv.amount as outflow
+            pv.amount as outflow,
+            pv.currency_id
         FROM payment_voucher pv
         LEFT JOIN suppliers s ON pv.supplier_id = s.id
         LEFT JOIN accounts pm ON pv.payment_method_id = pm.id
@@ -316,7 +329,8 @@ try {
             CAST(CASE WHEN rs.account_id = 1 THEN 'Cash' ELSE 'Bank' END AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci as method,
             CAST(CASE WHEN rs.account_id = 1 THEN '-' ELSE a.name END AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci as bank_account,
             rs.amount as inflow,
-            0 as outflow
+            0 as outflow,
+            NULL as currency_id
         FROM revenue_split rs
         JOIN station_daily_usage sdu ON rs.station_daily_usage_id = sdu.id
         LEFT JOIN products p ON sdu.product_id = p.id
@@ -337,7 +351,8 @@ try {
             CAST('Cheque' AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci as method,
             CAST(COALESCE(ba.bank_name, '-') AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci as bank_account,
             CASE WHEN pdc.transaction_type = 'Received' THEN pdc.amount ELSE 0 END as inflow,
-            CASE WHEN pdc.transaction_type IN ('Payment', 'Expense') THEN pdc.amount ELSE 0 END as outflow
+            CASE WHEN pdc.transaction_type IN ('Payment', 'Expense') THEN pdc.amount ELSE 0 END as outflow,
+            NULL as currency_id
         FROM post_dated_cheques pdc
         LEFT JOIN customers c ON pdc.customer_id = c.id
         LEFT JOIN suppliers s ON pdc.supplier_id = s.id
@@ -356,7 +371,8 @@ try {
             CAST(sr.payment_method AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci as method,
             CAST(COALESCE(ba.bank_name, '-') AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci as bank_account,
             0 as inflow,
-            sr.amount_refunded as outflow
+            sr.amount_refunded as outflow,
+            sr.currency_id
         FROM sale_return sr
         LEFT JOIN customers c ON sr.customer_id = c.id
         LEFT JOIN bank_accounts ba ON sr.bank_account_id = ba.id
@@ -376,7 +392,8 @@ try {
             CAST(pm.name AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci as method,
             CAST(COALESCE(ba.bank_name, '-') AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci as bank_account,
             0 as inflow,
-            evl.amount as outflow
+            evl.amount as outflow,
+            NULL as currency_id
         FROM expense_voucher_line evl
         JOIN expense_voucher ev ON evl.voucher_id = ev.id
         LEFT JOIN accounts a ON evl.account_id = a.id
@@ -397,7 +414,8 @@ try {
             CAST('Cash' AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci as method,
             CAST('-' AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci as bank_account,
             pr.net_amount as inflow,
-            0 as outflow
+            0 as outflow,
+            pr.currency_id
         FROM purchase_return pr
         LEFT JOIN suppliers s ON pr.supplier_id = s.id
         WHERE pr.tenant_id = ? 
@@ -415,7 +433,8 @@ try {
             CAST(pm.name AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci as method,
             CAST(COALESCE(ba.bank_name, '-') AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci as bank_account,
             CASE WHEN pei.type = 'Advance Return' THEN pei.amount ELSE 0 END as inflow,
-            CASE WHEN pei.type != 'Advance Return' THEN pei.amount ELSE 0 END as outflow
+            CASE WHEN pei.type != 'Advance Return' THEN pei.amount ELSE 0 END as outflow,
+            NULL as currency_id
         FROM payroll_entries_items pei
         JOIN payroll_entries pe ON pei.payroll_id = pe.id
         LEFT JOIN employees e ON CAST(pei.employee_id AS CHAR CHARACTER SET utf8mb4) = CAST(e.employee_id AS CHAR CHARACTER SET utf8mb4) AND e.tenant_id = pei.tenant_id
@@ -443,7 +462,8 @@ try {
                 ELSE '-'
             END AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci as bank_account,
             cash_line.debit as inflow,
-            cash_line.credit as outflow
+            cash_line.credit as outflow,
+            NULL as currency_id
         FROM journal_voucher jv
         JOIN journal_voucher_line cash_line ON jv.id = cash_line.voucher_id
         JOIN accounts cash_acc ON cash_line.account_id = cash_acc.id
@@ -468,7 +488,8 @@ try {
             CAST('Cash' AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci as method,
             CAST('-' AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci as bank_account,
             al.debit as inflow,
-            0 as outflow
+            0 as outflow,
+            rm.currency_id
         FROM accounting_ledger al
         JOIN rent_management rm ON al.reference_id = rm.id AND al.reference_table = 'rent_management'
         LEFT JOIN customers c ON rm.customer_id = c.id
@@ -485,7 +506,8 @@ try {
             CAST('Cash' AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci as method,
             CAST('-' AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci as bank_account,
             0 as inflow,
-            pex.total_amount as outflow
+            pex.total_amount as outflow,
+            NULL as currency_id
         FROM production_expenses pex
         WHERE pex.tenant_id = ?
         {$date_conditions[10]}
@@ -496,6 +518,16 @@ try {
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
     $all_transactions = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    // Convert currency for all transactions
+    foreach ($all_transactions as &$transaction) {
+        $from_currency = $transaction['currency_id'] ?? $base_currency_id;
+        if ($from_currency != $target_currency_id) {
+            $transaction['inflow'] = $converter->convert($transaction['inflow'], $from_currency, $target_currency_id);
+            $transaction['outflow'] = $converter->convert($transaction['outflow'], $from_currency, $target_currency_id);
+        }
+    }
+    unset($transaction);
 
     // Apply additional filters
     if ($description) {
@@ -552,7 +584,7 @@ try {
     // Get opening balances
     if ($bank_account !== 'all') {
         // Specific bank account selected
-        $stmt = $pdo->prepare("SELECT opening_balance, credit_amount FROM bank_accounts WHERE tenant_id = ? AND id = ? AND is_active = 1" . ($company_id ? " AND company_id = ?" : ""));
+        $stmt = $pdo->prepare("SELECT opening_balance, credit_amount FROM bank_accounts WHERE tenant_id = ? AND id = ? AND is_active = 1" . ($company_id ? " AND (company_id = ? OR company_id IS NULL)" : ""));
         $params_bank = [$tenant_id, $bank_account];
         if ($company_id) $params_bank[] = $company_id;
         $stmt->execute($params_bank);
@@ -560,9 +592,11 @@ try {
         $bank_opening = $bank_result['opening_balance'] ?? 0;
         $bank_credit = $bank_result['credit_amount'] ?? 0;
         $cash_opening = 0; // No cash when filtering by bank
+        
+        error_log("DEBUG [Specific Bank]: bank_opening=$bank_opening, bank_credit=$bank_credit");
     } else {
         // All accounts
-        $stmt = $pdo->prepare("SELECT SUM(opening_balance) as total_opening, SUM(credit_amount) as total_credit FROM bank_accounts WHERE tenant_id = ? AND is_active = 1" . ($company_id ? " AND company_id = ?" : ""));
+        $stmt = $pdo->prepare("SELECT SUM(opening_balance) as total_opening, SUM(credit_amount) as total_credit FROM bank_accounts WHERE tenant_id = ? AND is_active = 1" . ($company_id ? " AND (company_id = ? OR company_id IS NULL)" : ""));
         $params_bank = [$tenant_id];
         if ($company_id) $params_bank[] = $company_id;
         $stmt->execute($params_bank);
@@ -570,15 +604,29 @@ try {
         $bank_opening = $bank_result['total_opening'] ?? 0;
         $bank_credit = $bank_result['total_credit'] ?? 0;
         
-        $stmt = $pdo->prepare("SELECT opening_amount FROM cash_opening WHERE tenant_id = ?" . ($company_id ? " AND company_id = ?" : "") . " ORDER BY id DESC LIMIT 1");
+        error_log("DEBUG [All Banks]: total_opening=$bank_opening, total_credit=$bank_credit");
+        
+        $stmt = $pdo->prepare("SELECT opening_amount FROM cash_opening WHERE tenant_id = ?" . ($company_id ? " AND (company_id = ? OR company_id IS NULL)" : "") . " ORDER BY id DESC LIMIT 1");
         $params_cash = [$tenant_id];
         if ($company_id) $params_cash[] = $company_id;
         $stmt->execute($params_cash);
         $cash_result = $stmt->fetch();
         $cash_opening = $cash_result['opening_amount'] ?? 0;
+        
+        error_log("DEBUG [Cash]: cash_opening=$cash_opening");
     }
     
     $bank_opening_balance = $bank_opening - $bank_credit;
+    
+    error_log("DEBUG [Calculated]: bank_opening_balance=$bank_opening_balance, cash_opening=$cash_opening");
+    
+    // Convert opening balances from base currency to target currency
+    if ($base_currency_id != $target_currency_id) {
+        $cash_opening = $converter->convert($cash_opening, $base_currency_id, $target_currency_id);
+        $bank_opening_balance = $converter->convert($bank_opening_balance, $base_currency_id, $target_currency_id);
+        
+        error_log("DEBUG [After Currency Conversion]: cash_opening=$cash_opening, bank_opening_balance=$bank_opening_balance");
+    }
     
     // Calculate soft opening (transactions before from_date)
     $soft_opening_cash = 0;
@@ -716,6 +764,12 @@ try {
         $soft_result = $soft_stmt->fetch();
         $soft_opening_cash = $soft_result['cash_balance'] ?? 0;
         $soft_opening_bank = $soft_result['bank_balance'] ?? 0;
+        
+        // Convert soft opening from base currency to target currency
+        if ($base_currency_id != $target_currency_id) {
+            $soft_opening_cash = $converter->convert($soft_opening_cash, $base_currency_id, $target_currency_id);
+            $soft_opening_bank = $converter->convert($soft_opening_bank, $base_currency_id, $target_currency_id);
+        }
     }
     
     // Re-index array after filtering
@@ -743,20 +797,30 @@ try {
     $total_inflow = array_sum(array_column($all_transactions, 'inflow'));
     $total_outflow = array_sum(array_column($all_transactions, 'outflow'));
     
-    // Get currency symbol
-    $stmt = $pdo->prepare("
-        SELECT c.symbol 
-        FROM tenant_currencies tc 
-        JOIN ledgerone_public.currencies c ON tc.currency_id = c.id 
-        WHERE tc.tenant_id = ? AND tc.is_base_currency = 1
-    ");
-    $stmt->execute([$tenant_id]);
+    // Get currency symbol for target currency
+    $stmt = $pdo->prepare("SELECT symbol FROM ledgerone_public.currencies WHERE id = ?");
+    $stmt->execute([$target_currency_id]);
     $currency = $stmt->fetch();
     $currency_symbol = $currency['symbol'] ?? 'Rs';
     
     // Calculate balances for summary
     $opening_balance = $cash_opening + $bank_opening_balance + $soft_opening_cash + $soft_opening_bank;
     $closing_balance = $opening_balance + $total_inflow - $total_outflow;
+    
+    error_log("DEBUG [Final Balances]: opening_balance=$opening_balance (cash=$cash_opening + bank=$bank_opening_balance + soft_cash=$soft_opening_cash + soft_bank=$soft_opening_bank), closing_balance=$closing_balance");
+
+    // Prepare debug info
+    $debug_info = [
+        'bank_opening_raw' => $bank_opening ?? 0,
+        'bank_credit_raw' => $bank_credit ?? 0,
+        'bank_opening_balance' => $bank_opening_balance ?? 0,
+        'cash_opening' => $cash_opening ?? 0,
+        'soft_opening_cash' => $soft_opening_cash ?? 0,
+        'soft_opening_bank' => $soft_opening_bank ?? 0,
+        'combined_opening' => $opening_balance,
+        'base_currency_id' => $base_currency_id,
+        'target_currency_id' => $target_currency_id
+    ];
 
     echo json_encode([
         'success' => true,
@@ -780,7 +844,8 @@ try {
             'total_pages' => $total_pages,
             'total_records' => $total_records,
             'limit' => $limit
-        ]
+        ],
+        'debug' => $debug_info
     ]);
 
 } catch (Exception $e) {

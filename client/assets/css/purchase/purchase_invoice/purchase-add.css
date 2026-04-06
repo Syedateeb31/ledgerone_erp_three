@@ -578,3 +578,44 @@ label input[type="checkbox"] {
   height: auto;
   margin-right: 8px;
 }
+
+/* Radio buttons styling */
+label input[type="radio"] {
+  width: auto;
+  height: auto;
+  margin: 0;
+  cursor: pointer;
+}
+
+/* Shipping Fees Radio Buttons */
+input[type="radio"][name="shippingFeesType"] {
+  accent-color: var(--primary);
+}
+
+input[type="radio"][name="shippingFeesType"]:checked + span {
+  font-weight: 600;
+  color: var(--heading);
+}
+
+/* Shipping Fees Buttons */
+#increaseShippingBtn,
+#decreaseShippingBtn {
+  background: var(--surface-2);
+  color: var(--body);
+  border: 1px solid var(--border-strong);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#increaseShippingBtn:hover,
+#decreaseShippingBtn:hover {
+  background: var(--primary);
+  color: var(--surface-0);
+  border-color: var(--primary);
+}
+
+#increaseShippingBtn:active,
+#decreaseShippingBtn:active {
+  background: var(--primary-active);
+}

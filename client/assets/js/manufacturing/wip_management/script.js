@@ -1,4 +1,11 @@
 (function() {
+    console.log('Script loaded, BASE_URL:', typeof BASE_URL !== 'undefined' ? BASE_URL : 'UNDEFINED');
+    
+    if (typeof BASE_URL === 'undefined') {
+        console.error('BASE_URL is not defined!');
+        return;
+    }
+    
     const API_URL = BASE_URL + '/server/api/manufacturing/wip_management/index.php';
 
     let materials = [];
@@ -8,8 +15,23 @@
     let wipProductId = null;
 
     async function loadProductionOrders() {
-        const res = await fetch(API_URL + '?action=production_orders');
-        const data = await res.json();
+        console.log('Fetching from:', API_URL + '?action=production_orders');
+        try {
+            const res = await fetch(API_URL + '?action=production_orders');
+            const text = await res.text();
+            console.log('Response:', text);
+            
+            if (!res.ok) {
+                alert('API Error: ' + res.status + ' - Please ensure the API file exists on the server');
+                return;
+            }
+            
+            if (text.startsWith('<!DOCTYPE') || text.startsWith('<html')) {
+                alert('API returned HTML instead of JSON. The API file may not exist on the server at: ' + API_URL);
+                return;
+            }
+            
+            const data = JSON.parse(text);
         if (data.success) {
             const select = document.getElementById('productionOrderId');
             select.innerHTML = '<option value="">Select Production Order</option>';
@@ -20,6 +42,10 @@
                 opt.setAttribute('data-branch-id', po.branch_id);
                 select.appendChild(opt);
             });
+        }
+        } catch (error) {
+            console.error('Error loading production orders:', error);
+            alert('Failed to load production orders. Please check console for details.');
         }
         
         // Load next WIP number
@@ -61,41 +87,84 @@
                 materials = data.data;
                 renderMaterials(materials);
                 calculateTotals();
+            } else {
+                console.error('API Error:', data);
+                alert('Error: ' + (data.message || 'Failed to load materials'));
             }
         } catch (err) {
-            alert('Error loading materials');
+            console.error('Fetch Error:', err);
+            alert('Error loading materials: ' + err.message);
         }
     }
 
     function renderMaterials(mats) {
         const tbody = document.getElementById('materialsTable');
         if (!mats || mats.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding:32px; color:#6B7280;">No materials found</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="20" style="text-align:center; padding:32px; color:#6B7280;">No materials found</td></tr>';
             return;
         }
         
-        tbody.innerHTML = '';
-        mats.forEach((mat, idx) => {
-            const remaining = parseFloat(mat.required_qty) - parseFloat(mat.issued_qty || 0);
-            const available = parseFloat(mat.available_stock || 0);
-            const status = available >= remaining ? 'Available' : available > 0 ? 'Partial' : 'Insufficient';
-            const statusClass = status === 'Available' ? 'status-available' : status === 'Partial' ? 'status-partial' : 'status-insufficient';
-            const isAdhoc = mat.status === 'Adhoc';
-            
-            const row = document.createElement('tr');
-            row.innerHTML = `
-                <td><strong>${mat.material_code} - ${mat.material_name}</strong>${isAdhoc ? ' <span style="color:#F59E0B;">(Extra)</span>' : ''}</td>
-                <td>${mat.required_qty}</td>
-                <td>${mat.issued_qty || 0}</td>
-                <td><span class="status-badge ${statusClass}">${available}</span></td>
-                <td><input type="number" class="issue-qty" data-idx="${idx}" step="0.01" min="0" max="${Math.min(remaining, available)}" value="0"></td>
-                <td>${mat.uom_name}</td>
-                <td>${parseFloat(mat.unit_cost || 0).toFixed(2)}</td>
-                <td class="total-cost-${idx}">0.00</td>
-                <td><button class="btn btn-danger" onclick="clearRow(${idx})"><i class="las la-times"></i></button></td>
-            `;
-            tbody.appendChild(row);
+        // Update table headers (simple single row)
+        updateTableHeaders();
+        
+        // Group materials by product
+        const materialsByProduct = {};
+        
+        mats.forEach(mat => {
+            if (!materialsByProduct[mat.material_id]) {
+                materialsByProduct[mat.material_id] = {
+                    code: mat.material_code,
+                    name: mat.material_name,
+                    units: []
+                };
+            }
+            materialsByProduct[mat.material_id].units.push(mat);
         });
+        
+        tbody.innerHTML = '';
+        let globalIdx = 0;
+        
+        for (const productId in materialsByProduct) {
+            const product = materialsByProduct[productId];
+            
+            // Each unit gets its own row
+            product.units.forEach((mat, unitIdx) => {
+                const row = document.createElement('tr');
+                const remaining = parseFloat(mat.required_qty) - parseFloat(mat.issued_qty || 0);
+                const available = parseFloat(mat.available_stock || 0);
+                const status = available >= remaining ? 'Available' : available > 0 ? 'Partial' : 'Insufficient';
+                const statusClass = status === 'Available' ? 'status-available' : status === 'Partial' ? 'status-partial' : 'status-insufficient';
+                
+                materials[globalIdx] = mat;
+                
+                // Show product name only in first row
+                if (unitIdx === 0) {
+                    row.innerHTML = `
+                        <td rowspan="${product.units.length}" style="font-weight:600; vertical-align:middle; border-right:2px solid #E5E7EB;">${product.code}<br>${product.name}</td>
+                        <td>${mat.required_qty}</td>
+                        <td>${mat.issued_qty || 0}</td>
+                        <td><span class="status-badge ${statusClass}">${available}</span></td>
+                        <td><input type="number" class="issue-qty" data-idx="${globalIdx}" step="0.01" min="0" max="${Math.min(remaining, available)}" value="0" style="width:80px;"></td>
+                        <td>${mat.uom_name}</td>
+                        <td>${parseFloat(mat.unit_cost || 0).toFixed(2)}</td>
+                        <td class="total-cost-${globalIdx}">0.00</td>
+                    `;
+                } else {
+                    row.innerHTML = `
+                        <td>${mat.required_qty}</td>
+                        <td>${mat.issued_qty || 0}</td>
+                        <td><span class="status-badge ${statusClass}">${available}</span></td>
+                        <td><input type="number" class="issue-qty" data-idx="${globalIdx}" step="0.01" min="0" max="${Math.min(remaining, available)}" value="0" style="width:80px;"></td>
+                        <td>${mat.uom_name}</td>
+                        <td>${parseFloat(mat.unit_cost || 0).toFixed(2)}</td>
+                        <td class="total-cost-${globalIdx}">0.00</td>
+                    `;
+                }
+                
+                tbody.appendChild(row);
+                globalIdx++;
+            });
+        }
 
         document.querySelectorAll('.issue-qty').forEach(input => {
             input.addEventListener('input', function() {
@@ -104,6 +173,27 @@
                 calculateTotals();
             });
         });
+    }
+    
+    function updateTableHeaders() {
+        const table = document.querySelector('table');
+        if (!table) return;
+        
+        let thead = table.querySelector('thead');
+        if (!thead) return;
+        
+        thead.innerHTML = `
+            <tr>
+                <th style="min-width:200px;">Material</th>
+                <th>Required Qty</th>
+                <th>Issued Qty</th>
+                <th>Available</th>
+                <th>Issue Qty</th>
+                <th>UOM</th>
+                <th>Unit Cost</th>
+                <th>Total Cost</th>
+            </tr>
+        `;
     }
 
     function calculateRowTotal(idx) {

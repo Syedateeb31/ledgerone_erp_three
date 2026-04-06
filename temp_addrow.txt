@@ -1,0 +1,250 @@
+﻿    function addRow() {
+        const rowCount = itemsTable.rows.length;
+        const row = itemsTable.insertRow();
+
+        // Serial number
+        const cell0 = row.insertCell(0);
+        cell0.textContent = rowCount + 1;
+
+        // Product Code / Name (searchable dropdown)
+        const cell1 = row.insertCell(1);
+        const codeContainer = document.createElement('div');
+        codeContainer.className = 'searchable-dropdown';
+        const codeOptionsHtml = productsData.map(product => {
+            const codes = [];
+            if (product.qr_code) codes.push(product.qr_code);
+            if (product.barcode) codes.push(product.barcode);
+            const codeDisplay = codes.length > 0 ? ` (${codes.join(' - ')})` : '';
+            const photoHtml = product.photo ? `<img src="../../../assets/uploads/products/${product.photo}" alt="${product.name}" style="width: 30px; height: 30px; object-fit: cover; margin-right: 8px; border-radius: 4px;">` : '';
+            return `<div class="dropdown-option" data-value="${product.id}" data-mrp="${product.mrp}" data-tp="${product.trade_price}" data-unit="${product.default_unit_id}" style="display: flex; align-items: center;">${photoHtml}${product.code} - ${product.name}${codeDisplay}</div>`;
+        }).join('');
+        codeContainer.innerHTML = `
+            <input type="text" class="search-input table-input" placeholder="Search product...">
+            <input type="hidden" class="item-code" required>
+        `;
+
+        // Create dropdown options and append to body
+        const dropdownOptions = document.createElement('div');
+        dropdownOptions.className = 'dropdown-options';
+        dropdownOptions.innerHTML = codeOptionsHtml;
+        dropdownOptions.style.position = 'absolute';
+        dropdownOptions.style.display = 'none';
+        dropdownOptions.style.zIndex = '9999';
+        document.body.appendChild(dropdownOptions);
+
+        // Store reference to dropdown
+        codeContainer.querySelector('.search-input').dropdownOptions = dropdownOptions;
+        cell1.appendChild(codeContainer);
+        initTableDropdown(codeContainer);
+
+        // Dynamic UOM columns will be added after product selection
+        row.dataset.uomColumnsAdded = 'false';
+
+        // Sale Price (input)
+        const cell2 = row.insertCell(2);
+        const priceInput = document.createElement('input');
+        priceInput.type = 'number';
+        priceInput.className = 'table-input';
+        priceInput.min = '0';
+        priceInput.step = '0.01';
+        priceInput.required = true;
+        cell2.appendChild(priceInput);
+
+        // Gross Amount (readonly)
+        const cell3 = row.insertCell(3);
+        const grossAmount = document.createElement('input');
+        grossAmount.type = 'text';
+        grossAmount.className = 'table-input';
+        grossAmount.readOnly = true;
+        grossAmount.value = '0.00';
+        grossAmount.tabIndex = -1;
+        cell3.appendChild(grossAmount);
+
+        // Discount % (input)
+        const cell4 = row.insertCell(4);
+        const discountPercent = document.createElement('input');
+        discountPercent.type = 'number';
+        discountPercent.className = 'table-input';
+        discountPercent.min = '0';
+        discountPercent.max = '100';
+        discountPercent.step = '0.01';
+        discountPercent.value = '0';
+        cell4.appendChild(discountPercent);
+
+        // Discount Amount (input)
+        const cell5 = row.insertCell(5);
+        const discountAmount = document.createElement('input');
+        discountAmount.type = 'number';
+        discountAmount.className = 'table-input';
+        discountAmount.min = '0';
+        discountAmount.step = '0.01';
+        discountAmount.value = '0.00';
+        cell5.appendChild(discountAmount);
+
+        // Trade Offer Discount % (input)
+        const cell6 = row.insertCell(6);
+        const tradeOfferDiscount = document.createElement('input');
+        tradeOfferDiscount.type = 'number';
+        tradeOfferDiscount.className = 'table-input';
+        tradeOfferDiscount.min = '0';
+        tradeOfferDiscount.max = '100';
+        tradeOfferDiscount.step = '0.01';
+        tradeOfferDiscount.value = '0';
+        tradeOfferDiscount.addEventListener('input', function() {
+            if (!this.value || this.value == '0') {
+                tradeOfferAmount.value = '0.00';
+            }
+        });
+        cell6.appendChild(tradeOfferDiscount);
+
+        // Trade Offer Amount (input)
+        const cell7 = row.insertCell(7);
+        const tradeOfferAmount = document.createElement('input');
+        tradeOfferAmount.type = 'number';
+        tradeOfferAmount.className = 'table-input';
+        tradeOfferAmount.min = '0';
+        tradeOfferAmount.step = '0.01';
+        tradeOfferAmount.value = '0.00';
+        cell7.appendChild(tradeOfferAmount);
+
+        // GST % (input)
+        const cell8 = row.insertCell(8);
+        const gstPercent = document.createElement('input');
+        gstPercent.type = 'number';
+        gstPercent.className = 'table-input';
+        gstPercent.min = '0';
+        gstPercent.max = '100';
+        gstPercent.step = '0.01';
+        gstPercent.value = '0';
+        cell8.appendChild(gstPercent);
+
+        // GST Amount (input)
+        const cell9 = row.insertCell(9);
+        const gstAmount = document.createElement('input');
+        gstAmount.type = 'number';
+        gstAmount.className = 'table-input';
+        gstAmount.min = '0';
+        gstAmount.step = '0.01';
+        gstAmount.value = '0.00';
+        cell9.appendChild(gstAmount);
+
+        // FOC Qty (input)
+        const cell10 = row.insertCell(10);
+        const focQty = document.createElement('input');
+        focQty.type = 'number';
+        focQty.className = 'table-input';
+        focQty.min = '0';
+        focQty.step = '0.01';
+        focQty.value = '0';
+        cell10.appendChild(focQty);
+
+        // Apply settings to new row
+        const enableCashDiscountPercent = localStorage.getItem('enableCashDiscountPercent') === 'true';
+        const enableCashDiscountAmount = localStorage.getItem('enableCashDiscountAmount') === 'true';
+        const enableTradeOfferDiscount = localStorage.getItem('enableTradeOfferDiscount') === 'true';
+        const enableTradeOfferAmount = localStorage.getItem('enableTradeOfferAmount') === 'true';
+        const enableFOC = localStorage.getItem('enableFOC') === 'true';
+        const enableTaxation = localStorage.getItem('enableTaxation') === 'true';
+
+        cell4.style.display = enableCashDiscountPercent ? '' : 'none';
+        cell5.style.display = enableCashDiscountAmount ? '' : 'none';
+        cell6.style.display = enableTradeOfferDiscount ? '' : 'none';
+        cell7.style.display = enableTradeOfferAmount ? '' : 'none';
+        cell8.style.display = enableTaxation ? '' : 'none';
+        cell9.style.display = enableTaxation ? '' : 'none';
+        cell10.style.display = enableFOC ? '' : 'none';
+
+        // Net Amount (readonly)
+        const cell11 = row.insertCell(11);
+        const netAmount = document.createElement('input');
+        netAmount.type = 'text';
+        netAmount.className = 'table-input';
+        netAmount.readOnly = true;
+        netAmount.value = '0.00';
+        netAmount.tabIndex = 0;
+
+        // Add tab navigation logic for Net Amount
+        netAmount.addEventListener('keydown', function (e) {
+            if (e.key === 'Tab' && !e.shiftKey) {
+                const codeInput = row.cells[1].querySelector('.item-code');
+                if (codeInput.value) {
+                    e.preventDefault();
+                    const currentRowIndex = row.rowIndex - 1;
+                    const nextRowIndex = currentRowIndex + 1;
+
+                    if (nextRowIndex < itemsTable.rows.length) {
+                        const nextRow = itemsTable.rows[nextRowIndex];
+                        nextRow.cells[1].querySelector('.search-input').focus();
+                    } else {
+                        addRow();
+                        setTimeout(() => {
+                            const newRow = itemsTable.rows[itemsTable.rows.length - 1];
+                            newRow.cells[1].querySelector('.search-input').focus();
+                        }, 10);
+                    }
+                } else {
+                    e.preventDefault();
+                    if (itemsTable.rows.length > 1) {
+                        const searchInput = row.cells[1].querySelector('.search-input');
+                        if (searchInput.dropdownOptions) {
+                            searchInput.dropdownOptions.remove();
+                        }
+                        row.remove();
+                        updateSerialNumbers();
+                        updateInvoiceSummary();
+                    }
+                    document.getElementById('totalDiscountPercent').focus();
+                }
+            }
+        });
+
+        cell11.appendChild(netAmount);
+
+        // Actions (delete button)
+        const cell12 = row.insertCell(12);
+        const actionsDiv = document.createElement('div');
+        actionsDiv.style.display = 'flex';
+        actionsDiv.style.gap = '4px';
+
+        const addVariantsBtn = document.createElement('button');
+        addVariantsBtn.type = 'button';
+        addVariantsBtn.className = 'btn btn-secondary btn-sm';
+        addVariantsBtn.innerHTML = '<i class="fas fa-boxes"></i>';
+        addVariantsBtn.title = 'Add Variants';
+        addVariantsBtn.tabIndex = -1;
+        addVariantsBtn.style.display = 'none';
+
+        const deleteBtn = document.createElement('button');
+        deleteBtn.type = 'button';
+        deleteBtn.className = 'btn btn-danger btn-sm';
+        deleteBtn.innerHTML = '<i class="fas fa-trash"></i>';
+        deleteBtn.title = 'Delete row';
+        deleteBtn.tabIndex = -1;
+
+        actionsDiv.appendChild(addVariantsBtn);
+        actionsDiv.appendChild(deleteBtn);
+        cell12.appendChild(actionsDiv);
+
+        // Add event listeners for calculations
+        priceInput.addEventListener('input', calculateRow);
+        discountPercent.addEventListener('input', calculateRow);
+        discountAmount.addEventListener('input', calculateRowFromAmount);
+        tradeOfferDiscount.addEventListener('input', calculateRow);
+        tradeOfferAmount.addEventListener('input', calculateRowFromTradeOfferAmount);
+        gstPercent.addEventListener('input', calculateRow);
+        gstAmount.addEventListener('input', calculateRowFromGstAmount);
+
+        // Enter key navigation for faster workflow
+        priceInput.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                // Skip to discount if enabled, otherwise go to next row
+                const enableCashDiscountPercent = localStorage.getItem('enableCashDiscountPercent') === 'true';
+                if (enableCashDiscountPercent) {
+                    discountPercent.focus();
+                } else {
+                    netAmount.focus();
+                }
+            }
+        });
+

@@ -122,6 +122,6 @@ $base_url = $protocol . '://' . $host . '/ledgerone_erp';
     <script>
         const BASE_URL = '<?php echo $base_url; ?>';
     </script>
-    <script src="../../../assets/js/manufacturing/production_order/script.js"></script>
+    <script src="../../../assets/js/manufacturing/production_order/script_new.js"></script>
 </body>
 </html>

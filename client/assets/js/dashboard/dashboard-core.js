@@ -9,7 +9,7 @@
   class DashboardCore {
     constructor() {
       this.isInitialized = false;
-      this.basePath = "/ledgerone_erp";
+      this.basePath = "";
       this.permissions = {};
       this.init();
     }
@@ -675,9 +675,24 @@
           color: white;
         }
 
-        .subscription-banner.trial_expired,
+        .subscription-banner.past_due {
+          background: linear-gradient(135deg, #E8B23F, #D4A02C);
+          color: white;
+        }
+
+        .subscription-banner.canceled,
         .subscription-banner.expired {
           background: linear-gradient(135deg, #E34F4F, #C62828);
+          color: white;
+        }
+
+        .subscription-banner.paused {
+          background: linear-gradient(135deg, #6B7280, #4B5563);
+          color: white;
+        }
+
+        .subscription-banner.lifetime {
+          background: linear-gradient(135deg, #2FBF71, #27A05F);
           color: white;
         }
 
@@ -1030,7 +1045,7 @@
     }
 
     handleNavigation(navItem) {
-      if (this.subscriptionStatus === 'expired' || this.subscriptionStatus === 'trial_expired') {
+      if (this.subscriptionStatus === 'expired' || this.subscriptionStatus === 'canceled') {
         alert('Your subscription has expired. Please renew to continue.');
         return;
       }
@@ -1047,7 +1062,7 @@
     handleDropdownAction(item) {
       const action = item.getAttribute("data-action");
       
-      if (action !== 'software-info' && (this.subscriptionStatus === 'expired' || this.subscriptionStatus === 'trial_expired')) {
+      if (action !== 'software-info' && (this.subscriptionStatus === 'expired' || this.subscriptionStatus === 'canceled')) {
         alert('Your subscription has expired. Please renew to continue.');
         return;
       }
@@ -1320,9 +1335,10 @@
         if (data.subscription_status) {
           console.log('Subscription status:', data.subscription_status);
           this.subscriptionStatus = data.subscription_status;
+          this.billingType = data.billing_type;
           this.tenantId = data.tenant_id;
-          this.updateSubscriptionBanner(data.subscription_status);
-          if (data.subscription_status === 'expired' || data.subscription_status === 'trial_expired') {
+          this.updateSubscriptionBanner(data.subscription_status, data.billing_type);
+          if (data.subscription_status === 'expired' || data.subscription_status === 'canceled') {
             this.lockNavigation();
           }
         }
@@ -1331,17 +1347,24 @@
       }
     }
 
-    updateSubscriptionBanner(status) {
+    updateSubscriptionBanner(status, billingType) {
       const banner = document.getElementById('subscription-banner');
       if (!banner) return;
 
       const messages = {
         trialing: 'THIS IS A TRIAL/DEMO ACCOUNT',
-        trial_expired: `TRIAL ACCOUNT HAS BEEN EXPIRED - <a href="${this.basePath}/client/pages/auth/checkout.html?tenant_id=${this.tenantId}" style="color:white;text-decoration:underline;font-weight:700;">RENEW NOW</a>`,
-        expired: `SUBSCRIPTION HAS BEEN EXPIRED - <a href="${this.basePath}/client/pages/auth/checkout.html?tenant_id=${this.tenantId}" style="color:white;text-decoration:underline;font-weight:700;">RENEW NOW</a>`
+        past_due: `PAYMENT OVERDUE - <a href="${this.basePath}/client/pages/auth/checkout.html?tenant_id=${this.tenantId}" style="color:white;text-decoration:underline;font-weight:700;">PAY NOW</a>`,
+        canceled: `SUBSCRIPTION CANCELED - <a href="${this.basePath}/client/pages/auth/checkout.html?tenant_id=${this.tenantId}" style="color:white;text-decoration:underline;font-weight:700;">RENEW NOW</a>`,
+        expired: `SUBSCRIPTION EXPIRED - <a href="${this.basePath}/client/pages/auth/checkout.html?tenant_id=${this.tenantId}" style="color:white;text-decoration:underline;font-weight:700;">RENEW NOW</a>`,
+        paused: 'SUBSCRIPTION PAUSED',
+        lifetime: 'LIFETIME LICENSE'
       };
 
-      if (messages[status]) {
+      if (billingType === 'one_time' && status === 'active') {
+        banner.innerHTML = 'ONE-TIME LICENSE';
+        banner.className = 'subscription-banner lifetime';
+        banner.style.display = 'block';
+      } else if (messages[status]) {
         banner.innerHTML = messages[status];
         banner.className = `subscription-banner ${status}`;
         banner.style.display = 'block';

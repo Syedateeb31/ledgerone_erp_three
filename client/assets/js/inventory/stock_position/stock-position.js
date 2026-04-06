@@ -25,6 +25,71 @@ let detailedTotalItems = 0;
 let allDetailedEntries = [];
 let detailedCurrency = '$';
 
+// Column visibility state
+let columnVisibility = {
+    branch: true,
+    inventoryType: true,
+    openingBalance: true,
+    qtyIn: true,
+    qtyOut: true,
+    currentStock: true,
+    unitCost: true,
+    stockValue: true,
+    status: true
+};
+
+// Load column visibility from localStorage
+function loadColumnVisibility() {
+    const saved = localStorage.getItem('stockPositionColumnVisibility');
+    if (saved) {
+        columnVisibility = JSON.parse(saved);
+    }
+    applyColumnVisibility();
+}
+
+// Save column visibility to localStorage
+function saveColumnVisibility() {
+    localStorage.setItem('stockPositionColumnVisibility', JSON.stringify(columnVisibility));
+}
+
+// Apply column visibility
+function applyColumnVisibility() {
+    const columns = {
+        'branch': document.querySelectorAll('.col-branch'),
+        'inventoryType': document.querySelectorAll('.col-inventory-type'),
+        'openingBalance': document.querySelectorAll('.col-opening-balance'),
+        'qtyIn': document.querySelectorAll('.col-qty-in'),
+        'qtyOut': document.querySelectorAll('.col-qty-out'),
+        'currentStock': document.querySelectorAll('.col-current-stock'),
+        'unitCost': document.querySelectorAll('.col-unit-cost'),
+        'stockValue': document.querySelectorAll('.col-stock-value'),
+        'status': document.querySelectorAll('.col-status')
+    };
+    
+    Object.keys(columns).forEach(key => {
+        columns[key].forEach(col => {
+            col.style.display = columnVisibility[key] ? '' : 'none';
+        });
+    });
+    
+    // Update checkboxes
+    const checkboxes = {
+        'branch': document.getElementById('toggle-branch'),
+        'inventoryType': document.getElementById('toggle-inventory-type'),
+        'openingBalance': document.getElementById('toggle-opening-balance'),
+        'qtyIn': document.getElementById('toggle-qty-in'),
+        'qtyOut': document.getElementById('toggle-qty-out'),
+        'currentStock': document.getElementById('toggle-current-stock'),
+        'unitCost': document.getElementById('toggle-unit-cost'),
+        'stockValue': document.getElementById('toggle-stock-value'),
+        'status': document.getElementById('toggle-status')
+    };
+    
+    Object.keys(checkboxes).forEach(key => {
+        if (checkboxes[key]) checkboxes[key].checked = columnVisibility[key];
+    });
+}
+
 // Toggle children for a specific product
 function toggleChildren(productId) {
     const childRows = document.querySelectorAll(`tr.child-row[data-parent-id="${productId}"]`);
@@ -45,16 +110,20 @@ function printList() {
     const product = document.getElementById('product').value;
     const company = document.getElementById('company').value;
     const status = document.getElementById('status').value;
+    const stockLevelFilter = document.getElementById('stock-level-filter').value;
     const fromDate = document.getElementById('from-date').value;
     const toDate = document.getElementById('to-date').value;
+    const valuationMethod = document.getElementById('valuation-method').value;
     
     let url = 'print.php?';
     if (branch) url += `branch_id=${branch}&`;
     if (product) url += `product_id=${product}&`;
     if (company) url += `company_id=${company}&`;
     if (status) url += `status=${status}&`;
+    if (stockLevelFilter) url += `stock_level=${stockLevelFilter}&`;
     if (fromDate) url += `from_date=${fromDate}&`;
     if (toDate) url += `to_date=${toDate}&`;
+    if (valuationMethod) url += `valuation_method=${valuationMethod}&`;
     
     window.open(url, '_blank');
 }
@@ -95,9 +164,19 @@ async function loadStockPosition() {
         const distribution = document.getElementById('distribution').value;
         const stockStatus = document.getElementById('stock-status').value;
         const status = document.getElementById('status').value;
+        const stockLevelFilter = document.getElementById('stock-level-filter').value;
         const fromDate = document.getElementById('from-date').value;
         const toDate = document.getElementById('to-date').value;
         const valuationMethod = document.getElementById('valuation-method').value;
+        const showBaseUnits = document.getElementById('show-base-units').checked;
+        
+        // Show/hide trade price note
+        const tradePriceNote = document.getElementById('trade-price-note');
+        if (valuationMethod === 'TRADE_PRICE') {
+            tradePriceNote.style.display = 'block';
+        } else {
+            tradePriceNote.style.display = 'none';
+        }
         
         // Find branch ID from datalist
         let branchId = null;
@@ -134,12 +213,34 @@ async function loadStockPosition() {
         if (fromDate) url += `&from_date=${fromDate}`;
         if (toDate) url += `&to_date=${toDate}`;
         if (valuationMethod) url += `&valuation_method=${valuationMethod}`;
+        if (showBaseUnits) url += `&show_base_units=true`;
         
         const response = await fetch(url);
         const data = await response.json();
         
         if (data.success) {
+            console.log('Debug info:', data.debug);
+            console.log('Raw data count:', data.data.length);
             allPositions = Array.isArray(data.data) ? data.data : [];
+            
+            // Apply stock level filter
+            if (stockLevelFilter === 'zero-or-less') {
+                console.log('Applying filter: zero-or-less');
+                allPositions = allPositions.filter(pos => {
+                    const stock = parseFloat(pos.current_stock);
+                    console.log(`Product: ${pos.product_name}, Stock: ${stock}, Include: ${stock <= 0}`);
+                    return stock <= 0;
+                });
+            } else if (stockLevelFilter === 'greater-than-zero') {
+                console.log('Applying filter: greater-than-zero');
+                allPositions = allPositions.filter(pos => {
+                    const stock = parseFloat(pos.current_stock);
+                    console.log(`Product: ${pos.product_name}, Stock: ${stock}, Include: ${stock > 0}`);
+                    return stock > 0;
+                });
+            }
+            
+            console.log('Filtered data count:', allPositions.length);
             
             // Add product_id to each position for toggle functionality
             allPositions = allPositions.map((pos, idx) => ({
@@ -197,29 +298,31 @@ function updatePositionTable(currency = '$') {
         return `
         <tr class="${isChild ? 'child-row' : 'parent-row'}" data-product-id="${pos.product_id}" data-parent-id="${pos.parent_product_id || ''}" style="${isChild ? 'background-color: var(--table-row-alt);' : ''}">
             <td>${productDisplay}</td>
-            <td>${pos.branch_display}</td>
-            <td>${pos.inventory_type || '-'}</td>
-            <td>${parseFloat(pos.opening_balance || 0).toFixed(2)} ${pos.unit_symbol || 'L'}</td>
-            <td>${parseFloat(pos.total_qty_in || 0).toFixed(2)} ${pos.unit_symbol || 'L'}</td>
-            <td>${parseFloat(pos.total_qty_out || 0).toFixed(2)} ${pos.unit_symbol || 'L'}</td>
-            <td>${parseFloat(pos.current_stock).toFixed(2)} ${pos.unit_symbol || 'L'}</td>
-            <td>${currency}${parseFloat(pos.unit_cost).toFixed(2)}</td>
-            <td>${currency}${parseFloat(pos.stock_value).toFixed(2)}</td>
-            <td><span class="status-badge status-${pos.status}">${pos.status.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}</span></td>
+            <td class="col-branch">${pos.branch_display}</td>
+            <td class="col-inventory-type">${pos.inventory_type || '-'}</td>
+            <td class="col-opening-balance">${parseFloat(pos.opening_balance || 0).toFixed(2)} ${pos.unit_symbol || 'L'}</td>
+            <td class="col-qty-in">${parseFloat(pos.total_qty_in || 0).toFixed(2)} ${pos.unit_symbol || 'L'}</td>
+            <td class="col-qty-out">${parseFloat(pos.total_qty_out || 0).toFixed(2)} ${pos.unit_symbol || 'L'}</td>
+            <td class="col-current-stock">${parseFloat(pos.current_stock).toFixed(2)} ${pos.unit_symbol || 'L'}</td>
+            <td class="col-unit-cost">${currency}${parseFloat(pos.unit_cost).toFixed(2)}</td>
+            <td class="col-stock-value">${currency}${parseFloat(pos.stock_value).toFixed(2)}</td>
+            <td class="col-status"><span class="status-badge status-${pos.status}">${pos.status.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}</span></td>
         </tr>
     `;
     }).join('') + `
         <tr style="font-weight: bold; background-color: var(--table-header);">
             <td colspan="3">Total (${totalEntries} entries)</td>
-            <td>-</td>
-            <td>-</td>
-            <td>-</td>
-            <td>${unitTotalsText}</td>
-            <td>-</td>
-            <td>${currency}${totalValue.toFixed(2)}</td>
-            <td></td>
+            <td class="col-opening-balance">-</td>
+            <td class="col-qty-in">-</td>
+            <td class="col-qty-out">-</td>
+            <td class="col-current-stock">${unitTotalsText}</td>
+            <td class="col-unit-cost">-</td>
+            <td class="col-stock-value">${currency}${totalValue.toFixed(2)}</td>
+            <td class="col-status"></td>
         </tr>
     `;
+    
+    applyColumnVisibility();
 }
 
 function updatePaginationControls() {
@@ -295,7 +398,12 @@ function updateItemPaginationControls() {
 // Load Detailed Ledger
 async function loadDetailedLedger() {
     try {
-        const response = await fetch(`${API_BASE}?action=detailed-ledger`);
+        const company = document.getElementById('company').value;
+        
+        let url = `${API_BASE}?action=detailed-ledger`;
+        if (company) url += `&company_id=${company}`;
+        
+        const response = await fetch(url);
         const data = await response.json();
         
         if (data.success) {
@@ -457,8 +565,10 @@ function updateBranchPaginationControls() {
 async function loadDashboardStats() {
     try {
         const company = document.getElementById('company').value;
+        const valuationMethod = document.getElementById('valuation-method').value;
         let url = `${API_BASE}?action=stats`;
         if (company) url += `&company_id=${company}`;
+        if (valuationMethod) url += `&valuation_method=${valuationMethod}`;
         
         const response = await fetch(url);
         const data = await response.json();
@@ -589,9 +699,34 @@ async function loadCompanies() {
 
 // DOMContentLoaded event handler
 document.addEventListener('DOMContentLoaded', () => {
+    // Load column visibility settings
+    loadColumnVisibility();
+    
+    // Column visibility toggles
+    const toggles = [
+        { id: 'toggle-branch', key: 'branch' },
+        { id: 'toggle-inventory-type', key: 'inventoryType' },
+        { id: 'toggle-opening-balance', key: 'openingBalance' },
+        { id: 'toggle-qty-in', key: 'qtyIn' },
+        { id: 'toggle-qty-out', key: 'qtyOut' },
+        { id: 'toggle-current-stock', key: 'currentStock' },
+        { id: 'toggle-unit-cost', key: 'unitCost' },
+        { id: 'toggle-stock-value', key: 'stockValue' },
+        { id: 'toggle-status', key: 'status' }
+    ];
+    
+    toggles.forEach(toggle => {
+        document.getElementById(toggle.id).addEventListener('change', (e) => {
+            columnVisibility[toggle.key] = e.target.checked;
+            saveColumnVisibility();
+            applyColumnVisibility();
+        });
+    });
+    
     // Apply Position Filters
     document.getElementById('applyPositionFilters').addEventListener('click', () => {
         loadStockPosition();
+        loadDashboardStats();
     });
 
     // Clear Position Filters
@@ -603,6 +738,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('distribution').value = '';
         document.getElementById('stock-status').value = '';
         document.getElementById('status').value = '';
+        document.getElementById('stock-level-filter').value = '';
         document.getElementById('from-date').value = '';
         document.getElementById('to-date').value = '';
         document.getElementById('valuation-method').value = 'AVCO';

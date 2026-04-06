@@ -217,6 +217,8 @@ $data = $_GET['data'] ?? '';
         <?php 
         if ($report_type === 'itemwise') {
             echo 'Item-wise Profit & Loss Report';
+        } elseif ($report_type === 'categorywise') {
+            echo 'Category-wise Profit & Loss Report';
         } elseif ($report_type === 'customerwise') {
             echo 'Customer-wise Profit & Loss Report';
         } else {
@@ -280,6 +282,60 @@ $data = $_GET['data'] ?? '';
                         <tr>
                             <td>${item.product_name}</td>
                             <td class="text-right">${parseFloat(item.qty_sold).toFixed(2)}</td>
+                            <td class="text-right">${formatCurrency(revenue)}</td>
+                            <td class="text-right">${formatCurrency(cogs)}</td>
+                            <td class="text-right ${profit >= 0 ? 'positive' : 'negative'}">${formatCurrency(profit)}</td>
+                            <td class="text-right">${margin}%</td>
+                        </tr>
+                    `;
+                });
+
+                const totalMargin = totalRevenue > 0 ? ((totalProfit / totalRevenue) * 100).toFixed(2) : 0;
+                html += `
+                        <tr class="total-row">
+                            <td><strong>TOTAL</strong></td>
+                            <td class="text-right"></td>
+                            <td class="text-right">${formatCurrency(totalRevenue)}</td>
+                            <td class="text-right">${formatCurrency(totalCOGS)}</td>
+                            <td class="text-right ${totalProfit >= 0 ? 'positive' : 'negative'}">${formatCurrency(totalProfit)}</td>
+                            <td class="text-right">${totalMargin}%</td>
+                        </tr>
+                    </tbody>
+                </table>
+                `;
+
+            } else if (reportType === 'categorywise') {
+                html = `
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Category</th>
+                                <th class="text-right">Products</th>
+                                <th class="text-right">Revenue</th>
+                                <th class="text-right">COGS</th>
+                                <th class="text-right">Gross Profit</th>
+                                <th class="text-right">Margin %</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+
+                let totalRevenue = 0, totalCOGS = 0, totalProfit = 0;
+
+                reportData.forEach(category => {
+                    const revenue = parseFloat(category.revenue);
+                    const cogs = parseFloat(category.cogs);
+                    const profit = revenue - cogs;
+                    const margin = revenue > 0 ? ((profit / revenue) * 100).toFixed(2) : 0;
+
+                    totalRevenue += revenue;
+                    totalCOGS += cogs;
+                    totalProfit += profit;
+
+                    html += `
+                        <tr>
+                            <td>${category.category_name || 'Uncategorized'}</td>
+                            <td class="text-right">${category.product_count}</td>
                             <td class="text-right">${formatCurrency(revenue)}</td>
                             <td class="text-right">${formatCurrency(cogs)}</td>
                             <td class="text-right ${profit >= 0 ? 'positive' : 'negative'}">${formatCurrency(profit)}</td>

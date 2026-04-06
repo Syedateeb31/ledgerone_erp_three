@@ -42,67 +42,93 @@ try {
             $vendor_id = $_GET['vendor_id'] ?? null;
             $stock_status = $_GET['stock_status'] ?? null;
             $status = $_GET['status'] ?? null;
-            $from_date = $_GET['from_date'] ?? '1900-01-01';
-            $to_date = $_GET['to_date'] ?? date('Y-m-d');
+            $from_date = $_GET['from_date'] ?? null;
+            $to_date = $_GET['to_date'] ?? null;
             $valuation_method = $_GET['valuation_method'] ?? 'AVCO';
+            $show_base_units = isset($_GET['show_base_units']) && $_GET['show_base_units'] === 'true';
             
-            $allowed_methods = ['AVCO', 'FIFO', 'LIFO'];
+            $allowed_methods = ['AVCO', 'FIFO', 'LIFO', 'TRADE_PRICE'];
             if (!in_array($valuation_method, $allowed_methods, true)) {
                 $valuation_method = 'AVCO';
             }
             
-            $cost_calculation = "COALESCE(
-                (COALESCE(so.opening_qty, 0) * COALESCE(so.opening_price, 0) + COALESCE(SUM(sl.qty_in * sl.unit_cost), 0)) / 
-                NULLIF(COALESCE(so.opening_qty, 0) + COALESCE(SUM(sl.qty_in), 0), 0), 
-                so.opening_price, 0
-            )";
-            if ($valuation_method === 'FIFO') {
-                $cost_calculation = "COALESCE((SELECT unit_cost FROM stock_ledger WHERE tenant_id = sl.tenant_id AND product_id = sl.product_id AND branch_id = sl.branch_id AND account_id = sl.account_id AND qty_in > 0 AND transaction_type != 'Opening Stock' ORDER BY transaction_date ASC, id ASC LIMIT 1), so.opening_price, 0)";
-            } elseif ($valuation_method === 'LIFO') {
-                $cost_calculation = "COALESCE((SELECT unit_cost FROM stock_ledger WHERE tenant_id = sl.tenant_id AND product_id = sl.product_id AND branch_id = sl.branch_id AND account_id = sl.account_id AND qty_in > 0 AND transaction_type != 'Opening Stock' ORDER BY transaction_date DESC, id DESC LIMIT 1), so.opening_price, 0)";
-            }
+            // Query with unit conversion to base units
+            // Always convert for calculations, but display original unit when unchecked
+            $conversionFactor = "COALESCE(CASE WHEN u.unit_scope = 'universal' THEN u.conversion_factor ELSE puc.conversion_factor END, 1)";
+            
+            $displayUnit = $show_base_units ? 
+                "COALESCE(base_u.uom_name, 'L')" : 
+                "COALESCE(u.uom_name, 'L')";
+            
+            $displayQty = $show_base_units ? 
+                "" : 
+                " / {$conversionFactor}";
+            
+            // Unit cost calculation based on valuation method
+            $unitCostCalc = $valuation_method === 'TRADE_PRICE' 
+                ? "COALESCE(p.trade_price, 0)" 
+                : "COALESCE(AVG(CASE WHEN sl.qty_in > 0 THEN sl.unit_cost ELSE NULL END), 0)";
             
             $sql = "SELECT 
                         p.id as product_id,
                         p.name as product_name,
                         p.parent_product_id,
                         pp.name as parent_product_name,
-                        b.branch_name,
-                        b.branch_type,
+                        COALESCE(b.branch_name, 'No Branch') as branch_name,
+                        COALESCE(b.branch_type, '') as branch_type,
                         pb.branch_name as parent_branch_name,
-                        u.uom_name as unit_symbol,
-                        COALESCE(a.name, acc_opening.name) as account_name,
-                        COALESCE(so.opening_qty, 0) as opening_balance,
-                        COALESCE(SUM(CASE WHEN sl.transaction_date >= ? AND sl.transaction_date <= ? THEN sl.qty_in ELSE 0 END), 0) as total_qty_in,
-                        COALESCE(SUM(CASE WHEN sl.transaction_date >= ? AND sl.transaction_date <= ? THEN sl.qty_out ELSE 0 END), 0) as total_qty_out,
-                        COALESCE(so.opening_qty, 0) + COALESCE(SUM(sl.qty_in), 0) - COALESCE(SUM(sl.qty_out), 0) as current_stock,
-                        {$cost_calculation} as unit_cost,
-                        (COALESCE(so.opening_qty, 0) + COALESCE(SUM(sl.qty_in), 0) - COALESCE(SUM(sl.qty_out), 0)) * {$cost_calculation} as stock_value,
+                        {$displayUnit} as unit_symbol,
+                        COALESCE(a.name, 'Trading Inventory') as account_name,
+                        sl.branch_id,
+                        sl.account_id,
                         p.min_stock_level,
-                        p.max_stock_level
-                    FROM products p
+                        p.max_stock_level,
+                        sl.unit_id,
+                        u.unit_scope,
+                        u.conversion_factor as u_conversion,
+                        puc.conversion_factor as puc_conversion,
+                        {$conversionFactor} as final_conversion,
+                        COALESCE(SUM(CASE WHEN ? IS NULL OR sl.transaction_date < ? THEN 
+                            (sl.qty_in * {$conversionFactor}) - 
+                            (sl.qty_out * {$conversionFactor}) 
+                        ELSE 0 END){$displayQty}, 0) as opening_balance,
+                        COALESCE(SUM(CASE WHEN (? IS NULL OR sl.transaction_date >= ?) AND (? IS NULL OR sl.transaction_date <= ?) THEN 
+                            sl.qty_in * {$conversionFactor} 
+                        ELSE 0 END){$displayQty}, 0) as total_qty_in,
+                        COALESCE(SUM(CASE WHEN (? IS NULL OR sl.transaction_date >= ?) AND (? IS NULL OR sl.transaction_date <= ?) THEN 
+                            sl.qty_out * {$conversionFactor} 
+                        ELSE 0 END){$displayQty}, 0) as total_qty_out,
+                        COALESCE(SUM(
+                            (sl.qty_in * {$conversionFactor}) - 
+                            (sl.qty_out * {$conversionFactor})
+                        ){$displayQty}, 0) as current_stock,
+                        COALESCE(SUM(
+                            (sl.qty_in * {$conversionFactor}) - 
+                            (sl.qty_out * {$conversionFactor})
+                        ), 0) as current_stock_base,
+                        {$unitCostCalc} as unit_cost
+                    FROM stock_ledger sl
+                    JOIN products p ON sl.product_id = p.id AND sl.tenant_id = p.tenant_id
                     LEFT JOIN products pp ON p.parent_product_id = pp.id
-                    LEFT JOIN stock_opening so ON p.id = so.product_id AND p.tenant_id = so.tenant_id
-                    LEFT JOIN branches b ON so.branch_id = b.id
-                    LEFT JOIN accounts acc_opening ON p.inventory_account_id = acc_opening.id
-                    LEFT JOIN stock_ledger sl ON p.id = sl.product_id AND p.tenant_id = sl.tenant_id AND so.branch_id = sl.branch_id AND sl.transaction_type != 'Opening Stock'
-                    LEFT JOIN accounts a ON sl.account_id = a.id
+                    LEFT JOIN branches b ON sl.branch_id = b.id
                     LEFT JOIN branches pb ON b.parent_branch_id = pb.id
-                    LEFT JOIN uom u ON p.default_unit_id = u.id
+                    LEFT JOIN accounts a ON sl.account_id = a.id
+                    LEFT JOIN uom u ON sl.unit_id = u.id
+                    LEFT JOIN uom base_u ON COALESCE(u.base_unit_id, u.id) = base_u.id
+                    LEFT JOIN product_uom_conversions puc ON p.id = puc.product_id AND sl.unit_id = puc.uom_id
                     LEFT JOIN purchase_invoice pi ON sl.reference_table = 'purchase_invoice' AND sl.reference_id = pi.id
                     LEFT JOIN sale_invoice si ON sl.reference_table = 'sale_invoice' AND sl.reference_id = si.id
-                    WHERE p.tenant_id = ? AND p.product_type = 'physical'";
+                    WHERE sl.tenant_id = ? AND p.product_type = 'physical'";
             
-            $params = [$from_date, $to_date, $from_date, $to_date, $tenant_id];
+            $params = [$from_date, $from_date, $from_date, $from_date, $to_date, $to_date, $from_date, $from_date, $to_date, $to_date, $tenant_id];
             
             if ($branch_id) {
-                $sql .= " AND (sl.branch_id = ? OR b.parent_branch_id = ?)";
-                $params[] = $branch_id;
+                $sql .= " AND sl.branch_id = ?";
                 $params[] = $branch_id;
             }
             
             if ($product_id) {
-                $sql .= " AND sl.product_id = ?";
+                $sql .= " AND p.id = ?";
                 $params[] = $product_id;
             }
             
@@ -127,13 +153,30 @@ try {
                 $params[] = $company_id;
             }
             
-            $sql .= " GROUP BY p.id, so.branch_id, a.id, u.uom_name ORDER BY COALESCE(p.parent_product_id, p.id), p.parent_product_id IS NULL DESC, p.name";
+            // Group by unit_id when not showing base units to prevent mixing different units
+            $groupBy = $show_base_units ? 
+                "GROUP BY p.id, sl.branch_id, sl.account_id" : 
+                "GROUP BY p.id, sl.branch_id, sl.account_id, sl.unit_id";
+            
+            $sql .= " {$groupBy} ORDER BY COALESCE(p.parent_product_id, p.id), p.parent_product_id IS NULL DESC, p.name";
             
             $stmt = $pdo->prepare($sql);
             $stmt->execute($params);
             $positions = $stmt->fetchAll(PDO::FETCH_ASSOC);
             
+            // Debug info
+            $debug = [
+                'query' => $sql,
+                'params' => $params,
+                'count' => count($positions),
+                'valuation_method' => $valuation_method,
+                'first_record' => count($positions) > 0 ? $positions[0] : null
+            ];
+            
             foreach ($positions as &$position) {
+                // Calculate stock value using base units
+                $position['stock_value'] = $position['current_stock_base'] * $position['unit_cost'];
+                
                 $stock = $position['current_stock'];
                 $min_level = $position['min_stock_level'] ?? 0;
                 $max_level = $position['max_stock_level'] ?? 0;
@@ -144,7 +187,8 @@ try {
                     'convenience_store' => 'Convenience Store',
                     'car_wash' => 'Car Wash',
                     'fuel_tank' => 'Fuel Tank',
-                    'warehouse' => 'Warehouse'
+                    'warehouse' => 'Warehouse',
+                    'distribution_center' => 'Distribution Center'
                 ];
                 $type_display = $type_map[$position['branch_type']] ?? $position['branch_type'];
                 $branch_display = $position['branch_name'] . ' (' . $type_display . ')';
@@ -172,7 +216,7 @@ try {
                 $positions = array_values($positions);
             }
             
-            echo json_encode(['success' => true, 'data' => $positions, 'currency' => $currency_symbol]);
+            echo json_encode(['success' => true, 'data' => $positions, 'currency' => $currency_symbol, 'debug' => $debug]);
             break;
             
         case 'ledger':
@@ -188,8 +232,14 @@ try {
             
             $bbf = 0;
             if ($from_date) {
-                $bbf_sql = "SELECT COALESCE(SUM(sl.qty_in), 0) - COALESCE(SUM(sl.qty_out), 0) as bbf 
+                $bbf_sql = "SELECT COALESCE(SUM(
+                                (sl.qty_in * COALESCE(CASE WHEN u.unit_scope = 'universal' THEN u.conversion_factor ELSE puc.conversion_factor END, 1)) - 
+                                (sl.qty_out * COALESCE(CASE WHEN u.unit_scope = 'universal' THEN u.conversion_factor ELSE puc.conversion_factor END, 1))
+                            ), 0) as bbf 
                            FROM stock_ledger sl
+                           JOIN products p ON sl.product_id = p.id
+                           LEFT JOIN uom u ON sl.unit_id = u.id
+                           LEFT JOIN product_uom_conversions puc ON p.id = puc.product_id AND sl.unit_id = puc.uom_id
                            LEFT JOIN purchase_invoice pi ON sl.reference_table = 'purchase_invoice' AND sl.reference_id = pi.id
                            LEFT JOIN sale_invoice si ON sl.reference_table = 'sale_invoice' AND sl.reference_id = si.id
                            WHERE sl.tenant_id = ? AND sl.product_id = ?" . ($company_id ? " AND (pi.company_id = ? OR si.company_id = ?)" : "") . " AND sl.transaction_date < ?";
@@ -207,17 +257,20 @@ try {
             $sql = "SELECT 
                         sl.transaction_date,
                         sl.transaction_type,
-                        sl.qty_in,
-                        sl.qty_out,
+                        sl.qty_in * COALESCE(CASE WHEN u.unit_scope = 'universal' THEN u.conversion_factor ELSE puc.conversion_factor END, 1) as qty_in,
+                        sl.qty_out * COALESCE(CASE WHEN u.unit_scope = 'universal' THEN u.conversion_factor ELSE puc.conversion_factor END, 1) as qty_out,
                         sl.unit_cost,
-                        u.uom_name as unit_symbol,
+                        COALESCE(base_u.uom_name, u.uom_name, 'L') as unit_symbol,
                         CASE 
                             WHEN sl.reference_table = 'purchase_invoice' THEN s.supplier_name
                             WHEN sl.reference_table = 'sale_invoice' THEN c.customer_name
                             ELSE NULL
                         END as party_name
                     FROM stock_ledger sl
+                    JOIN products p ON sl.product_id = p.id
                     LEFT JOIN uom u ON sl.unit_id = u.id
+                    LEFT JOIN uom base_u ON COALESCE(u.base_unit_id, u.id) = base_u.id
+                    LEFT JOIN product_uom_conversions puc ON p.id = puc.product_id AND sl.unit_id = puc.uom_id
                     LEFT JOIN purchase_invoice pi ON sl.reference_table = 'purchase_invoice' AND sl.reference_id = pi.id
                     LEFT JOIN suppliers s ON pi.supplier_id = s.id
                     LEFT JOIN sale_invoice si ON sl.reference_table = 'sale_invoice' AND sl.reference_id = si.id
@@ -273,13 +326,15 @@ try {
                         sl.transaction_date,
                         p.name as product_name,
                         sl.transaction_type,
-                        sl.qty_in,
-                        sl.qty_out,
+                        sl.qty_in * COALESCE(CASE WHEN u.unit_scope = 'universal' THEN u.conversion_factor ELSE puc.conversion_factor END, 1) as qty_in,
+                        sl.qty_out * COALESCE(CASE WHEN u.unit_scope = 'universal' THEN u.conversion_factor ELSE puc.conversion_factor END, 1) as qty_out,
                         sl.unit_cost,
-                        u.uom_name as unit_symbol
+                        COALESCE(base_u.uom_name, u.uom_name, 'L') as unit_symbol
                     FROM stock_ledger sl
                     JOIN products p ON sl.product_id = p.id
                     LEFT JOIN uom u ON sl.unit_id = u.id
+                    LEFT JOIN uom base_u ON COALESCE(u.base_unit_id, u.id) = base_u.id
+                    LEFT JOIN product_uom_conversions puc ON p.id = puc.product_id AND sl.unit_id = puc.uom_id
                     LEFT JOIN purchase_invoice pi ON sl.reference_table = 'purchase_invoice' AND sl.reference_id = pi.id
                     LEFT JOIN sale_invoice si ON sl.reference_table = 'sale_invoice' AND sl.reference_id = si.id
                     WHERE sl.tenant_id = ? AND sl.branch_id = ? AND p.product_type = 'physical'";
@@ -324,6 +379,20 @@ try {
             
         case 'stats':
             $company_id = $_GET['company_id'] ?? null;
+            $valuation_method = $_GET['valuation_method'] ?? 'AVCO';
+            
+            $allowed_methods = ['AVCO', 'FIFO', 'LIFO', 'TRADE_PRICE'];
+            if (!in_array($valuation_method, $allowed_methods, true)) {
+                $valuation_method = 'AVCO';
+            }
+            
+            // Conversion factor for base units
+            $conversionFactor = "COALESCE(CASE WHEN u.unit_scope = 'universal' THEN u.conversion_factor ELSE puc.conversion_factor END, 1)";
+            
+            // Unit cost calculation based on valuation method
+            $unitCostCalc = $valuation_method === 'TRADE_PRICE' 
+                ? "COALESCE(p.trade_price, 0)" 
+                : "COALESCE(AVG(CASE WHEN sl.qty_in > 0 THEN sl.unit_cost ELSE NULL END), 0)";
             
             $stats_sql = "SELECT 
                             SUM(COALESCE(stock_data.stock_value, 0)) as total_value,
@@ -333,27 +402,40 @@ try {
                             SUM(CASE WHEN stock_data.status = 'overstock' THEN 1 ELSE 0 END) as overstock
                         FROM (
                             SELECT 
-                                (COALESCE(so.opening_qty, 0) + COALESCE(SUM(CASE WHEN sl.transaction_type != 'Opening Stock' THEN sl.qty_in ELSE 0 END), 0) - COALESCE(SUM(CASE WHEN sl.transaction_type != 'Opening Stock' THEN sl.qty_out ELSE 0 END), 0)) * 
-                                COALESCE(
-                                    (COALESCE(so.opening_qty, 0) * COALESCE(so.opening_price, 0) + COALESCE(SUM(CASE WHEN sl.transaction_type != 'Opening Stock' THEN sl.qty_in * sl.unit_cost ELSE 0 END), 0)) / 
-                                    NULLIF(COALESCE(so.opening_qty, 0) + COALESCE(SUM(CASE WHEN sl.transaction_type != 'Opening Stock' THEN sl.qty_in ELSE 0 END), 0), 0),
-                                    so.opening_price, 0
-                                ) as stock_value,
+                                COALESCE(SUM(
+                                    (sl.qty_in * {$conversionFactor}) - 
+                                    (sl.qty_out * {$conversionFactor})
+                                ), 0) as current_stock_base,
+                                {$unitCostCalc} as unit_cost,
+                                COALESCE(SUM(
+                                    (sl.qty_in * {$conversionFactor}) - 
+                                    (sl.qty_out * {$conversionFactor})
+                                ), 0) * {$unitCostCalc} as stock_value,
                                 p.min_stock_level,
                                 p.max_stock_level,
                                 CASE 
-                                    WHEN (COALESCE(so.opening_qty, 0) + COALESCE(SUM(CASE WHEN sl.transaction_type != 'Opening Stock' THEN sl.qty_in ELSE 0 END), 0) - COALESCE(SUM(CASE WHEN sl.transaction_type != 'Opening Stock' THEN sl.qty_out ELSE 0 END), 0)) <= 0 THEN 'out-of-stock'
-                                    WHEN (COALESCE(so.opening_qty, 0) + COALESCE(SUM(CASE WHEN sl.transaction_type != 'Opening Stock' THEN sl.qty_in ELSE 0 END), 0) - COALESCE(SUM(CASE WHEN sl.transaction_type != 'Opening Stock' THEN sl.qty_out ELSE 0 END), 0)) < COALESCE(p.min_stock_level, 0) THEN 'low-stock'
-                                    WHEN p.max_stock_level > 0 AND (COALESCE(so.opening_qty, 0) + COALESCE(SUM(CASE WHEN sl.transaction_type != 'Opening Stock' THEN sl.qty_in ELSE 0 END), 0) - COALESCE(SUM(CASE WHEN sl.transaction_type != 'Opening Stock' THEN sl.qty_out ELSE 0 END), 0)) > p.max_stock_level THEN 'overstock'
+                                    WHEN COALESCE(SUM(
+                                        (sl.qty_in * {$conversionFactor}) - 
+                                        (sl.qty_out * {$conversionFactor})
+                                    ), 0) <= 0 THEN 'out-of-stock'
+                                    WHEN COALESCE(SUM(
+                                        (sl.qty_in * {$conversionFactor}) - 
+                                        (sl.qty_out * {$conversionFactor})
+                                    ), 0) < COALESCE(p.min_stock_level, 0) THEN 'low-stock'
+                                    WHEN p.max_stock_level > 0 AND COALESCE(SUM(
+                                        (sl.qty_in * {$conversionFactor}) - 
+                                        (sl.qty_out * {$conversionFactor})
+                                    ), 0) > p.max_stock_level THEN 'overstock'
                                     ELSE 'in-stock'
                                 END as status
-                            FROM products p
-                            LEFT JOIN stock_opening so ON p.id = so.product_id AND p.tenant_id = so.tenant_id
-                            LEFT JOIN stock_ledger sl ON p.id = sl.product_id AND p.tenant_id = sl.tenant_id AND so.branch_id = sl.branch_id
+                            FROM stock_ledger sl
+                            JOIN products p ON sl.product_id = p.id AND sl.tenant_id = p.tenant_id
+                            LEFT JOIN uom u ON sl.unit_id = u.id
+                            LEFT JOIN product_uom_conversions puc ON p.id = puc.product_id AND sl.unit_id = puc.uom_id
                             LEFT JOIN purchase_invoice pi ON sl.reference_table = 'purchase_invoice' AND sl.reference_id = pi.id
                             LEFT JOIN sale_invoice si ON sl.reference_table = 'sale_invoice' AND sl.reference_id = si.id
-                            WHERE p.tenant_id = ?" . ($company_id ? " AND (pi.company_id = ? OR si.company_id = ?)" : "") . " AND p.product_type = 'physical'
-                            GROUP BY p.id, so.branch_id
+                            WHERE sl.tenant_id = ?" . ($company_id ? " AND (pi.company_id = ? OR si.company_id = ?)" : "") . " AND p.product_type = 'physical'
+                            GROUP BY p.id, sl.branch_id, sl.account_id
                         ) as stock_data";
             
             $stats_stmt = $pdo->prepare($stats_sql);
@@ -441,7 +523,7 @@ try {
                         sl.qty_in,
                         sl.qty_out,
                         sl.unit_cost,
-                        u.uom_name as unit_symbol
+                        COALESCE(u.uom_name, 'L') as unit_symbol
                     FROM stock_ledger sl
                     JOIN products p ON sl.product_id = p.id
                     JOIN branches b ON sl.branch_id = b.id

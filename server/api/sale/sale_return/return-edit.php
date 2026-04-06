@@ -43,6 +43,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 cur.code as currency_code,
                 cur.name as currency_name,
                 e.full_name as sales_officer_name,
+                sm.full_name as supplier_man_name,
                 comp.company_name,
                 comp.company_code,
                 comp.legal_name,
@@ -59,6 +60,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             LEFT JOIN branches pb ON b.parent_branch_id = pb.id
             LEFT JOIN ledgerone_public.currencies cur ON si.currency_id = cur.id
             LEFT JOIN employees e ON si.sale_officer_id = e.id
+            LEFT JOIN employees sm ON si.supplier_man_id = sm.id
             LEFT JOIN companies comp ON si.company_id = comp.id
             WHERE si.id = ? AND si.tenant_id = ?
         ");
@@ -117,7 +119,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
                 company_id = ?, currency_id = ?, sale_date = ?, customer_id = ?, branch_id = ?,
                 previous_balance = ?, total_bill = ?, total_discount_percent = ?,
                 total_discount_amount = ?, net_amount = ?, sale_invoice_no = ?, 
-                amount_refunded = ?, payment_method = ?, bank_account_id = ?, sale_officer_id = ?, sub_account_id = ?, remarks = ?, status = ?, updated_by = ?
+                amount_refunded = ?, payment_method = ?, bank_account_id = ?, sale_officer_id = ?, supplier_man_id = ?, sub_account_id = ?, remarks = ?, status = ?, updated_by = ?
             WHERE id = ? AND tenant_id = ?
         ");
         $stmt->execute([
@@ -136,6 +138,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
             $input['paymentMethod'] ?? null,
             $input['bankAccountId'] ?? null,
             $input['salesOfficerId'] ?? null,
+            $input['supplierManId'] ?? null,
             $input['subAccountId'] ?? null,
             $input['remarks'] ?? null,
             $input['status'] ?? 'Posted',

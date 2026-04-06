@@ -1,6 +1,6 @@
 // Global variables
 let cashFlowData = [];
-let currencySymbol = 'Rs';
+let currentCurrencySymbol = 'Rs';
 let currentPage = 1;
 let totalPages = 1;
 let cashFlowChart = null;
@@ -9,7 +9,7 @@ let isGraphView = false;
 // Function to format currency
 function formatCurrency(amount) {
     const num = parseFloat(amount) || 0;
-    return currencySymbol + ' ' + num.toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,');
+    return currentCurrencySymbol + ' ' + num.toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,');
 }
 
 // Function to fetch cash flow data
@@ -33,16 +33,35 @@ async function fetchCashFlowData() {
             params.append('company_id', companyFilter.value);
         }
         
+        const currencyFilter = document.getElementById('currencyFilter');
+        if (currencyFilter.value) {
+            params.append('currency_id', currencyFilter.value);
+        }
+        
         const response = await fetch(`../../../../server/api/financial_reports/cash_flow/cash-flow.php?${params}`);
         const result = await response.json();
         
         if (result.success) {
             cashFlowData = result.data;
-            currencySymbol = result.currency_symbol;
+            currentCurrencySymbol = result.currency_symbol;
             if (result.pagination) {
                 currentPage = result.pagination.current_page;
                 totalPages = result.pagination.total_pages;
                 updatePaginationButtons();
+            }
+            // Log debug info
+            if (result.debug) {
+                console.log('=== CASH FLOW DEBUG INFO ===');
+                console.log('Bank Opening (raw):', result.debug.bank_opening_raw);
+                console.log('Bank Credit (raw):', result.debug.bank_credit_raw);
+                console.log('Bank Opening Balance (calculated):', result.debug.bank_opening_balance);
+                console.log('Cash Opening:', result.debug.cash_opening);
+                console.log('Soft Opening Cash:', result.debug.soft_opening_cash);
+                console.log('Soft Opening Bank:', result.debug.soft_opening_bank);
+                console.log('Combined Opening Balance:', result.debug.combined_opening);
+                console.log('Base Currency ID:', result.debug.base_currency_id);
+                console.log('Target Currency ID:', result.debug.target_currency_id);
+                console.log('===========================');
             }
             return result;
         } else {
@@ -398,8 +417,31 @@ async function loadCompanies() {
     }
 }
 
+// Load currencies
+async function loadCurrencies() {
+    try {
+        const response = await fetch('../../../../server/api/financial_reports/cash_flow/get-currencies.php');
+        const result = await response.json();
+        
+        if (result.success) {
+            const currencyFilter = document.getElementById('currencyFilter');
+            currencyFilter.innerHTML = '';
+            result.data.forEach(currency => {
+                const option = document.createElement('option');
+                option.value = currency.id;
+                option.textContent = `${currency.name} (${currency.symbol})`;
+                if (currency.is_base) option.selected = true;
+                currencyFilter.appendChild(option);
+            });
+        }
+    } catch (error) {
+        console.error('Error loading currencies:', error);
+    }
+}
+
 // Initialize table with data
 document.addEventListener('DOMContentLoaded', async function () {
+    await loadCurrencies();
     await populateFilterOptions();
     await loadCompanies();
     await applyFilters();
@@ -423,6 +465,11 @@ document.addEventListener('DOMContentLoaded', async function () {
         const companyFilter = document.getElementById('companyFilter');
         if (companyFilter.value) {
             params.append('company_id', companyFilter.value);
+        }
+        
+        const currencyFilter = document.getElementById('currencyFilter');
+        if (currencyFilter.value) {
+            params.append('currency_id', currencyFilter.value);
         }
         
         window.open(`print.php?${params}`, '_blank');
@@ -539,7 +586,7 @@ function renderChart() {
                     beginAtZero: true,
                     ticks: {
                         callback: function(value) {
-                            return currencySymbol + ' ' + value.toLocaleString();
+                            return currentCurrencySymbol + ' ' + value.toLocaleString();
                         }
                     }
                 }

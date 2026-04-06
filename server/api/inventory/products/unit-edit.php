@@ -26,7 +26,8 @@ try {
     $unit_id = $_POST['id'] ?? '';
     $uom_name = $_POST['unitName'] ?? '';
     $uom_type = $_POST['unitType'] ?? 'count';
-    $is_base_unit = isset($_POST['isBaseUnit']) ? 1 : 0;
+    $unit_scope = $_POST['unitScope'] ?? 'universal';
+    $is_base_unit = (isset($_POST['isBaseUnit']) && $_POST['isBaseUnit'] === 'on') ? 1 : 0;
     $base_unit_id = $_POST['baseUnit'] ?? null;
     $conversion_factor = $_POST['conversionFactor'] ?? 1;
     
@@ -43,14 +44,22 @@ try {
         exit;
     }
     
+    // For per_product scope, don't force is_base_unit to 0
+    if ($unit_scope === 'per_product') {
+        if ($is_base_unit) {
+            $base_unit_id = null;
+        }
+        $conversion_factor = 1;
+    }
+    
     $stmt = $pdo->prepare("
-        UPDATE uom SET uom_name = ?, uom_type = ?, base_unit_id = ?, conversion_factor = ?, is_base_unit = ?
+        UPDATE uom SET uom_name = ?, uom_type = ?, base_unit_id = ?, conversion_factor = ?, is_base_unit = ?, unit_scope = ?
         WHERE id = ? AND tenant_id = ? AND tenant_id != 0
     ");
     
     $base_unit_param = ($is_base_unit || empty($base_unit_id)) ? null : $base_unit_id;
     
-    $stmt->execute([$uom_name, $uom_type, $base_unit_param, $conversion_factor, $is_base_unit, $unit_id, $tenant_id]);
+    $stmt->execute([$uom_name, $uom_type, $base_unit_param, $conversion_factor, $is_base_unit, $unit_scope, $unit_id, $tenant_id]);
     
     echo json_encode([
         'success' => true, 

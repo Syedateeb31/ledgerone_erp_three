@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once '../../../../includes/connection.php';
+require_once 'currency-converter.php';
 
 header('Content-Type: application/json');
 
@@ -26,6 +27,31 @@ try {
     $type = $_GET['type'] ?? 'summary';
     $distribution_id = $_GET['distribution_id'] ?? null;
     $company_id = $_GET['company_id'] ?? null;
+    $target_currency_id = $_GET['currency_id'] ?? null;
+    
+    // Initialize currency converter
+    $converter = new CurrencyConverter($pdo, $tenant_id);
+    
+    // Get base currency if no target currency specified
+    if (!$target_currency_id) {
+        $stmt = $pdo->prepare("SELECT currency_id FROM tenant_currencies WHERE tenant_id = ? AND is_base_currency = 1");
+        $stmt->execute([$tenant_id]);
+        $baseCurrency = $stmt->fetch(PDO::FETCH_ASSOC);
+        $target_currency_id = $baseCurrency['currency_id'];
+    }
+    
+    // Get target currency code for conversion
+    $stmt = $pdo->prepare("SELECT code FROM ledgerone_public.currencies WHERE id = ?");
+    $stmt->execute([$target_currency_id]);
+    $targetCurrencyData = $stmt->fetch(PDO::FETCH_ASSOC);
+    $target_currency_code = $targetCurrencyData['code'];
+    
+    if ($type === 'currencies') {
+        $stmt = $pdo->prepare("SELECT tc.currency_id as id, c.name, c.symbol, c.code, tc.is_base_currency FROM tenant_currencies tc JOIN ledgerone_public.currencies c ON tc.currency_id = c.id WHERE tc.tenant_id = ? AND tc.is_active = 1 ORDER BY tc.is_base_currency DESC, c.name");
+        $stmt->execute([$tenant_id]);
+        echo json_encode(['success' => true, 'data' => $stmt->fetchAll(PDO::FETCH_ASSOC)]);
+        exit;
+    }
 
     if ($type === 'customers') {
         $sql = "SELECT id, customer_code, customer_name FROM customers WHERE tenant_id = ? AND status = 'ACTIVE'";
@@ -75,39 +101,98 @@ try {
         
         $data = [];
         foreach ($customers as $customer) {
-            $base_opening = $customer['opening_debit_amount'] - $customer['opening_credit_amount'];
+            $base_opening_debit = $customer['opening_debit_amount'];
+            $base_opening_credit = $customer['opening_credit_amount'];
+            
+            // Convert opening balance to target currency (assuming base currency)
+            $stmt = $pdo->prepare("SELECT currency_id FROM tenant_currencies WHERE tenant_id = ? AND is_base_currency = 1");
+            $stmt->execute([$tenant_id]);
+            $baseCurrency = $stmt->fetch(PDO::FETCH_ASSOC);
+            $base_currency_id = $baseCurrency['currency_id'];
+            
+            if ($base_currency_id != $target_currency_id) {
+                $base_opening_debit = $converter->convert($base_opening_debit, $base_currency_id, $target_currency_id);
+                $base_opening_credit = $converter->convert($base_opening_credit, $base_currency_id, $target_currency_id);
+            }
+            
+            $base_opening = $base_opening_debit - $base_opening_credit;
             
             // Calculate soft opening if from_date provided
             $opening_balance = $base_opening;
             $company_filter = ($company_id ? " AND company_id = ?" : "");
             if ($from_date) {
-                $stmt = $pdo->prepare("SELECT COALESCE(SUM(net_amount), 0) as total FROM sale_invoice WHERE tenant_id = ? AND customer_id = ? AND sale_date < ?{$company_filter}");
+                $stmt = $pdo->prepare("SELECT net_amount, currency_id FROM sale_invoice WHERE tenant_id = ? AND customer_id = ? AND sale_date < ?{$company_filter}");
                 $params_prev = [$tenant_id, $customer['id'], $from_date];
                 if ($company_id) $params_prev[] = $company_id;
                 $stmt->execute($params_prev);
-                $prev_invoices = $stmt->fetch()['total'];
+                $prev_invoices_data = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                $prev_invoices = 0;
+                foreach ($prev_invoices_data as $inv) {
+                    $amount = $inv['net_amount'];
+                    if ($inv['currency_id'] && $inv['currency_id'] != $target_currency_id) {
+                        $amount = $converter->convert($amount, $inv['currency_id'], $target_currency_id);
+                    }
+                    $prev_invoices += $amount;
+                }
                 
-                $stmt = $pdo->prepare("SELECT COALESCE(SUM(amount), 0) as total FROM receive_voucher WHERE tenant_id = ? AND customer_id = ? AND voucher_date < ?{$company_filter}");
+                $stmt = $pdo->prepare("SELECT amount, currency_id FROM receive_voucher WHERE tenant_id = ? AND customer_id = ? AND voucher_date < ?{$company_filter}");
                 $params_prev = [$tenant_id, $customer['id'], $from_date];
                 if ($company_id) $params_prev[] = $company_id;
                 $stmt->execute($params_prev);
-                $prev_payments = $stmt->fetch()['total'];
+                $prev_payments_data = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                $prev_payments = 0;
+                foreach ($prev_payments_data as $pay) {
+                    $amount = $pay['amount'];
+                    if ($pay['currency_id'] && $pay['currency_id'] != $target_currency_id) {
+                        $amount = $converter->convert($amount, $pay['currency_id'], $target_currency_id);
+                    }
+                    $prev_payments += $amount;
+                }
                 
-                $stmt = $pdo->prepare("SELECT COALESCE(SUM(amount), 0) as total FROM payment_voucher WHERE tenant_id = ? AND customer_id IS NOT NULL AND supplier_id IS NULL AND customer_id = ? AND voucher_date < ?{$company_filter}");
+                $stmt = $pdo->prepare("SELECT amount, currency_id FROM payment_voucher WHERE tenant_id = ? AND customer_id IS NOT NULL AND supplier_id IS NULL AND customer_id = ? AND voucher_date < ?{$company_filter}");
                 $params_prev = [$tenant_id, $customer['id'], $from_date];
                 if ($company_id) $params_prev[] = $company_id;
                 $stmt->execute($params_prev);
-                $prev_payment_vouchers = $stmt->fetch()['total'];
+                $prev_payment_vouchers_data = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                $prev_payment_vouchers = 0;
+                foreach ($prev_payment_vouchers_data as $pv) {
+                    $amount = $pv['amount'];
+                    if ($pv['currency_id'] && $pv['currency_id'] != $target_currency_id) {
+                        $amount = $converter->convert($amount, $pv['currency_id'], $target_currency_id);
+                    }
+                    $prev_payment_vouchers += $amount;
+                }
                 
-                $stmt = $pdo->prepare("SELECT COALESCE(SUM(amount_refunded), 0) as refunded, COALESCE(SUM(net_amount - amount_refunded), 0) as credit FROM sale_return WHERE tenant_id = ? AND customer_id = ? AND sale_date < ? AND status = 'Posted'{$company_filter}");
+                $stmt = $pdo->prepare("SELECT amount_refunded, net_amount, currency_id FROM sale_return WHERE tenant_id = ? AND customer_id = ? AND sale_date < ? AND status = 'Posted'{$company_filter}");
                 $params_prev = [$tenant_id, $customer['id'], $from_date];
                 if ($company_id) $params_prev[] = $company_id;
                 $stmt->execute($params_prev);
-                $prev_returns_data = $stmt->fetch();
+                $prev_returns_data_raw = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                $prev_refunded = 0;
+                $prev_credit = 0;
+                foreach ($prev_returns_data_raw as $ret) {
+                    $refunded = $ret['amount_refunded'];
+                    $credit = $ret['net_amount'] - $ret['amount_refunded'];
+                    if ($ret['currency_id'] && $ret['currency_id'] != $target_currency_id) {
+                        $refunded = $converter->convert($refunded, $ret['currency_id'], $target_currency_id);
+                        $credit = $converter->convert($credit, $ret['currency_id'], $target_currency_id);
+                    }
+                    $prev_refunded += $refunded;
+                    $prev_credit += $credit;
+                }
+                $prev_returns_data = ['refunded' => $prev_refunded, 'credit' => $prev_credit];
                 
-                $stmt = $pdo->prepare("SELECT COALESCE(SUM(credit), 0) as total FROM accounting_ledger WHERE tenant_id = ? AND account_id = 2 AND reference_table = 'rent_management' AND reference_id IN (SELECT id FROM rent_management WHERE customer_id = ?) AND date < ?");
+                $stmt = $pdo->prepare("SELECT al.credit, rm.currency_id FROM accounting_ledger al JOIN rent_management rm ON al.reference_id = rm.id AND al.reference_table = 'rent_management' WHERE al.tenant_id = ? AND al.account_id = 2 AND rm.customer_id = ? AND al.date < ?");
                 $stmt->execute([$tenant_id, $customer['id'], $from_date]);
-                $prev_rent = $stmt->fetch()['total'];
+                $prev_rent_data = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                $prev_rent = 0;
+                foreach ($prev_rent_data as $rent) {
+                    $amount = $rent['credit'];
+                    if ($rent['currency_id'] && $rent['currency_id'] != $target_currency_id) {
+                        $amount = $converter->convert($amount, $rent['currency_id'], $target_currency_id);
+                    }
+                    $prev_rent += $amount;
+                }
                 
                 $opening_balance = $base_opening + $prev_invoices + $prev_returns_data['refunded'] - $prev_payment_vouchers - $prev_payments - $prev_returns_data['credit'] - $prev_rent;
             }
@@ -135,20 +220,20 @@ try {
                 WHERE sr.tenant_id = ? AND sr.customer_id = ? AND sr.status = 'Posted' AND p.vendor_id = ?";
                 $return_params = [$tenant_id, $customer['id'], $distribution_id];
             } else {
-                $invoice_sql = "SELECT COALESCE(SUM(net_amount), 0) as total FROM sale_invoice WHERE tenant_id = ? AND customer_id = ?{$company_filter}";
+                $invoice_sql = "SELECT net_amount, currency_id FROM sale_invoice WHERE tenant_id = ? AND customer_id = ?{$company_filter}";
                 $invoice_params = [$tenant_id, $customer['id']];
                 if ($company_id) $invoice_params[] = $company_id;
                 
-                $return_sql = "SELECT COALESCE(SUM(net_amount), 0) as total FROM sale_return WHERE tenant_id = ? AND customer_id = ? AND status = 'Posted'{$company_filter}";
+                $return_sql = "SELECT net_amount, currency_id FROM sale_return WHERE tenant_id = ? AND customer_id = ? AND status = 'Posted'{$company_filter}";
                 $return_params = [$tenant_id, $customer['id']];
                 if ($company_id) $return_params[] = $company_id;
             }
             
-            $payment_sql = "SELECT COALESCE(SUM(amount), 0) as total FROM receive_voucher WHERE tenant_id = ? AND customer_id = ?{$company_filter}";
+            $payment_sql = "SELECT amount, currency_id FROM receive_voucher WHERE tenant_id = ? AND customer_id = ?{$company_filter}";
             $payment_params = [$tenant_id, $customer['id']];
             if ($company_id) $payment_params[] = $company_id;
             
-            $payment_voucher_sql = "SELECT COALESCE(SUM(amount), 0) as total FROM payment_voucher WHERE tenant_id = ? AND customer_id IS NOT NULL AND supplier_id IS NULL AND customer_id = ?{$company_filter}";
+            $payment_voucher_sql = "SELECT amount, currency_id FROM payment_voucher WHERE tenant_id = ? AND customer_id IS NOT NULL AND supplier_id IS NULL AND customer_id = ?{$company_filter}";
             $payment_voucher_params = [$tenant_id, $customer['id']];
             if ($company_id) $payment_voucher_params[] = $company_id;
             
@@ -169,30 +254,67 @@ try {
             
             $stmt = $pdo->prepare($invoice_sql);
             $stmt->execute($invoice_params);
-            $total_debit = $stmt->fetch()['total'];
+            $invoice_data = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $total_debit = 0;
+            foreach ($invoice_data as $inv) {
+                $amount = $inv['net_amount'] ?? $inv['total'];
+                if (isset($inv['currency_id']) && $inv['currency_id'] && $inv['currency_id'] != $target_currency_id) {
+                    $amount = $converter->convert($amount, $inv['currency_id'], $target_currency_id);
+                }
+                $total_debit += $amount;
+            }
             
             $stmt = $pdo->prepare($payment_voucher_sql);
             $stmt->execute($payment_voucher_params);
-            $total_debit += $stmt->fetch()['total'];
+            $pv_data = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            foreach ($pv_data as $pv) {
+                $amount = $pv['amount'];
+                if ($pv['currency_id'] && $pv['currency_id'] != $target_currency_id) {
+                    $amount = $converter->convert($amount, $pv['currency_id'], $target_currency_id);
+                }
+                $total_debit += $amount;
+            }
             
             $stmt = $pdo->prepare($payment_sql);
             $stmt->execute($payment_params);
-            $total_credit = $stmt->fetch()['total'];
+            $payment_data = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $total_credit = 0;
+            foreach ($payment_data as $pay) {
+                $amount = $pay['amount'];
+                if ($pay['currency_id'] && $pay['currency_id'] != $target_currency_id) {
+                    $amount = $converter->convert($amount, $pay['currency_id'], $target_currency_id);
+                }
+                $total_credit += $amount;
+            }
             
             $stmt = $pdo->prepare($return_sql);
             $stmt->execute($return_params);
-            $total_credit += $stmt->fetch()['total'];
+            $return_data = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            foreach ($return_data as $ret) {
+                $amount = $ret['net_amount'] ?? $ret['total'];
+                if (isset($ret['currency_id']) && $ret['currency_id'] && $ret['currency_id'] != $target_currency_id) {
+                    $amount = $converter->convert($amount, $ret['currency_id'], $target_currency_id);
+                }
+                $total_credit += $amount;
+            }
             
-            $rent_sql = "SELECT COALESCE(SUM(credit), 0) as total FROM accounting_ledger WHERE tenant_id = ? AND account_id = 2 AND reference_table = 'rent_management' AND reference_id IN (SELECT id FROM rent_management WHERE customer_id = ?)";
+            $rent_sql = "SELECT al.credit, rm.currency_id FROM accounting_ledger al JOIN rent_management rm ON al.reference_id = rm.id AND al.reference_table = 'rent_management' WHERE al.tenant_id = ? AND al.account_id = 2 AND rm.customer_id = ?";
             $rent_params = [$tenant_id, $customer['id']];
             if ($from_date && $to_date) {
-                $rent_sql .= " AND date BETWEEN ? AND ?";
+                $rent_sql .= " AND al.date BETWEEN ? AND ?";
                 $rent_params[] = $from_date;
                 $rent_params[] = $to_date;
             }
             $stmt = $pdo->prepare($rent_sql);
             $stmt->execute($rent_params);
-            $total_credit += $stmt->fetch()['total'];
+            $rent_data = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            foreach ($rent_data as $rent) {
+                $amount = $rent['credit'];
+                if ($rent['currency_id'] && $rent['currency_id'] != $target_currency_id) {
+                    $amount = $converter->convert($amount, $rent['currency_id'], $target_currency_id);
+                }
+                $total_credit += $amount;
+            }
             
             $closing_balance = $opening_balance + $total_debit - $total_credit;
             
@@ -220,7 +342,22 @@ try {
         $stmt = $pdo->prepare("SELECT opening_debit_amount, opening_credit_amount FROM customers WHERE id = ? AND tenant_id = ?");
         $stmt->execute([$customer_id, $tenant_id]);
         $customer = $stmt->fetch(PDO::FETCH_ASSOC);
-        $base_opening = $customer['opening_debit_amount'] - $customer['opening_credit_amount'];
+        
+        // Convert opening balance to target currency
+        $stmt = $pdo->prepare("SELECT currency_id FROM tenant_currencies WHERE tenant_id = ? AND is_base_currency = 1");
+        $stmt->execute([$tenant_id]);
+        $baseCurrency = $stmt->fetch(PDO::FETCH_ASSOC);
+        $base_currency_id = $baseCurrency['currency_id'];
+        
+        $opening_debit = $customer['opening_debit_amount'];
+        $opening_credit = $customer['opening_credit_amount'];
+        
+        if ($base_currency_id != $target_currency_id) {
+            $opening_debit = $converter->convert($opening_debit, $base_currency_id, $target_currency_id);
+            $opening_credit = $converter->convert($opening_credit, $base_currency_id, $target_currency_id);
+        }
+        
+        $base_opening = $opening_debit - $opening_credit;
         
         // Get sub account opening balances
         $stmt = $pdo->prepare("SELECT id, sub_account_name, debit, credit FROM customer_sub_accounts WHERE tenant_id = ? AND customer_id = ?");
@@ -229,7 +366,16 @@ try {
         $sub_opening_map = [];
         $total_sub_opening = 0;
         foreach ($sub_accounts_opening as $sub) {
-            $sub_balance = $sub['debit'] - $sub['credit'];
+            $sub_debit = $sub['debit'];
+            $sub_credit = $sub['credit'];
+            
+            // Convert sub account opening to target currency
+            if ($base_currency_id != $target_currency_id) {
+                $sub_debit = $converter->convert($sub_debit, $base_currency_id, $target_currency_id);
+                $sub_credit = $converter->convert($sub_credit, $base_currency_id, $target_currency_id);
+            }
+            
+            $sub_balance = $sub_debit - $sub_credit;
             $sub_opening_map[$sub['id']] = $sub_balance;
             $total_sub_opening += $sub_balance;
         }
@@ -341,7 +487,7 @@ try {
             $params = [$tenant_id, $customer_id, $distribution_id];
         } else {
             $sql = "SELECT id, sale_date as date, CONCAT('Sale Invoice - ', bill_no) as description, 
-                    bill_no as reference, net_amount as debit, 0 as credit, 'invoice' as type, sub_account_id
+                    bill_no as reference, net_amount as debit, 0 as credit, 'invoice' as type, sub_account_id, currency_id
                     FROM sale_invoice
                     WHERE tenant_id = ? AND customer_id = ?{$company_filter}";
             $params = [$tenant_id, $customer_id];
@@ -365,7 +511,7 @@ try {
         
         // Get receive vouchers (exclude those linked to PDCs)
         $sql = "SELECT voucher_date as date, CONCAT('Receipt - ', voucher_number) as description,
-                voucher_number as reference, 0 as debit, amount as credit, 'payment' as type, sub_account_id
+                voucher_number as reference, 0 as debit, amount as credit, 'payment' as type, sub_account_id, currency_id
                 FROM receive_voucher 
                 WHERE tenant_id = ? AND customer_id = ?{$company_filter}
                 AND id NOT IN (
@@ -391,7 +537,7 @@ try {
         // Get payment vouchers
         $sql = "SELECT id, voucher_date as date, CONCAT('Payment - ', voucher_number) as description,
                 voucher_number as reference, amount as debit, 0 as credit, 'payment_voucher' as type, 
-                COALESCE(NULLIF(customer_sub_account_id, 0), sub_account_id) as sub_account_id
+                COALESCE(NULLIF(customer_sub_account_id, 0), sub_account_id) as sub_account_id, currency_id
                 FROM payment_voucher 
                 WHERE tenant_id = ? AND customer_id IS NOT NULL AND supplier_id IS NULL AND customer_id = ?{$company_filter}";
         $params = [$tenant_id, $customer_id];
@@ -425,7 +571,7 @@ try {
             $params = [$tenant_id, $customer_id, $distribution_id];
         } else {
             $sql = "SELECT id, sale_date as date, CONCAT('Sale Return - ', bill_no) as description,
-                    bill_no as reference, amount_refunded as debit, (net_amount - amount_refunded) as credit, 'return' as type, sub_account_id
+                    bill_no as reference, amount_refunded as debit, (net_amount - amount_refunded) as credit, 'return' as type, sub_account_id, currency_id
                     FROM sale_return
                     WHERE tenant_id = ? AND customer_id = ? AND status = 'Posted'{$company_filter}";
             $params = [$tenant_id, $customer_id];
@@ -447,21 +593,26 @@ try {
         $stmt->execute($params);
         $returns = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
-        // Get PDCs (not filtered by distribution)
-        $sql = "SELECT cheque_date as date, 
-                CONCAT('PDC ', cheque_no, ' (', status, ')') as description,
-                cheque_no as reference, 
+        // Get PDCs with currency from receive_voucher
+        $sql = "SELECT pdc.cheque_date as date, 
+                CONCAT('PDC ', pdc.cheque_no, ' (', pdc.status, ')') as description,
+                pdc.cheque_no as reference, 
                 0 as debit, 
-                CASE WHEN status = 'Approved' THEN amount ELSE 0 END as credit,
-                amount as pdc_amount,
-                status as pdc_status,
+                CASE WHEN pdc.status = 'Approved' THEN pdc.amount ELSE 0 END as credit,
+                pdc.amount as pdc_amount,
+                pdc.status as pdc_status,
+                rv.currency_id,
                 'pdc' as type
-                FROM post_dated_cheques 
-                WHERE tenant_id = ? AND customer_id = ? AND transaction_type = 'Received'{$company_filter}";
+                FROM post_dated_cheques pdc
+                LEFT JOIN receive_voucher rv ON pdc.reference_id = rv.id AND pdc.reference_table = 'receive_voucher'
+                WHERE pdc.tenant_id = ? AND pdc.customer_id = ? AND pdc.transaction_type = 'Received'";
         $params = [$tenant_id, $customer_id];
-        if ($company_id) $params[] = $company_id;
+        if ($company_id) {
+            $sql .= " AND rv.company_id = ?";
+            $params[] = $company_id;
+        }
         if ($from_date && $to_date) {
-            $sql .= " AND cheque_date BETWEEN ? AND ?";
+            $sql .= " AND pdc.cheque_date BETWEEN ? AND ?";
             $params[] = $from_date;
             $params[] = $to_date;
         }
@@ -469,10 +620,10 @@ try {
         $stmt->execute($params);
         $pdcs = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
-        // Get rent transactions (cash received)
+        // Get rent transactions with currency
         $sql = "SELECT al.date, al.description, 
                 CONCAT('RENT-', rm.id) as reference,
-                0 as debit, al.debit as credit, 'rent' as type, null as sub_account_id
+                0 as debit, al.debit as credit, 'rent' as type, null as sub_account_id, rm.currency_id
                 FROM accounting_ledger al
                 JOIN rent_management rm ON al.reference_id = rm.id AND al.reference_table = 'rent_management'
                 WHERE al.tenant_id = ? AND al.account_id IN (1, 7) AND rm.customer_id = ? AND al.debit > 0";
@@ -489,7 +640,7 @@ try {
         // Get rent transactions from accounting_ledger (only credit entries - payment received)
         $sql = "SELECT al.date, al.description, 
                 CONCAT('RENT-', rm.id) as reference,
-                al.debit, al.credit, 'rent' as type, null as sub_account_id
+                al.debit, al.credit, 'rent' as type, null as sub_account_id, rm.currency_id
                 FROM accounting_ledger al
                 JOIN rent_management rm ON al.reference_id = rm.id AND al.reference_table = 'rent_management'
                 WHERE al.tenant_id = ? AND al.account_id = 2 AND rm.customer_id = ? AND al.credit > 0";
@@ -555,6 +706,19 @@ try {
             }
             
             foreach ($grouped_transactions[null] as &$transaction) {
+                // Convert currency if needed
+                if (isset($transaction['currency_id']) && $transaction['currency_id'] && $transaction['currency_id'] != $target_currency_id) {
+                    if ($transaction['debit'] > 0) {
+                        $transaction['debit'] = $converter->convert($transaction['debit'], $transaction['currency_id'], $target_currency_id);
+                    }
+                    if ($transaction['credit'] > 0) {
+                        $transaction['credit'] = $converter->convert($transaction['credit'], $transaction['currency_id'], $target_currency_id);
+                    }
+                    if (isset($transaction['pdc_amount'])) {
+                        $transaction['pdc_amount'] = $converter->convert($transaction['pdc_amount'], $transaction['currency_id'], $target_currency_id);
+                    }
+                }
+                
                 $running_balance += $transaction['debit'] - $transaction['credit'];
                 $transaction['running_balance'] = $running_balance;
                 
@@ -648,6 +812,19 @@ try {
                 $subTotalCredit = 0;
                 
                 foreach ($grouped_transactions[$sub_id] as &$transaction) {
+                    // Convert currency if needed
+                    if (isset($transaction['currency_id']) && $transaction['currency_id'] && $transaction['currency_id'] != $target_currency_id) {
+                        if ($transaction['debit'] > 0) {
+                            $transaction['debit'] = $converter->convert($transaction['debit'], $transaction['currency_id'], $target_currency_id);
+                        }
+                        if ($transaction['credit'] > 0) {
+                            $transaction['credit'] = $converter->convert($transaction['credit'], $transaction['currency_id'], $target_currency_id);
+                        }
+                        if (isset($transaction['pdc_amount'])) {
+                            $transaction['pdc_amount'] = $converter->convert($transaction['pdc_amount'], $transaction['currency_id'], $target_currency_id);
+                        }
+                    }
+                    
                     $running_balance += $transaction['debit'] - $transaction['credit'];
                     $transaction['running_balance'] = $running_balance;
                     

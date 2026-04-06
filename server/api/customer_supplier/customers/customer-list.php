@@ -32,38 +32,40 @@ try {
     $offset = ($page - 1) * $limit;
     
     // Build WHERE clause
-    $where = ['tenant_id = ?'];
+    $where = ['c.tenant_id = ?'];
     $params = [$tenant_id];
     
     if ($search) {
-        $where[] = '(customer_name LIKE ? OR customer_code LIKE ? OR email LIKE ? OR primary_phone LIKE ?)';
+        $where[] = '(c.customer_name LIKE ? OR c.customer_code LIKE ? OR c.email LIKE ? OR c.primary_phone LIKE ?)';
         $searchTerm = '%' . $search . '%';
         $params = array_merge($params, [$searchTerm, $searchTerm, $searchTerm, $searchTerm]);
     }
     
     if ($status === 'active') {
-        $where[] = 'is_blacklisted = FALSE';
+        $where[] = 'c.is_blacklisted = FALSE';
     } elseif ($status === 'blacklisted') {
-        $where[] = 'is_blacklisted = TRUE';
+        $where[] = 'c.is_blacklisted = TRUE';
     }
     
     if ($company) {
-        $where[] = 'company_id = ?';
+        $where[] = 'c.company_id = ?';
         $params[] = (int)$company;
     }
     
     $whereClause = 'WHERE ' . implode(' AND ', $where);
     
     // Get total count
-    $countSql = "SELECT COUNT(*) as total FROM customers $whereClause";
+    $countSql = "SELECT COUNT(*) as total FROM customers c $whereClause";
     $stmt = $pdo->prepare($countSql);
     $stmt->execute($params);
     $total = $stmt->fetch()['total'];
     
     // Get customers
-    $sql = "SELECT id, customer_code, customer_name, primary_phone, email, current_balance, is_blacklisted, created_at 
-            FROM customers $whereClause 
-            ORDER BY created_at DESC 
+    $sql = "SELECT c.id, c.customer_code, c.customer_name, c.primary_phone, c.email, c.current_balance, c.is_blacklisted, c.created_at, ct.type_name as customer_type_name 
+            FROM customers c
+            LEFT JOIN customer_types ct ON c.customer_type_id = ct.id
+            $whereClause 
+            ORDER BY c.created_at DESC 
             LIMIT $limit OFFSET $offset";
     
     $stmt = $pdo->prepare($sql);

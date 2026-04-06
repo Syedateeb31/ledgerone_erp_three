@@ -3,6 +3,7 @@ let currentPage = 1;
 let totalPages = 1;
 let totalRecords = 0;
 let collapsedParents = new Set();
+let selectedProducts = new Set();
 
 document.addEventListener('DOMContentLoaded', function () {
     // Load and render products
@@ -16,6 +17,41 @@ document.addEventListener('DOMContentLoaded', function () {
     // Add First Product button
     document.getElementById('addFirstProduct').addEventListener('click', function () {
         window.location.href = 'product-add.php';
+    });
+    
+    // Select All checkbox
+    document.getElementById('selectAll').addEventListener('change', function() {
+        const checkboxes = document.querySelectorAll('.product-checkbox');
+        checkboxes.forEach(cb => {
+            cb.checked = this.checked;
+            if (this.checked) {
+                selectedProducts.add(parseInt(cb.value));
+            } else {
+                selectedProducts.delete(parseInt(cb.value));
+            }
+        });
+        updateAssignUomButton();
+    });
+    
+    // Assign UOM button (for selected products)
+    document.getElementById('assignUomBtn').addEventListener('click', function() {
+        openBulkUomModal(false);
+    });
+    
+    // Bulk UOM modal handlers
+    document.getElementById('closeBulkUomModal').addEventListener('click', closeBulkUomModal);
+    document.getElementById('cancelBulkUom').addEventListener('click', closeBulkUomModal);
+    document.getElementById('bulkUomForm').addEventListener('submit', handleBulkUomSubmit);
+    
+    // Bulk UOM Type radio handlers
+    document.querySelectorAll('input[name="bulkUomType"]').forEach(radio => {
+        radio.addEventListener('change', handleBulkUomTypeChange);
+    });
+    
+    document.getElementById('bulkUomModal').addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeBulkUomModal();
+        }
     });
 
     // Export dropdown
@@ -156,6 +192,9 @@ function renderProductTable(productsToRender) {
         const isCollapsed = collapsedParents.has(product.id);
         
         row.innerHTML = `
+                    <td style="text-align: center;">
+                        <input type="checkbox" class="product-checkbox" value="${product.id}">
+                    </td>
                     <td>${product.code}</td>
                     <td>
                         <div style="font-weight: 500; ${product.parentProductId ? 'padding-left: 24px;' : ''}; display: flex; align-items: center; gap: 4px;">
@@ -165,8 +204,8 @@ function renderProductTable(productsToRender) {
                         ${product.subcategory ? `<div style="font-size: 12px; color: var(--subtext); ${product.parentProductId ? 'padding-left: 24px;' : ''}">${product.subcategory}</div>` : ''}
                     </td>
                     <td>${typeBadge}</td>
+                    <td>${product.uomDisplay || '<span style="color: #999;">Not Set</span>'}</td>
                     <td>${product.category}</td>
-                    <td class="${stockClass}">${stockStatus}</td>
                     <td>${product.price > 0 ? `${product.currencySymbol}${product.price.toFixed(2)}` : 'Free'}</td>
                     <td>${statusBadge}</td>
                     <td>
@@ -246,8 +285,166 @@ function renderProductTable(productsToRender) {
             });
         });
     });
+    
+    // Add checkbox change listeners
+    document.querySelectorAll('.product-checkbox').forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            const productId = parseInt(this.value);
+            if (this.checked) {
+                selectedProducts.add(productId);
+            } else {
+                selectedProducts.delete(productId);
+                document.getElementById('selectAll').checked = false;
+            }
+            updateAssignUomButton();
+        });
+    });
 
     // Pagination info will be updated by updatePagination function
+}
+
+function updateAssignUomButton() {
+    const btn = document.getElementById('assignUomBtn');
+    const count = document.getElementById('selectedCount');
+    count.textContent = selectedProducts.size;
+    btn.style.display = selectedProducts.size > 0 ? 'inline-flex' : 'none';
+}
+
+function openBulkUomModal(showAllProducts = false) {
+    const selectedProductsInfo = document.getElementById('selectedProductsInfo');
+    const bulkSelectedCount = document.getElementById('bulkSelectedCount');
+    
+    if (showAllProducts || selectedProducts.size === 0) {
+        // Show all products mode
+        selectedProductsInfo.style.display = 'none';
+    } else {
+        // Show selected products count
+        selectedProductsInfo.style.display = 'block';
+        bulkSelectedCount.textContent = selectedProducts.size;
+    }
+    
+    document.getElementById('bulkUomModal').style.display = 'flex';
+    document.getElementById('bulkUomTypeUnit').checked = true;
+    handleBulkUomTypeChange();
+    loadBulkUnits();
+    loadBulkUomGroups();
+}
+
+function closeBulkUomModal() {
+    document.getElementById('bulkUomModal').style.display = 'none';
+    document.getElementById('bulkUomForm').reset();
+}
+
+function handleBulkUomTypeChange() {
+    const isUnit = document.getElementById('bulkUomTypeUnit').checked;
+    const defaultUnitGroup = document.getElementById('bulkDefaultUnitGroup');
+    const uomGroupField = document.getElementById('bulkUomGroupField');
+    const defaultUnitSelect = document.getElementById('bulkDefaultUnit');
+    const uomGroupSelect = document.getElementById('bulkUomGroup');
+    
+    if (isUnit) {
+        defaultUnitGroup.style.display = '';
+        uomGroupField.style.display = 'none';
+        defaultUnitSelect.setAttribute('required', '');
+        uomGroupSelect.removeAttribute('required');
+        uomGroupSelect.value = '';
+    } else {
+        defaultUnitGroup.style.display = 'none';
+        uomGroupField.style.display = '';
+        defaultUnitSelect.removeAttribute('required');
+        defaultUnitSelect.value = '';
+        uomGroupSelect.setAttribute('required', '');
+    }
+}
+
+function loadBulkUnits() {
+    fetch('../../../../server/api/inventory/products/unit-list.php')
+    .then(response => response.json())
+    .then(data => {
+        if (data.success && data.units) {
+            const select = document.getElementById('bulkDefaultUnit');
+            select.innerHTML = '<option value="">Select Unit</option>';
+            data.units.forEach(unit => {
+                const option = document.createElement('option');
+                option.value = unit.id;
+                option.textContent = unit.uom_name;
+                select.appendChild(option);
+            });
+        }
+    })
+    .catch(error => console.error('Error loading units:', error));
+}
+
+function loadBulkUomGroups() {
+    fetch('../../../../server/api/inventory/products/uom-group-list.php')
+    .then(response => response.json())
+    .then(data => {
+        if (data.success && data.groups) {
+            const select = document.getElementById('bulkUomGroup');
+            select.innerHTML = '<option value="">Select UOM Group</option>';
+            data.groups.forEach(group => {
+                const option = document.createElement('option');
+                option.value = group.id;
+                option.textContent = group.group_name;
+                select.appendChild(option);
+            });
+        }
+    })
+    .catch(error => console.error('Error loading UOM groups:', error));
+}
+
+function handleBulkUomSubmit(e) {
+    e.preventDefault();
+    
+    const selectedProductsInfo = document.getElementById('selectedProductsInfo');
+    const isAllProductsMode = selectedProductsInfo.style.display === 'none';
+    
+    if (!isAllProductsMode && selectedProducts.size === 0) {
+        alert('Please select at least one product');
+        return;
+    }
+    
+    const formData = new FormData();
+    const uomType = document.querySelector('input[name="bulkUomType"]:checked').value;
+    formData.append('uomType', uomType);
+    
+    if (uomType === 'unit') {
+        formData.append('defaultUnit', document.getElementById('bulkDefaultUnit').value);
+    } else {
+        formData.append('uomGroup', document.getElementById('bulkUomGroup').value);
+    }
+    
+    if (isAllProductsMode) {
+        // Apply to all products
+        formData.append('applyToAll', '1');
+    } else {
+        // Apply to selected products only
+        selectedProducts.forEach(id => {
+            formData.append('productIds[]', id);
+        });
+    }
+    
+    fetch('../../../../server/api/inventory/products/bulk-uom-assign.php', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(data.message);
+            closeBulkUomModal();
+            selectedProducts.clear();
+            document.getElementById('selectAll').checked = false;
+            updateAssignUomButton();
+            loadProducts(currentPage);
+        } else {
+            alert('Error: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('An error occurred while assigning UOM');
+    });
 }
 
 function applyFilters() {
@@ -259,6 +456,7 @@ function resetFilters() {
     document.getElementById('category').value = '';
     document.getElementById('type').value = '';
     document.getElementById('status').value = '';
+    document.getElementById('uomFilter').value = '';
     document.querySelector('input[name="priceType"][value="tp"]').checked = true;
     collapsedParents.clear();
 
@@ -349,6 +547,7 @@ function loadProducts(page = 1) {
         category: document.getElementById('category').value,
         type: document.getElementById('type').value,
         status: document.getElementById('status').value,
+        uom_filter: document.getElementById('uomFilter').value,
         page: page
     });
     
@@ -356,24 +555,34 @@ function loadProducts(page = 1) {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            products = data.products.map(product => ({
-                id: product.id,
-                code: product.code,
-                name: product.name,
-                type: product.product_type,
-                category: product.category_name || 'Uncategorized',
-                subcategory: product.subcategory_name || '',
-                currentStock: product.current_stock,
-                price: parseFloat(priceType === 'tp' ? product.trade_price : product.mrp),
-                tradePrice: parseFloat(product.trade_price),
-                status: product.is_active ? 'active' : 'inactive',
-                noStockRecords: product.no_stock_records == 1,
-                currencySymbol: product.currency_symbol || '₹',
-                parentProductId: product.parent_product_id,
-                qrCode: product.qr_code,
-                barcode: product.barcode,
-                companyName: product.company_name || ''
-            }));
+            products = data.products.map(product => {
+                let uomDisplay = '';
+                if (product.uom_type === 'unit' && product.default_unit_name) {
+                    uomDisplay = `<span style="color: var(--heading);">${product.default_unit_name}</span><br><span style="font-size: 11px; color: var(--subtext);">Default Unit</span>`;
+                } else if (product.uom_type === 'group' && product.uom_group_name) {
+                    uomDisplay = `<span style="color: var(--heading);">${product.uom_group_name}</span><br><span style="font-size: 11px; color: var(--subtext);">UOM Group</span>`;
+                }
+                
+                return {
+                    id: product.id,
+                    code: product.code,
+                    name: product.name,
+                    type: product.product_type,
+                    uomDisplay: uomDisplay,
+                    category: product.category_name || 'Uncategorized',
+                    subcategory: product.subcategory_name || '',
+                    currentStock: product.current_stock,
+                    price: parseFloat(priceType === 'tp' ? product.trade_price : product.mrp),
+                    tradePrice: parseFloat(product.trade_price),
+                    status: product.is_active ? 'active' : 'inactive',
+                    noStockRecords: product.no_stock_records == 1,
+                    currencySymbol: product.currency_symbol || '₹',
+                    parentProductId: product.parent_product_id,
+                    qrCode: product.qr_code,
+                    barcode: product.barcode,
+                    companyName: product.company_name || ''
+                };
+            });
             
             // Update pagination info
             currentPage = data.pagination.current_page;

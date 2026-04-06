@@ -62,40 +62,97 @@
         const tbody = document.getElementById('materialsTable');
         
         if (!items || items.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding:32px; color:#6B7280;">No items found</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="20" style="text-align:center; padding:32px; color:#6B7280;">No items found</td></tr>';
             return;
         }
         
-        tbody.innerHTML = '';
-        items.forEach((item, idx) => {
-            const row = document.createElement('tr');
-            if (VIEW_MODE) {
-                row.innerHTML = `
-                    <td><strong>${item.material_code} - ${item.material_name}</strong></td>
-                    <td>${item.required_qty}</td>
-                    <td>${item.issued_qty}</td>
-                    <td>${item.available_qty}</td>
-                    <td>${item.issue_qty}</td>
-                    <td>${item.uom_name}</td>
-                    <td>${parseFloat(item.unit_cost).toFixed(2)}</td>
-                    <td>${parseFloat(item.total_cost).toFixed(2)}</td>
-                    <td>-</td>
-                `;
-            } else {
-                row.innerHTML = `
-                    <td><strong>${item.material_code} - ${item.material_name}</strong></td>
-                    <td>${item.required_qty}</td>
-                    <td>${item.issued_qty}</td>
-                    <td>${item.available_qty}</td>
-                    <td><input type="number" class="issue-qty" data-idx="${idx}" step="0.01" min="0" value="${item.issue_qty}"></td>
-                    <td>${item.uom_name}</td>
-                    <td>${parseFloat(item.unit_cost).toFixed(2)}</td>
-                    <td class="total-cost-${idx}">${parseFloat(item.total_cost).toFixed(2)}</td>
-                    <td><button class="btn btn-danger" onclick="deleteItem(${idx})"><i class="las la-trash"></i></button></td>
-                `;
+        // Update table headers
+        updateTableHeaders();
+        
+        // Group materials by product
+        const materialsByProduct = {};
+        
+        items.forEach(item => {
+            if (!materialsByProduct[item.material_id]) {
+                materialsByProduct[item.material_id] = {
+                    code: item.material_code,
+                    name: item.material_name,
+                    units: []
+                };
             }
-            tbody.appendChild(row);
+            materialsByProduct[item.material_id].units.push(item);
         });
+        
+        tbody.innerHTML = '';
+        let globalIdx = 0;
+        
+        for (const productId in materialsByProduct) {
+            const product = materialsByProduct[productId];
+            
+            // Each unit gets its own row
+            product.units.forEach((item, unitIdx) => {
+                const row = document.createElement('tr');
+                
+                materials[globalIdx] = item;
+                
+                if (VIEW_MODE) {
+                    // Show product name only in first row
+                    if (unitIdx === 0) {
+                        row.innerHTML = `
+                            <td rowspan="${product.units.length}" style="font-weight:600; vertical-align:middle; border-right:2px solid #E5E7EB;">${product.code}<br>${product.name}</td>
+                            <td>${item.required_qty}</td>
+                            <td>${item.issued_qty}</td>
+                            <td>${item.available_qty}</td>
+                            <td>${item.issue_qty}</td>
+                            <td>${item.uom_name}</td>
+                            <td>${parseFloat(item.unit_cost).toFixed(2)}</td>
+                            <td>${parseFloat(item.total_cost).toFixed(2)}</td>
+                            <td>-</td>
+                        `;
+                    } else {
+                        row.innerHTML = `
+                            <td>${item.required_qty}</td>
+                            <td>${item.issued_qty}</td>
+                            <td>${item.available_qty}</td>
+                            <td>${item.issue_qty}</td>
+                            <td>${item.uom_name}</td>
+                            <td>${parseFloat(item.unit_cost).toFixed(2)}</td>
+                            <td>${parseFloat(item.total_cost).toFixed(2)}</td>
+                            <td>-</td>
+                        `;
+                    }
+                } else {
+                    // Show product name only in first row
+                    if (unitIdx === 0) {
+                        row.innerHTML = `
+                            <td rowspan="${product.units.length}" style="font-weight:600; vertical-align:middle; border-right:2px solid #E5E7EB;">${product.code}<br>${product.name}</td>
+                            <td>${item.required_qty}</td>
+                            <td>${item.issued_qty}</td>
+                            <td>${item.available_qty}</td>
+                            <td><input type="number" class="issue-qty" data-idx="${globalIdx}" step="0.01" min="0" value="${item.issue_qty}" style="width:80px;"></td>
+                            <td>${item.uom_name}</td>
+                            <td>${parseFloat(item.unit_cost).toFixed(2)}</td>
+                            <td class="total-cost-${globalIdx}">${parseFloat(item.total_cost).toFixed(2)}</td>
+                            <td><button class="btn btn-danger" onclick="deleteItem(${globalIdx})"><i class="las la-trash"></i></button></td>
+                        `;
+                    } else {
+                        row.innerHTML = `
+                            <td>${item.required_qty}</td>
+                            <td>${item.issued_qty}</td>
+                            <td>${item.available_qty}</td>
+                            <td><input type="number" class="issue-qty" data-idx="${globalIdx}" step="0.01" min="0" value="${item.issue_qty}" style="width:80px;"></td>
+                            <td>${item.uom_name}</td>
+                            <td>${parseFloat(item.unit_cost).toFixed(2)}</td>
+                            <td class="total-cost-${globalIdx}">${parseFloat(item.total_cost).toFixed(2)}</td>
+                            <td><button class="btn btn-danger" onclick="deleteItem(${globalIdx})"><i class="las la-trash"></i></button></td>
+                        `;
+                    }
+                }
+                
+                tbody.appendChild(row);
+                globalIdx++;
+            });
+        }
 
         if (!VIEW_MODE) {
             document.querySelectorAll('.issue-qty').forEach(input => {
@@ -106,6 +163,28 @@
                 });
             });
         }
+    }
+    
+    function updateTableHeaders() {
+        const table = document.querySelector('table');
+        if (!table) return;
+        
+        let thead = table.querySelector('thead');
+        if (!thead) return;
+        
+        thead.innerHTML = `
+            <tr>
+                <th style="min-width:200px;">Material</th>
+                <th>Required Qty</th>
+                <th>Issued Qty</th>
+                <th>Available</th>
+                <th>Issue Qty</th>
+                <th>UOM</th>
+                <th>Unit Cost</th>
+                <th>Total Cost</th>
+                <th>Actions</th>
+            </tr>
+        `;
     }
 
     function calculateRowTotal(idx) {

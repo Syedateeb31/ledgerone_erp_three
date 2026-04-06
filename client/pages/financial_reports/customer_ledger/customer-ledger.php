@@ -60,6 +60,12 @@ $currency_symbol = $currency['symbol'];
                     </select>
                 </div>
                 <div class="form-group">
+                    <label class="form-label" for="currency-filter">Currency</label>
+                    <select class="form-control" id="currency-filter">
+                        <option value="">Loading...</option>
+                    </select>
+                </div>
+                <div class="form-group">
                     <label class="form-label" for="customer-code">Customer Code</label>
                     <input type="text" class="form-control" id="customer-search" placeholder="Search customers..." autocomplete="off">
                     <select class="form-control" id="customer-code" style="display: none;">

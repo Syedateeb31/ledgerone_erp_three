@@ -52,6 +52,7 @@ try {
     $data = [
         'tenant_id' => $tenant_id,
         'company_id' => (int)$input['companyId'],
+        'salesman_id' => !empty($input['salesmanId']) ? (int)$input['salesmanId'] : null,
         'supplier_code' => $supplier_code,
         'supplier_name' => trim($input['supplierName']),
         'address' => !empty($input['address']) ? trim($input['address']) : null,
@@ -74,13 +75,14 @@ try {
     $data['id'] = $new_id;
     
     // Insert supplier
-    $sql = "INSERT INTO suppliers (id, tenant_id, company_id, supplier_code, supplier_name, address, primary_phone, secondary_phone, identity_card_no, email, opening_debit_amount, opening_credit_amount, ait_percent, is_blacklisted, created_by, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+    $sql = "INSERT INTO suppliers (id, tenant_id, company_id, salesman_id, supplier_code, supplier_name, address, primary_phone, secondary_phone, identity_card_no, email, opening_debit_amount, opening_credit_amount, ait_percent, is_blacklisted, created_by, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
     
     $stmt = $pdo->prepare($sql);
     $stmt->execute([
         $data['id'],
         $data['tenant_id'],
         $data['company_id'],
+        $data['salesman_id'],
         $data['supplier_code'],
         $data['supplier_name'],
         $data['address'],

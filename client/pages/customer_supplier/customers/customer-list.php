@@ -123,6 +123,7 @@ $currency_symbol = $currency['symbol'] ?? '$';
                         <tr>
                             <th>Customer Code</th>
                             <th>Customer Name</th>
+                            <th>Customer Type</th>
                             <th>Phone</th>
                             <th>Email</th>
                             <th>Status</th>
@@ -171,7 +172,13 @@ $currency_symbol = $currency['symbol'] ?? '$';
                             <label>Customer Code</label>
                             <input type="text" id="editCustomerCode" readonly>
                         </div>
-                        <div class="form-group col-8">
+                        <div class="form-group col-4">
+                            <label>Customer Type</label>
+                            <select id="editCustomerType">
+                                <option value="">Select Customer Type</option>
+                            </select>
+                        </div>
+                        <div class="form-group col-12">
                             <label class="required">Customer Name</label>
                             <input type="text" id="editCustomerName" required>
                         </div>
@@ -195,10 +202,16 @@ $currency_symbol = $currency['symbol'] ?? '$';
                             <label>Identity Card</label>
                             <input type="text" id="editIdentityCard" maxlength="15">
                         </div>
-                        <div class="form-group col-12">
+                        <div class="form-group col-6">
                             <label>Sales Officer</label>
                             <select id="editSalesOfficer">
                                 <option value="">Select Sales Officer</option>
+                            </select>
+                        </div>
+                        <div class="form-group col-6">
+                            <label>Supplier Man</label>
+                            <select id="editSupplierMan">
+                                <option value="">Select Supplier Man</option>
                             </select>
                         </div>
                         <div class="form-group col-4">
@@ -408,6 +421,10 @@ $currency_symbol = $currency['symbol'] ?? '$';
                         <label>Customer Code</label>
                         <div class="view-field" id="viewCustomerCode"></div>
                     </div>
+                    <div class="form-group col-4">
+                        <label>Customer Type</label>
+                        <div class="view-field" id="viewCustomerType"></div>
+                    </div>
                     <div class="form-group col-8">
                         <label>Customer Name</label>
                         <div class="view-field" id="viewCustomerName"></div>
@@ -432,9 +449,13 @@ $currency_symbol = $currency['symbol'] ?? '$';
                         <label>Identity Card</label>
                         <div class="view-field" id="viewIdentityCard"></div>
                     </div>
-                    <div class="form-group col-12">
+                    <div class="form-group col-6">
                         <label>Sales Officer</label>
                         <div class="view-field" id="viewSalesOfficer"></div>
+                    </div>
+                    <div class="form-group col-6">
+                        <label>Supplier Man</label>
+                        <div class="view-field" id="viewSupplierMan"></div>
                     </div>
                     <div class="form-group col-4">
                         <label>Country</label>

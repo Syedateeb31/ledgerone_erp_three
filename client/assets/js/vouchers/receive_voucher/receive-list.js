@@ -121,15 +121,61 @@ fetch('../../../../server/api/vouchers/receive_voucher/get-suppliers.php')
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            const customerFilter = document.getElementById('customerFilter');
+            const customerFilterOptions = document.getElementById('customerFilterOptions');
+            customerFilterOptions.innerHTML = '<div class="dropdown-option" data-value="" data-name="">All Customers</div>';
             data.data.forEach(customer => {
-                const option = document.createElement('option');
-                option.value = customer.id;
+                const option = document.createElement('div');
+                option.className = 'dropdown-option';
+                option.setAttribute('data-value', customer.id);
+                option.setAttribute('data-name', customer.customer_name);
                 option.textContent = `${customer.customer_code} - ${customer.customer_name}`;
-                customerFilter.appendChild(option);
+                customerFilterOptions.appendChild(option);
             });
+            initSearchableDropdown('customerFilterSearch', 'customerFilterOptions', 'customerFilter');
         }
     });
+
+// Initialize searchable dropdown
+function initSearchableDropdown(searchInputId, optionsContainerId, hiddenInputId) {
+    const searchInput = document.getElementById(searchInputId);
+    const optionsContainer = document.getElementById(optionsContainerId);
+    const hiddenInput = document.getElementById(hiddenInputId);
+    
+    searchInput.addEventListener('click', function(e) {
+        e.stopPropagation();
+        optionsContainer.style.display = 'block';
+        filterOptions();
+    });
+    
+    searchInput.addEventListener('input', function() {
+        filterOptions();
+    });
+    
+    optionsContainer.addEventListener('click', function(e) {
+        if (e.target.classList.contains('dropdown-option')) {
+            const value = e.target.getAttribute('data-value');
+            const name = e.target.getAttribute('data-name');
+            searchInput.value = name || 'All Customers';
+            hiddenInput.value = value;
+            optionsContainer.style.display = 'none';
+        }
+    });
+    
+    document.addEventListener('click', function() {
+        optionsContainer.style.display = 'none';
+    });
+    
+    function filterOptions() {
+        const searchTerm = searchInput.value.toLowerCase();
+        const options = optionsContainer.getElementsByClassName('dropdown-option');
+        
+        for (let i = 0; i < options.length; i++) {
+            const option = options[i];
+            const text = option.textContent.toLowerCase();
+            option.style.display = text.includes(searchTerm) ? 'block' : 'none';
+        }
+    }
+}
 
 // Fetch recovery officers for filter dropdown
 fetch('../../../../server/api/vouchers/receive_voucher/get-employees.php')

@@ -13,6 +13,7 @@ let companiesData = [];
 let currenciesData = [];
 let bankAccountsData = [];
 let uomData = [];
+let supplierMenData = [];
 
 // Default shortcuts
 const defaultShortcuts = {
@@ -39,7 +40,8 @@ document.addEventListener('DOMContentLoaded', async function() {
         loadCustomers(),
         loadCurrencies(),
         loadBankAccounts(),
-        loadUOM()
+        loadUOM(),
+        loadSupplierMen()
     ]);
     
     // Load branches and companies and wait for them to complete
@@ -205,6 +207,13 @@ document.addEventListener('DOMContentLoaded', async function() {
         currentInvoice.customer = parseInt(this.value);
         if (this.value) {
             await fetchCustomerBalance(this.value);
+            // Auto-populate supplier man
+            const customer = customersData.find(c => c.id == this.value);
+            if (customer && customer.supplier_man_id) {
+                document.getElementById('supplierMan').value = customer.supplier_man_id;
+            } else {
+                document.getElementById('supplierMan').value = '';
+            }
         }
     });
     
@@ -354,7 +363,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     });
     
     document.getElementById('returnBtn').addEventListener('click', function() {
-        document.getElementById('returnIframe').src = '../sale_return/return-add.php';
+        document.getElementById('returnIframe').src = '../sale_return/counter-return.php';
         document.getElementById('returnModal').style.display = 'flex';
     });
     
@@ -395,19 +404,32 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
     });
     
-    document.getElementById('quickAddBtn').addEventListener('click', function() {
+    document.getElementById('quickAddBtn').addEventListener('click', async function() {
         const productInput = document.getElementById('quickProduct').value.trim();
+        const qty = parseFloat(document.getElementById('quickQty').value) || 1;
+        
         if (!productInput) return;
         
+        // Search for partial matches
+        const partialMatches = productsData.filter(p => 
+            p.name.toLowerCase().includes(productInput.toLowerCase())
+        );
+        
         const product = productsData.find(p => 
-            p.name.toLowerCase().includes(productInput.toLowerCase()) ||
-            p.code.toLowerCase().includes(productInput.toLowerCase()) ||
+            p.name.toLowerCase() === productInput.toLowerCase() ||
+            p.code.toLowerCase() === productInput.toLowerCase() ||
             (p.barcode && p.barcode.toLowerCase() === productInput.toLowerCase()) ||
             (p.qr_code && p.qr_code.toLowerCase() === productInput.toLowerCase())
         );
         
         if (product) {
             selectProduct(product);
+        } else if (partialMatches.length === 1) {
+            selectProduct(partialMatches[0]);
+        } else if (partialMatches.length > 1) {
+            alert(`Multiple products found (${partialMatches.length}). Please be more specific.`);
+        } else {
+            alert('Product not found!');
         }
     });
     
@@ -416,16 +438,12 @@ document.addEventListener('DOMContentLoaded', async function() {
         
         if (e.key === 'Enter') {
             e.preventDefault();
+            e.stopPropagation();
             if (suggestions.style.display === 'block') {
                 const selected = suggestions.querySelector('.suggestion-item.selected');
                 if (selected) {
-                    const productInput = this.value.trim().toLowerCase();
-                    const product = productsData.find(p => 
-                        p.name.toLowerCase().includes(productInput) ||
-                        p.code.toLowerCase().includes(productInput) ||
-                        (p.barcode && p.barcode.toLowerCase() === productInput) ||
-                        (p.qr_code && p.qr_code.toLowerCase() === productInput)
-                    );
+                    const productName = selected.querySelector('strong').textContent;
+                    const product = productsData.find(p => p.name === productName);
                     if (product) {
                         this.value = product.name;
                         suggestions.style.display = 'none';
@@ -436,13 +454,8 @@ document.addEventListener('DOMContentLoaded', async function() {
                 }
                 const firstOption = suggestions.querySelector('.suggestion-item');
                 if (firstOption) {
-                    const productInput = this.value.trim().toLowerCase();
-                    const product = productsData.find(p => 
-                        p.name.toLowerCase().includes(productInput) ||
-                        p.code.toLowerCase().includes(productInput) ||
-                        (p.barcode && p.barcode.toLowerCase() === productInput) ||
-                        (p.qr_code && p.qr_code.toLowerCase() === productInput)
-                    );
+                    const productName = firstOption.querySelector('strong').textContent;
+                    const product = productsData.find(p => p.name === productName);
                     if (product) {
                         this.value = product.name;
                         suggestions.style.display = 'none';
@@ -461,6 +474,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             );
             if (product) {
                 this.value = product.name;
+                suggestions.style.display = 'none';
                 document.getElementById('quickQty').focus();
                 document.getElementById('quickQty').select();
             }
@@ -498,10 +512,14 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
     });
     
-    document.getElementById('quickQty').addEventListener('keypress', function(e) {
+    document.getElementById('quickQty').addEventListener('keydown', function(e) {
         if (e.key === 'Enter') {
             e.preventDefault();
-            document.getElementById('quickAddBtn').click();
+            e.stopPropagation();
+            const btn = document.getElementById('quickAddBtn');
+            if (btn) {
+                btn.click();
+            }
         }
     });
     
@@ -562,7 +580,10 @@ document.addEventListener('DOMContentLoaded', async function() {
                     }
                 });
                 div.addEventListener('click', function() {
-                    selectProduct(product);
+                    document.getElementById('quickProduct').value = product.name;
+                    suggestions.style.display = 'none';
+                    document.getElementById('quickQty').focus();
+                    document.getElementById('quickQty').select();
                 });
                 suggestions.appendChild(div);
             });
@@ -1038,7 +1059,10 @@ async function loadNextInvoiceNo() {
 }
 
 function selectProduct(product) {
-    if (isAddingProduct) return;
+    if (isAddingProduct) {
+        console.log('Already adding product, skipping...');
+        return;
+    }
     isAddingProduct = true;
     checkStockAndProceed(product);
 }
@@ -1679,4 +1703,20 @@ function showNotification(message) {
     `;
     document.body.appendChild(notification);
     setTimeout(() => notification.remove(), 3000);
+}
+
+async function loadSupplierMen() {
+    const response = await fetch('../../../../server/api/sale/pos_invoice/get-supplier-men.php');
+    const data = await response.json();
+    if (data.success) {
+        supplierMenData = data.supplierMen;
+        const supplierManSelect = document.getElementById('supplierMan');
+        supplierManSelect.innerHTML = '<option value="">Select Supplier Man</option>';
+        data.supplierMen.forEach(sm => {
+            const option = document.createElement('option');
+            option.value = sm.id;
+            option.textContent = `${sm.employee_id} - ${sm.full_name}`;
+            supplierManSelect.appendChild(option);
+        });
+    }
 }

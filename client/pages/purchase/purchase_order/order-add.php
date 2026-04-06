@@ -128,12 +128,8 @@ if (!$user_id) {
                         <thead>
                             <tr>
                                 <th width="4%">S#</th>
-                                <th width="16%">Product Code / Name</th>
-                                <th width="6%">Unit</th>
-                                <th width="5%">Qty</th>
-                                <th width="4%">Pcs</th>
-                                <th width="4%">Ctn</th>
-                                <th width="4%">Dz</th>
+                                <th width="20%">Product Code / Name</th>
+                                <!-- Dynamic unit columns will be inserted here -->
                                 <th width="8%"><span id="purchasePriceLabel">Purchase Price</span></th>
                                 <th width="8%"><span id="grossAmountLabel">Gross Amount</span></th>
                                 <th width="5%">Disc %</th>
@@ -152,11 +148,8 @@ if (!$user_id) {
                         </tbody>
                         <tfoot>
                             <tr class="totals-row">
-                                <th colspan="3">Totals</th>
-                                <th id="totalQty">0.00</th>
-                                <th id="totalPcs">0.00</th>
-                                <th id="totalCtn">0.00</th>
-                                <th id="totalDz">0.00</th>
+                                <th colspan="2">Totals</th>
+                                <!-- Dynamic unit totals will be inserted here -->
                                 <th id="totalPurchasePrice">0.00</th>
                                 <th id="totalGrossAmount">0.00</th>
                                 <th></th>
@@ -246,21 +239,6 @@ if (!$user_id) {
             <h3 class="modal-title">Order Settings</h3>
             <div class="form-group">
                 <label>
-                    <input type="checkbox" id="enablePcs"> Enable Pcs
-                </label>
-            </div>
-            <div class="form-group">
-                <label>
-                    <input type="checkbox" id="enableCtn"> Enable Ctn
-                </label>
-            </div>
-            <div class="form-group">
-                <label>
-                    <input type="checkbox" id="enableDz"> Enable Dz
-                </label>
-            </div>
-            <div class="form-group">
-                <label>
                     <input type="checkbox" id="enableTradeOffer"> Enable Inline Trade Offer Discount %
                 </label>
             </div>
@@ -333,6 +311,7 @@ if (!$user_id) {
         </div>
     </div>
 
+    <script src="../../../assets/js/purchase/purchase_order/order-add-uom.js"></script>
     <script src="../../../assets/js/purchase/purchase_order/order-add.js"></script>
 </body>
 </html>

@@ -123,6 +123,13 @@ if (!$user_id) {
                             <!-- Options loaded dynamically -->
                         </select>
                     </div>
+                    <div class="form-group" id="supplierManGroup">
+                        <label for="supplierMan">Supplier Man</label>
+                        <select id="supplierMan" tabindex="-1">
+                            <option value="">Select Supplier Man</option>
+                            <!-- Options loaded dynamically -->
+                        </select>
+                    </div>
                     <div class="form-group" id="biltyNoGroup">
                         <label for="biltyNo">Bilty No</label>
                         <input type="text" id="biltyNo" placeholder="Enter bilty number" tabindex="-1">
@@ -156,11 +163,7 @@ if (!$user_id) {
                             <tr>
                                 <th width="3%">S#</th>
                                 <th width="15%">Product Code / Name</th>
-                                <th width="6%">Unit</th>
-                                <th width="5%">Qty</th>
-                                <th width="4%">Pcs</th>
-                                <th width="4%">Ctn</th>
-                                <th width="4%">Dz</th>
+                                <!-- Dynamic unit columns will be inserted here -->
                                 <th width="8%"><span id="salePriceLabel">Sale Price</span></th>
                                 <th width="8%"><span id="grossAmountLabel">Gross Amount</span></th>
                                 <th width="5%">Disc %</th>
@@ -179,11 +182,8 @@ if (!$user_id) {
                         </tbody>
                         <tfoot>
                             <tr class="totals-row">
-                                <th colspan="3">Totals</th>
-                                <th id="totalQty">0.00</th>
-                                <th id="totalPcs">0.00</th>
-                                <th id="totalCtn">0.00</th>
-                                <th id="totalDz">0.00</th>
+                                <th colspan="2">Totals</th>
+                                <!-- Dynamic unit totals will be inserted here -->
                                 <th id="totalSalePrice">0.00</th>
                                 <th id="totalGrossAmount">0.00</th>
                                 <th></th>
@@ -258,7 +258,22 @@ if (!$user_id) {
                     </div>
                     <div class="summary-item">
                         <span class="summary-label" id="amountPaidLabel">Amount Paid</span>
-                        <input type="number" id="amountPaid" class="table-input" min="0" step="0.01" value="0">
+                        <div style="display: flex; gap: 4px; align-items: center;">
+                            <input type="number" id="amountPaid" class="table-input" min="0" step="0.01" value="0" style="flex: 1;">
+                            <button type="button" class="btn btn-secondary" id="copyNetAmountBtn" title="Copy Net Amount" style="height: 40px; padding: 0 12px;">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                        </div>
+                        <div style="display: flex; gap: 8px; margin-top: 4px; font-size: 11px;">
+                            <label style="display: flex; align-items: center; gap: 4px; cursor: pointer;">
+                                <input type="radio" name="autoFillAmountPaid" value="yes" style="width: auto; height: auto;">
+                                <span>Auto</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 4px; cursor: pointer;">
+                                <input type="radio" name="autoFillAmountPaid" value="no" checked style="width: auto; height: auto;">
+                                <span>Manual</span>
+                            </label>
+                        </div>
                     </div>
                     <div class="summary-item">
                         <span class="summary-label" id="remainingBalanceLabel">Remaining Balance</span>
@@ -601,7 +616,7 @@ if (!$user_id) {
     <div class="modal" id="printCustomizationModal">
         <div class="modal-content" style="max-width: 1200px; width: 95%; max-height: 90vh; overflow-y: auto;">
             <h3 class="modal-title">Print Customization</h3>
-            <p style="margin-bottom: 20px; color: var(--subtext); font-size: 14px;">Drag columns to reorder • Click labels to edit • Changes apply to printed invoices</p>
+            <p style="margin-bottom: 20px; color: var(--subtext); font-size: 14px;">Drag columns to reorder � Click labels to edit � Changes apply to printed invoices</p>
             
             <div style="display: grid; grid-template-columns: 400px 1fr; gap: 24px; margin-bottom: 24px;">
                 <div>
@@ -774,7 +789,8 @@ if (!$user_id) {
         </div>
     </div>
 
-    <script src="../../../assets/js/sale/pos_invoice/withholding-tax.js"></script>
-    <script src="../../../assets/js/sale/pos_invoice/pos-add.js"></script>
+    <script src="../../../assets/js/sale/pos_invoice/pos-add-uom.js?v=<?php echo time(); ?>&debug=1"></script>
+    <script src="../../../assets/js/sale/pos_invoice/withholding-tax.js?v=<?php echo time(); ?>"></script>
+    <script src="../../../assets/js/sale/pos_invoice/pos-add.js?v=<?php echo time(); ?>"></script>
 </body>
 </html>

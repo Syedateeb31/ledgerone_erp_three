@@ -1,12 +1,20 @@
 let refreshInterval;
+let currentCurrencySymbol = 'Rs';
 
 $(document).ready(function() {
     setDefaultDates();
+    loadCurrencies();
     loadData();
     
     refreshInterval = setInterval(loadData, 5000);
     
     $('#dateFrom, #dateTo').on('change', loadData);
+    
+    $('#currencyFilter').on('change', function() {
+        const selectedOption = $(this).find('option:selected');
+        currentCurrencySymbol = selectedOption.data('symbol') || 'Rs';
+        loadData();
+    });
     
     $('.btn-filter').on('click', function() {
         $('.btn-filter').removeClass('active');
@@ -58,19 +66,51 @@ function applyQuickFilter(filter) {
     loadData();
 }
 
+async function loadCurrencies() {
+    try {
+        const response = await fetch('../../../../server/api/financial_reports/financial_summary/get-currencies.php');
+        const result = await response.json();
+        
+        if (result.success) {
+            const currencyFilter = $('#currencyFilter');
+            currencyFilter.empty();
+            result.data.forEach(currency => {
+                const option = $('<option></option>')
+                    .val(currency.id)
+                    .text(`${currency.name} (${currency.symbol})`)
+                    .data('symbol', currency.symbol);
+                if (currency.is_base) {
+                    option.prop('selected', true);
+                    currentCurrencySymbol = currency.symbol;
+                }
+                currencyFilter.append(option);
+            });
+        }
+    } catch (error) {
+        console.error('Error loading currencies:', error);
+    }
+}
+
 function loadData() {
     const dateFrom = $('#dateFrom').val();
     const dateTo = $('#dateTo').val();
+    const currencyId = $('#currencyFilter').val();
     
     $('.stat-card').addClass('loading');
+    
+    const params = { date_from: dateFrom, date_to: dateTo };
+    if (currencyId) params.currency_id = currencyId;
     
     $.ajax({
         url: '../../../../server/api/financial_reports/financial_summary/financial_summary.php',
         method: 'GET',
-        data: { date_from: dateFrom, date_to: dateTo },
+        data: params,
         success: function(response) {
             if (response.success) {
                 updateCards(response.data);
+                if (response.currency_symbol) {
+                    currentCurrencySymbol = response.currency_symbol;
+                }
             } else {
                 console.error('API Error:', response.message);
             }
@@ -112,7 +152,7 @@ function updateCard(type, amount, change) {
     const isDaily = type.includes('daily');
     const compareText = isDaily ? 'from yesterday' : 'from last month';
     
-    card.find('.amount').text(parseFloat(amount || 0).toFixed(2));
+    card.find('.amount').text(currentCurrencySymbol + parseFloat(amount || 0).toFixed(2));
     
     const changePercent = parseFloat(change || 0);
     const changeClass = changePercent >= 0 ? 'positive' : 'negative';

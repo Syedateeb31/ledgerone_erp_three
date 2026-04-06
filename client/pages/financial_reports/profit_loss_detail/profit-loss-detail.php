@@ -117,6 +117,16 @@ $currency_symbol = $currency['symbol'];
                     </div>
 
                     <div class="form-group">
+                        <label for="categoryFilter">Category</label>
+                        <div class="searchable-dropdown">
+                            <input type="text" class="search-input" placeholder="Search category..." id="categoryFilterSearch" autocomplete="off">
+                            <div class="dropdown-options" id="categoryFilterOptions"></div>
+                            <input type="hidden" id="categoryFilter">
+                        </div>
+                        <div class="helper-text">Filter by category</div>
+                    </div>
+
+                    <div class="form-group">
                         <label for="customerFilter">Customer</label>
                         <div class="searchable-dropdown">
                             <input type="text" class="search-input" placeholder="Search customer..." id="customerFilterSearch" autocomplete="off">
@@ -125,7 +135,9 @@ $currency_symbol = $currency['symbol'];
                         </div>
                         <div class="helper-text">Filter by customer</div>
                     </div>
-
+                </div>
+                
+                <div class="form-row">
                     <div class="form-group">
                         <label for="productFilter">Product</label>
                         <div class="searchable-dropdown">
@@ -135,9 +147,7 @@ $currency_symbol = $currency['symbol'];
                         </div>
                         <div class="helper-text">Filter by product</div>
                     </div>
-                </div>
-                
-                <div class="form-row">
+                    
                     <div class="form-group">
                         <label for="invoiceFilter">Invoice #</label>
                         <div class="searchable-dropdown">
@@ -146,6 +156,14 @@ $currency_symbol = $currency['symbol'];
                             <input type="hidden" id="invoiceFilter">
                         </div>
                         <div class="helper-text">Filter by invoice</div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="currencyFilter">Currency</label>
+                        <select id="currencyFilter">
+                            <option value="">Loading...</option>
+                        </select>
+                        <div class="helper-text">Select currency</div>
                     </div>
                 </div>
             </div>
@@ -189,6 +207,9 @@ $currency_symbol = $currency['symbol'];
                 <button class="tab-btn active" data-tab="itemwise">
                     <i class="fas fa-box"></i> Item-wise P&L
                 </button>
+                <button class="tab-btn" data-tab="categorywise">
+                    <i class="fas fa-layer-group"></i> Category-wise P&L
+                </button>
                 <button class="tab-btn" data-tab="customerwise">
                     <i class="fas fa-users"></i> Customer-wise P&L
                 </button>
@@ -217,6 +238,31 @@ $currency_symbol = $currency['symbol'];
                             </tr>
                         </thead>
                         <tbody id="itemTableBody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Category-wise Tab -->
+            <div class="tab-content" id="categorywise">
+                <div class="card-title">
+                    Category-wise Profit & Loss
+                    <span style="font-size: 14px; font-weight: normal; color: var(--text-subtext); margin-left: 10px;" id="reportPeriodCategory"></span>
+                </div>
+                
+                <div class="table-container">
+                    <table id="categoryTable">
+                        <thead>
+                            <tr>
+                                <th style="width: 30%;">Category</th>
+                                <th style="width: 10%;">Products</th>
+                                <th style="width: 17%;">Revenue</th>
+                                <th style="width: 17%;">COGS</th>
+                                <th style="width: 17%;">Gross Profit</th>
+                                <th style="width: 9%;">Margin %</th>
+                            </tr>
+                        </thead>
+                        <tbody id="categoryTableBody">
                         </tbody>
                     </table>
                 </div>

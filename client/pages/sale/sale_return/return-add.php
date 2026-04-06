@@ -132,6 +132,13 @@ if (!$user_id) {
                             <!-- Options loaded dynamically -->
                         </select>
                     </div>
+                    <div class="form-group" id="supplierManGroup">
+                        <label for="supplierMan">Supplier Man</label>
+                        <select id="supplierMan" tabindex="-1">
+                            <option value="">Select Supplier Man</option>
+                            <!-- Options loaded dynamically -->
+                        </select>
+                    </div>
                     <div class="form-group" id="subAccountGroup">
                         <label for="subAccount">Sub Account</label>
                         <select id="subAccount" tabindex="-1">

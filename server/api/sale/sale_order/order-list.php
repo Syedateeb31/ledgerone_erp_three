@@ -51,6 +51,8 @@ try {
             si.bill_no,
             si.sale_date,
             c.customer_name,
+            e.full_name as sales_officer_name,
+            sm.full_name as supplier_man_name,
             COUNT(sii.id) as item_count,
             si.net_amount,
             cur.symbol as currency_symbol,
@@ -62,6 +64,8 @@ try {
             END as fulfillment_status
         FROM sale_order si
         LEFT JOIN customers c ON si.customer_id = c.id
+        LEFT JOIN employees e ON si.sale_officer_id = e.id
+        LEFT JOIN employees sm ON si.supplier_man_id = sm.id
         LEFT JOIN sale_order_items sii ON si.id = sii.sale_invoice_id
         LEFT JOIN ledgerone_public.currencies cur ON si.currency_id = cur.id
         WHERE $where

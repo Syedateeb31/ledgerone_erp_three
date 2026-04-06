@@ -1,0 +1,66 @@
+﻿                const product = dataCache.products.get(parseInt(value));
+                if (product) {
+                    row.dataset.cartonConversion = product.carton_conversion || 0;
+                    row.dataset.stockAffects = product.stock_affects || 0;
+                    row.dataset.invoiceAffects = product.invoice_affects || 1;
+                    row.dataset.productId = value;
+                    row.dataset.productMrp = product.mrp || 0;
+                    row.dataset.salesTaxType = product.sales_tax_type || 'TP';
+
+                    // Add dynamic UOM columns
+                    if (row.dataset.uomColumnsAdded === 'false') {
+                        const uomDetails = getProductUOMDetails(product);
+                        row.dataset.productUomData = JSON.stringify(uomDetails);
+                        
+                        // Store existing cells data (from cell 2 onwards)
+                        const existingCells = [];
+                        while (row.cells.length > 2) {
+                            const cell = row.cells[2];
+                            existingCells.push(cell.cloneNode(true));
+                            row.deleteCell(2);
+                        }
+                        
+                        // Add unit columns and recalculate
+                        recalculateMaxColumns();
+                        
+                        // Re-add existing cells after unit columns
+                        const unitCount = uomDetails.units.length;
+                        existingCells.forEach((cell, index) => {
+                            const newCell = row.insertCell(2 + unitCount + index);
+                            newCell.innerHTML = cell.innerHTML;
+                            newCell.className = cell.className;
+                            // Re-attach event listeners
+                            const input = newCell.querySelector('input');
+                            if (input && cell.querySelector('input')) {
+                                const oldInput = cell.querySelector('input');
+                                Array.from(oldInput.attributes).forEach(attr => {
+                                    input.setAttribute(attr.name, attr.value);
+                                });
+                            }
+                        });
+                        
+                        row.dataset.uomColumnsAdded = 'true';
+                    }
+
+                    // Show Add Variants button if product has children
+                    checkAndShowVariantsButton(row, value);
+                }
+
+                // Fetch price from rate_list_items or fallback to product
+                const customerId = document.getElementById('customerCode').value;
+                const priceType = document.querySelector('input[name="priceType"]:checked')?.value || 'tp';
+                let price = priceType === 'mrp' ? (parseFloat(mrp) || 0) : (parseFloat(tp) || 0);
+                let rateListQty = 0;
+                let focQty = 0;
+                let tradeOffer = 0;
+
+                if (customerId) {
+                    try {
+                        const response = await fetch(`../../../../server/api/sale/pos_invoice/get-product-price.php?customer_id=${customerId}&product_id=${value}`);
+                        const data = await response.json();
+                        if (data.success) {
+                            // Only use rate list price if in TP mode
+                            if (priceType === 'tp') {
+                                price = data.price;
+                            }
+                            rateListQty = data.quantity;

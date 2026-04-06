@@ -27,8 +27,10 @@ $branch_id = $_GET['branch_id'] ?? null;
 $product_id = $_GET['product_id'] ?? null;
 $company_id = $_GET['company_id'] ?? null;
 $status = $_GET['status'] ?? null;
+$stock_level = $_GET['stock_level'] ?? null;
 $from_date = $_GET['from_date'] ?? null;
 $to_date = $_GET['to_date'] ?? null;
+$valuation_method = $_GET['valuation_method'] ?? 'AVCO';
 $report_type = $_GET['type'] ?? 'position';
 
 // Get company name if company_id is provided
@@ -178,22 +180,37 @@ if ($company_id) {
         Product: <?= $product_id ? 'Selected' : 'All Products' ?> | 
         Company: <?= htmlspecialchars($company_name) ?> | 
         Status: <?= $status ?: 'All Statuses' ?> | 
+        Stock Level: <?= $stock_level === 'zero-or-less' ? 'Stock = 0 or Less' : ($stock_level === 'greater-than-zero' ? 'Stock > 0' : 'All Levels') ?> | 
         Period: <?= $from_date && $to_date ? date('M d, Y', strtotime($from_date)) . ' to ' . date('M d, Y', strtotime($to_date)) : 'All Dates' ?> | 
-        Inventory Valuation: <?= $company['inventory_valuation_method'] ?? 'FIFO' ?>
+        Valuation Method: <?= $valuation_method === 'TRADE_PRICE' ? 'Market Value - Trade Price' : $valuation_method ?>
     </div>
+    
+    <?php if ($valuation_method === 'TRADE_PRICE'): ?>
+    <div style="background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%); border-left: 4px solid #f39c12; padding: 16px; margin-bottom: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(243, 156, 18, 0.15);">
+        <div style="display: flex; align-items: start; gap: 12px;">
+            <div style="color: #f39c12; font-size: 20px; margin-top: 2px;">ℹ️</div>
+            <div>
+                <div style="font-weight: 600; color: #856404; margin-bottom: 4px; font-size: 14px;">Market Value Estimation</div>
+                <div style="color: #856404; font-size: 13px; line-height: 1.6;">
+                    This report shows estimated market value based on trade price. It is not an accounting valuation and should not be used for financial reporting.
+                </div>
+            </div>
+        </div>
+    </div>
+    <?php endif; ?>
     
     <table id="reportTable">
         <thead>
             <tr>
                 <th>Product</th>
-                <th>Branch</th>
-                <th>Opening Balance</th>
-                <th>Total Qty In</th>
-                <th>Total Qty Out</th>
-                <th>Current Stock</th>
-                <th>Unit Cost</th>
-                <th>Stock Value</th>
-                <th>Status</th>
+                <th class="col-branch">Branch</th>
+                <th class="col-opening-balance">Opening Balance</th>
+                <th class="col-qty-in">Total Qty In</th>
+                <th class="col-qty-out">Total Qty Out</th>
+                <th class="col-current-stock">Current Stock</th>
+                <th class="col-unit-cost">Unit Cost</th>
+                <th class="col-stock-value">Stock Value</th>
+                <th class="col-status">Status</th>
             </tr>
         </thead>
         <tbody>
@@ -218,6 +235,31 @@ if ($company_id) {
     <script>
         const API_BASE = '../../../../server/api/inventory/stock_position/stock-position.php';
         
+        // Load column visibility from localStorage
+        function applyColumnVisibility() {
+            const saved = localStorage.getItem('stockPositionColumnVisibility');
+            if (saved) {
+                const columnVisibility = JSON.parse(saved);
+                
+                const columns = {
+                    'branch': document.querySelectorAll('.col-branch'),
+                    'openingBalance': document.querySelectorAll('.col-opening-balance'),
+                    'qtyIn': document.querySelectorAll('.col-qty-in'),
+                    'qtyOut': document.querySelectorAll('.col-qty-out'),
+                    'currentStock': document.querySelectorAll('.col-current-stock'),
+                    'unitCost': document.querySelectorAll('.col-unit-cost'),
+                    'stockValue': document.querySelectorAll('.col-stock-value'),
+                    'status': document.querySelectorAll('.col-status')
+                };
+                
+                Object.keys(columns).forEach(key => {
+                    columns[key].forEach(col => {
+                        col.style.display = columnVisibility[key] ? '' : 'none';
+                    });
+                });
+            }
+        }
+        
         async function loadPrintData() {
             try {
                 const urlParams = new URLSearchParams(window.location.search);
@@ -229,12 +271,23 @@ if ($company_id) {
                 if (urlParams.get('status')) url += `&status=${urlParams.get('status')}`;
                 if (urlParams.get('from_date')) url += `&from_date=${urlParams.get('from_date')}`;
                 if (urlParams.get('to_date')) url += `&to_date=${urlParams.get('to_date')}`;
+                if (urlParams.get('valuation_method')) url += `&valuation_method=${urlParams.get('valuation_method')}`;
                 
                 const response = await fetch(url);
                 const data = await response.json();
                 
                 if (data.success) {
-                    updatePrintTable(data.data, data.currency);
+                    let positions = data.data;
+                    
+                    // Apply stock level filter
+                    const stockLevel = urlParams.get('stock_level');
+                    if (stockLevel === 'zero-or-less') {
+                        positions = positions.filter(pos => parseFloat(pos.current_stock) <= 0);
+                    } else if (stockLevel === 'greater-than-zero') {
+                        positions = positions.filter(pos => parseFloat(pos.current_stock) > 0);
+                    }
+                    
+                    updatePrintTable(positions, data.currency);
                 }
             } catch (error) {
                 console.error('Error loading print data:', error);
@@ -332,35 +385,41 @@ if ($company_id) {
                 return `
                 <tr style="${isChild ? 'background-color: #fafbfd;' : ''}">
                     <td>${productDisplay}</td>
-                    <td>${pos.branch_display}</td>
-                    <td>${parseFloat(pos.opening_balance || 0).toFixed(2)} ${pos.unit_symbol || 'L'}</td>
-                    <td>${parseFloat(pos.total_qty_in || 0).toFixed(2)} ${pos.unit_symbol || 'L'}</td>
-                    <td>${parseFloat(pos.total_qty_out || 0).toFixed(2)} ${pos.unit_symbol || 'L'}</td>
-                    <td>${parseFloat(pos.current_stock).toFixed(2)} ${pos.unit_symbol || 'L'}</td>
-                    <td>${currency}${parseFloat(pos.unit_cost).toFixed(2)}</td>
-                    <td>${currency}${parseFloat(pos.stock_value).toFixed(2)}</td>
-                    <td>${pos.status.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}</td>
+                    <td class="col-branch">${pos.branch_display}</td>
+                    <td class="col-opening-balance">${parseFloat(pos.opening_balance || 0).toFixed(2)} ${pos.unit_symbol || 'L'}</td>
+                    <td class="col-qty-in">${parseFloat(pos.total_qty_in || 0).toFixed(2)} ${pos.unit_symbol || 'L'}</td>
+                    <td class="col-qty-out">${parseFloat(pos.total_qty_out || 0).toFixed(2)} ${pos.unit_symbol || 'L'}</td>
+                    <td class="col-current-stock">${parseFloat(pos.current_stock).toFixed(2)} ${pos.unit_symbol || 'L'}</td>
+                    <td class="col-unit-cost">${currency}${parseFloat(pos.unit_cost).toFixed(2)}</td>
+                    <td class="col-stock-value">${currency}${parseFloat(pos.stock_value).toFixed(2)}</td>
+                    <td class="col-status">${pos.status.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}</td>
                 </tr>
             `;
             }).join('') + `
                 <tr class="totals-row">
                     <td colspan="2">Total (${totalEntries} entries)</td>
-                    <td>-</td>
-                    <td>-</td>
-                    <td>-</td>
-                    <td>${unitTotalsText}</td>
-                    <td>-</td>
-                    <td>${currency}${totalValue.toFixed(2)}</td>
-                    <td></td>
+                    <td class="col-opening-balance">-</td>
+                    <td class="col-qty-in">-</td>
+                    <td class="col-qty-out">-</td>
+                    <td class="col-current-stock">${unitTotalsText}</td>
+                    <td class="col-unit-cost">-</td>
+                    <td class="col-stock-value">${currency}${totalValue.toFixed(2)}</td>
+                    <td class="col-status"></td>
                 </tr>
             ` + (totalValue > 0 ? `
                 <tr>
                     <td colspan="9" style="text-align: center; font-style: italic; padding: 10px;">Amount in Words: ${amountInWords} Only</td>
                 </tr>
             ` : '');
+            
+            // Apply column visibility after rendering
+            applyColumnVisibility();
         }
         
-        document.addEventListener('DOMContentLoaded', loadPrintData);
+        document.addEventListener('DOMContentLoaded', () => {
+            applyColumnVisibility();
+            loadPrintData();
+        });
     </script>
 </body>
 </html>

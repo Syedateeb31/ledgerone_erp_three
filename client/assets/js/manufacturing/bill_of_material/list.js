@@ -4,7 +4,7 @@
     
     let allBoms = [];
     let rawMaterials = [];
-    let units = {};
+    let productUOMCache = {};
 
     async function loadBOMs() {
         try {
@@ -28,13 +28,13 @@
         }
     }
 
-    async function getUnit(unitId) {
-        if (units[unitId]) return units[unitId];
-        const res = await fetch(`${API_BASE}?action=unit&unit_id=${unitId}`);
+    async function getProductUOM(productId) {
+        if (productUOMCache[productId]) return productUOMCache[productId];
+        const res = await fetch(`${API_BASE}?action=product_uom&product_id=${productId}`);
         const data = await res.json();
-        if (data.success && data.data) {
-            units[unitId] = data.data;
-            return data.data;
+        if (data.success) {
+            productUOMCache[productId] = data;
+            return data;
         }
         return null;
     }
@@ -157,14 +157,33 @@
                     <div class="raw-title">Raw Materials</div>
                 `;
                 
+                // Group materials by product
+                const materialsByProduct = {};
                 bom.materials.forEach(mat => {
+                    if (!materialsByProduct[mat.raw_material_id]) {
+                        materialsByProduct[mat.raw_material_id] = {
+                            code: mat.material_code,
+                            name: mat.material_name,
+                            units: []
+                        };
+                    }
+                    materialsByProduct[mat.raw_material_id].units.push({
+                        quantity: mat.quantity,
+                        unit_name: mat.unit_name
+                    });
+                });
+                
+                // Display grouped materials
+                for (const productId in materialsByProduct) {
+                    const product = materialsByProduct[productId];
+                    const unitsText = product.units.map(u => `${u.quantity} ${u.unit_name}`).join(', ');
                     html += `
                         <div class="detail-row">
-                            <div class="detail-label">${mat.material_code} - ${mat.material_name}</div>
-                            <div class="detail-value">${mat.quantity} ${mat.unit_name}</div>
+                            <div class="detail-label">${product.code} - ${product.name}</div>
+                            <div class="detail-value">${unitsText}</div>
                         </div>
                     `;
-                });
+                }
                 
                 document.getElementById('viewModalBody').innerHTML = html;
                 document.getElementById('viewModal').style.display = 'block';
@@ -199,13 +218,32 @@
                 editMaterialList.innerHTML = '';
                 
                 if (bom.materials && bom.materials.length > 0) {
-                    for (const mat of bom.materials) {
-                        console.log('Creating row for material:', mat);
-                        const row = await createEditMaterialRow(mat);
+                    const materialsByProduct = {};
+                    bom.materials.forEach(mat => {
+                        if (!materialsByProduct[mat.raw_material_id]) {
+                            materialsByProduct[mat.raw_material_id] = [];
+                        }
+                        materialsByProduct[mat.raw_material_id].push(mat);
+                    });
+                    
+                    for (const productId in materialsByProduct) {
+                        const materials = materialsByProduct[productId];
+                        const row = await createEditMaterialRow(materials[0]);
+                        
+                        const unitsContainer = row.querySelector('.units-container');
+                        const unitInputs = unitsContainer.querySelectorAll('input[type="number"]');
+                        
+                        materials.forEach(mat => {
+                            unitInputs.forEach(input => {
+                                if (input.dataset.unitId == mat.unit_id) {
+                                    input.value = mat.quantity;
+                                }
+                            });
+                        });
+                        
                         editMaterialList.appendChild(row);
                     }
                 } else {
-                    console.log('No materials found, adding empty row');
                     const row = await createEditMaterialRow();
                     editMaterialList.appendChild(row);
                 }
@@ -237,7 +275,6 @@
             const opt = document.createElement('option');
             opt.value = mat.id;
             opt.textContent = `${mat.code} - ${mat.name}`;
-            opt.dataset.unitId = mat.default_unit_id;
             if (material && mat.id == material.raw_material_id) {
                 opt.selected = true;
             }
@@ -246,52 +283,67 @@
         
         rawGroup.appendChild(rawSelect);
 
-        const qtyGroup = document.createElement('div');
-        qtyGroup.className = 'field-group';
-        const qtyInput = document.createElement('input');
-        qtyInput.type = 'number';
-        qtyInput.className = 'form-control';
-        qtyInput.placeholder = 'Quantity';
-        qtyInput.step = 'any';
-        qtyInput.required = true;
-        if (material) qtyInput.value = material.quantity;
-        qtyGroup.appendChild(qtyInput);
+        const unitsContainer = document.createElement('div');
+        unitsContainer.className = 'units-container';
+        unitsContainer.style.display = 'flex';
+        unitsContainer.style.gap = '16px';
+        unitsContainer.style.flex = '1';
 
-        const unitGroup = document.createElement('div');
-        unitGroup.className = 'field-group';
-        const unitSelect = document.createElement('select');
-        unitSelect.className = 'form-control';
-        unitSelect.required = true;
-        
-        const unitPlaceholder = document.createElement('option');
-        unitPlaceholder.value = '';
-        unitPlaceholder.textContent = 'Select unit';
-        unitSelect.appendChild(unitPlaceholder);
-        
-        if (material && material.unit_id) {
-            const unit = await getUnit(material.unit_id);
-            if (unit) {
-                const opt = document.createElement('option');
-                opt.value = unit.id;
-                opt.textContent = unit.uom_name;
-                opt.selected = true;
-                unitSelect.appendChild(opt);
+        if (material && material.raw_material_id) {
+            const uomData = await getProductUOM(material.raw_material_id);
+            if (uomData && uomData.units) {
+                rowDiv.dataset.productId = material.raw_material_id;
+                
+                uomData.units.forEach(unit => {
+                    const unitGroup = document.createElement('div');
+                    unitGroup.className = 'field-group';
+                    const unitLabel = document.createElement('label');
+                    unitLabel.className = 'form-label';
+                    unitLabel.textContent = unit.uom_name;
+                    const unitInput = document.createElement('input');
+                    unitInput.type = 'number';
+                    unitInput.className = 'form-control';
+                    unitInput.placeholder = '0';
+                    unitInput.step = 'any';
+                    unitInput.dataset.unitId = unit.id;
+                    unitInput.dataset.unitName = unit.uom_name;
+                    
+                    if (material && material.unit_id == unit.id) {
+                        unitInput.value = material.quantity;
+                    }
+                    
+                    unitGroup.appendChild(unitLabel);
+                    unitGroup.appendChild(unitInput);
+                    unitsContainer.appendChild(unitGroup);
+                });
             }
         }
-        
-        unitGroup.appendChild(unitSelect);
 
         rawSelect.addEventListener('change', async function() {
-            const selected = this.options[this.selectedIndex];
-            if (selected && selected.dataset.unitId) {
-                const unit = await getUnit(selected.dataset.unitId);
-                if (unit) {
-                    unitSelect.innerHTML = '';
-                    const opt = document.createElement('option');
-                    opt.value = unit.id;
-                    opt.textContent = unit.uom_name;
-                    opt.selected = true;
-                    unitSelect.appendChild(opt);
+            const productId = this.value;
+            if (productId) {
+                const uomData = await getProductUOM(productId);
+                if (uomData && uomData.units) {
+                    rowDiv.dataset.productId = productId;
+                    unitsContainer.innerHTML = '';
+                    
+                    uomData.units.forEach(unit => {
+                        const unitGroup = document.createElement('div');
+                        unitGroup.className = 'field-group';
+                        const unitLabel = document.createElement('label');
+                        unitLabel.className = 'form-label';
+                        unitLabel.textContent = unit.uom_name;
+                        const unitInput = document.createElement('input');
+                        unitInput.type = 'number';
+                        unitInput.className = 'form-control';
+                        unitInput.placeholder = '0';
+                        unitInput.step = 'any';
+                        unitInput.dataset.unitId = unit.id;
+                        unitInput.dataset.unitName = unit.uom_name;
+                        unitGroup.appendChild(unitLabel);
+                        unitGroup.appendChild(unitInput);
+                        unitsContainer.appendChild(unitGroup);
+                    });
                 }
             }
         });
@@ -308,8 +360,7 @@
         actionGroup.appendChild(removeBtn);
 
         rowDiv.appendChild(rawGroup);
-        rowDiv.appendChild(qtyGroup);
-        rowDiv.appendChild(unitGroup);
+        rowDiv.appendChild(unitsContainer);
         rowDiv.appendChild(actionGroup);
 
         return rowDiv;
@@ -334,28 +385,33 @@
         const rows = document.querySelectorAll('#editMaterialList .material-row');
         
         for (const row of rows) {
-            const selects = row.querySelectorAll('select');
-            const rawSelect = selects[0];
-            const unitSelect = selects[1];
-            const qtyInput = row.querySelector('input[type="number"]');
+            const rawSelect = row.querySelector('select');
+            const productId = rawSelect.value;
             
-            console.log('Raw Material ID:', rawSelect.value);
-            console.log('Quantity:', qtyInput.value);
-            console.log('Unit ID:', unitSelect.value);
-            
-            if (!rawSelect.value || !qtyInput.value || !unitSelect.value) {
-                alert('Please fill all material fields');
+            if (!productId) {
+                alert('Please select all materials');
                 return;
             }
             
-            materials.push({
-                raw_material_id: parseInt(rawSelect.value),
-                quantity: parseFloat(qtyInput.value),
-                unit_id: parseInt(unitSelect.value)
+            const unitsContainer = row.querySelector('.units-container');
+            const unitInputs = unitsContainer.querySelectorAll('input[type="number"]');
+            
+            unitInputs.forEach(input => {
+                const qty = parseFloat(input.value) || 0;
+                if (qty > 0) {
+                    materials.push({
+                        raw_material_id: parseInt(productId),
+                        quantity: qty,
+                        unit_id: parseInt(input.dataset.unitId)
+                    });
+                }
             });
         }
         
-        console.log('Materials to update:', materials);
+        if (materials.length === 0) {
+            alert('Please enter at least one material quantity');
+            return;
+        }
         
         try {
             const res = await fetch(API_URL, {

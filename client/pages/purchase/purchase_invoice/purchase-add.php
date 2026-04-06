@@ -148,12 +148,8 @@ if (!$user_id) {
                         <thead>
                             <tr>
                                 <th width="4%">S#</th>
-                                <th width="16%">Product Code / Name</th>
-                                <th width="6%">Unit</th>
-                                <th width="5%">Qty</th>
-                                <th width="4%">Pcs</th>
-                                <th width="4%">Ctn</th>
-                                <th width="4%">Dz</th>
+                                <th width="20%">Product Code / Name</th>
+                                <!-- Dynamic unit columns will be inserted here -->
                                 <th width="8%"><span id="purchasePriceLabel">Purchase Price</span></th>
                                 <th width="8%"><span id="grossAmountLabel">Gross Amount</span></th>
                                 <th width="5%">Disc %</th>
@@ -172,11 +168,8 @@ if (!$user_id) {
                         </tbody>
                         <tfoot>
                             <tr class="totals-row">
-                                <th colspan="3">Totals</th>
-                                <th id="totalQty">0.00</th>
-                                <th id="totalPcs">0.00</th>
-                                <th id="totalCtn">0.00</th>
-                                <th id="totalDz">0.00</th>
+                                <th colspan="2">Totals</th>
+                                <!-- Dynamic unit totals will be inserted here -->
                                 <th id="totalPurchasePrice">0.00</th>
                                 <th id="totalGrossAmount">0.00</th>
                                 <th></th>
@@ -224,7 +217,19 @@ if (!$user_id) {
                     </div>
                     <div class="summary-item">
                         <span class="summary-label" id="shippingFeesLabel">Shipping Fees</span>
-                        <input type="number" id="shippingFees" class="table-input" min="0" step="0.01" value="0">
+                        <div style="display: flex; flex-direction: column; gap: 8px; width: 100%;">
+                            <input type="number" id="shippingFees" class="table-input" min="0" step="0.01" value="0" placeholder="Enter shipping fees">
+                            <div style="display: flex; gap: 12px; align-items: center;">
+                                <label style="display: flex; align-items: center; gap: 4px; cursor: pointer; margin: 0;">
+                                    <input type="radio" name="shippingFeesType" id="shippingFeesAdd" value="add" checked style="width: auto; height: auto; margin: 0;">
+                                    <span style="font-size: 13px;"><i class="fas fa-plus" style="color: var(--success);"></i> Add</span>
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 4px; cursor: pointer; margin: 0;">
+                                    <input type="radio" name="shippingFeesType" id="shippingFeesSubtract" value="subtract" style="width: auto; height: auto; margin: 0;">
+                                    <span style="font-size: 13px;"><i class="fas fa-minus" style="color: var(--error);"></i> Subtract</span>
+                                </label>
+                            </div>
+                        </div>
                     </div>
                     <div class="summary-item">
                         <span class="summary-label" id="netAmountSummaryLabel">Net Amount</span>
@@ -264,21 +269,6 @@ if (!$user_id) {
     <div class="modal" id="settingsModal">
         <div class="modal-content">
             <h3 class="modal-title">Invoice Settings</h3>
-            <div class="form-group">
-                <label>
-                    <input type="checkbox" id="enablePcs"> Enable Pcs
-                </label>
-            </div>
-            <div class="form-group">
-                <label>
-                    <input type="checkbox" id="enableCtn"> Enable Ctn
-                </label>
-            </div>
-            <div class="form-group">
-                <label>
-                    <input type="checkbox" id="enableDz"> Enable Dz
-                </label>
-            </div>
             <div class="form-group">
                 <label>
                     <input type="checkbox" id="enableTradeOffer"> Enable Inline Trade Offer Discount %
@@ -353,6 +343,7 @@ if (!$user_id) {
         </div>
     </div>
 
-    <script src="../../../assets/js/purchase/purchase_invoice/purchase-add.js"></script>
+    <script src="../../../assets/js/purchase/purchase_invoice/purchase-add-uom.js?v=<?php echo time(); ?>"></script>
+    <script src="../../../assets/js/purchase/purchase_invoice/purchase-add.js?v=<?php echo time(); ?>"></script>
 </body>
 </html>

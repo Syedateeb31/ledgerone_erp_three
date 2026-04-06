@@ -176,9 +176,8 @@
         <table class="items-table">
             <thead>
                 <tr>
-                    <th style="width: 40%;">Item</th>
-                    <th style="width: 12%;" class="text-right">Qty</th>
-                    <th style="width: 18%;" class="text-right">Price</th>
+                    <th style="width: 50%;">Item</th>
+                    <th style="width: 20%;" class="text-right">Price</th>
                     <th style="width: 15%;" class="text-right">Disc</th>
                     <th style="width: 15%;" class="text-right">Total</th>
                 </tr>
@@ -297,9 +296,17 @@
                 const tradeOfferAmt = parseFloat(item.trade_offer_amount || 0);
                 const totalDisc = discountAmt + tradeOfferAmt;
                 
+                // Build quantities display
+                let itemDisplay = item.product_name;
+                if (item.unit_entries && item.unit_entries.length > 0) {
+                    const qtyText = item.unit_entries.map(entry => 
+                        `${entry.uom_name}: ${parseFloat(entry.quantity).toFixed(2)}`
+                    ).join(', ');
+                    itemDisplay += `<br><small style="font-size: 9px; color: #666;">${qtyText}</small>`;
+                }
+                
                 row.innerHTML = `
-                    <td>${item.product_name}</td>
-                    <td class="text-right">${parseFloat(item.quantity).toFixed(2)}</td>
+                    <td>${itemDisplay}</td>
                     <td class="text-right">${currencySymbol}${parseFloat(item.sale_price).toFixed(2)}</td>
                     <td class="text-right">${currencySymbol}${totalDisc.toFixed(2)}</td>
                     <td class="text-right">${currencySymbol}${parseFloat(item.net_amount).toFixed(2)}</td>

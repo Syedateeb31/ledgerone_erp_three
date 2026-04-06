@@ -191,6 +191,7 @@
                 <p><strong>Branch:</strong> <span id="branchName">Loading...</span></p>
                 <p><strong>Currency:</strong> <span id="currency">Loading...</span></p>
                 <p><strong>Sales Officer:</strong> <span id="salesOfficer">-</span></p>
+                <p><strong>Supplier Man:</strong> <span id="supplierMan">-</span></p>
                 <p><strong>Sale Invoice #:</strong> <span id="saleInvoiceNoInfo">-</span></p>
                 <p><strong>Remarks:</strong> <span id="remarks">-</span></p>
             </div>
@@ -383,6 +384,7 @@
             document.getElementById('branchName').textContent = branchText;
             document.getElementById('currency').textContent = invoice.currency_name;
             document.getElementById('salesOfficer').textContent = invoice.sales_officer_name || '-';
+            document.getElementById('supplierMan').textContent = invoice.supplier_man_name || '-';
             document.getElementById('saleInvoiceNoInfo').textContent = invoice.sale_invoice_no || '-';
             document.getElementById('remarks').textContent = invoice.remarks || '-';
 

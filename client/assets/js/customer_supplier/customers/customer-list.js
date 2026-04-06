@@ -60,6 +60,7 @@ document.addEventListener('DOMContentLoaded', function () {
             row.innerHTML = `
                         <td><span class="customer-code">${customer.customer_code}</span></td>
                         <td><span class="customer-name">${customer.customer_name}</span></td>
+                        <td>${customer.customer_type_name || '-'}</td>
                         <td>${customer.primary_phone || '-'}</td>
                         <td>${customer.email || '-'}</td>
                         <td><span class="status-badge status-${status}">${status.charAt(0).toUpperCase() + status.slice(1)}</span></td>
@@ -243,6 +244,24 @@ document.addEventListener('DOMContentLoaded', function () {
     function populateViewModal(customer) {
         document.getElementById('viewCustomerCode').textContent = customer.customer_code;
         document.getElementById('viewCustomerName').textContent = customer.customer_name;
+        
+        // Load and display customer type
+        if (customer.customer_type_id) {
+            fetch('../../../../server/api/customer_supplier/customers/customer-types.php')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const type = data.types.find(t => t.id == customer.customer_type_id);
+                        document.getElementById('viewCustomerType').textContent = type ? type.type_name : '-';
+                    }
+                })
+                .catch(() => {
+                    document.getElementById('viewCustomerType').textContent = '-';
+                });
+        } else {
+            document.getElementById('viewCustomerType').textContent = '-';
+        }
+        
         document.getElementById('viewAddress').textContent = customer.address || '';
         // Load and display company
         fetch('../../../../server/api/customer_supplier/customers/get-companies.php')
@@ -276,6 +295,19 @@ document.addEventListener('DOMContentLoaded', function () {
                 });
         } else {
             document.getElementById('viewSalesOfficer').textContent = '';
+        }
+        
+        if (customer.supplier_man_id) {
+            fetch(`../../../../server/api/customer_supplier/customers/get-employees.php`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const supplierMan = data.employees.find(e => e.id == customer.supplier_man_id);
+                        document.getElementById('viewSupplierMan').textContent = supplierMan ? supplierMan.full_name : '';
+                    }
+                });
+        } else {
+            document.getElementById('viewSupplierMan').textContent = '';
         }
         
         // Territory fields
@@ -530,17 +562,21 @@ document.addEventListener('DOMContentLoaded', function () {
     // Initialize Select2 for edit modal
     $(document).ready(function() {
         $('#editCompany').select2({ placeholder: 'Select Company', allowClear: false, dropdownParent: $('#editModal') });
+        $('#editCustomerType').select2({ placeholder: 'Select Customer Type', allowClear: true, dropdownParent: $('#editModal') });
         $('#editSalesOfficer').select2({ placeholder: 'Select Sales Officer', allowClear: true, dropdownParent: $('#editModal') });
         $('#editCountry').select2({ placeholder: 'Select Country', allowClear: true, dropdownParent: $('#editModal') });
         $('#editRegion').select2({ placeholder: 'Select Region', allowClear: true, dropdownParent: $('#editModal') });
         $('#editCity').select2({ placeholder: 'Select City', allowClear: true, dropdownParent: $('#editModal') });
         $('#editCityZone').select2({ placeholder: 'Select City Zone', allowClear: true, dropdownParent: $('#editModal') });
         $('#editArea').select2({ placeholder: 'Select Area', allowClear: true, dropdownParent: $('#editModal') });
+        $('#editSupplierMan').select2({ placeholder: 'Select Supplier Man', allowClear: true, dropdownParent: $('#editModal') });
         
         // Load initial data
         loadEditCountries();
         loadEditSalesOfficers();
+        loadEditSupplierMen();
         loadEditCompanies();
+        loadEditCustomerTypes();
         
         // Territory cascading
         $('#editCountry').on('change', function() {
@@ -663,6 +699,31 @@ document.addEventListener('DOMContentLoaded', function () {
             });
     }
     
+    function loadEditCustomerTypes() {
+        fetch('../../../../server/api/customer_supplier/customers/customer-types.php')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    $('#editCustomerType').empty().append('<option value="">Select Customer Type</option>');
+                    data.types.forEach(type => {
+                        $('#editCustomerType').append(new Option(type.type_name, type.id));
+                    });
+                }
+            });
+    }
+    
+    function loadEditSupplierMen() {
+        fetch('../../../../server/api/customer_supplier/customers/get-employees.php')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    data.employees.forEach(employee => {
+                        $('#editSupplierMan').append(new Option(employee.full_name, employee.id));
+                    });
+                }
+            });
+    }
+    
     // Load suppliers for edit modal
     fetch('../../../../server/api/customer_supplier/customers/get-suppliers.php')
         .then(response => response.json())
@@ -700,6 +761,12 @@ document.addEventListener('DOMContentLoaded', function () {
         
         document.getElementById('editCustomerCode').value = customer.customer_code;
         document.getElementById('editCustomerName').value = customer.customer_name;
+        
+        // Set customer type
+        setTimeout(() => {
+            $('#editCustomerType').val(customer.customer_type_id || '').trigger('change');
+        }, 100);
+        
         document.getElementById('editAddress').value = customer.address || '';
         document.getElementById('editPrimaryPhone').value = customer.primary_phone || '';
         document.getElementById('editSecondaryPhone').value = customer.secondary_phone || '';
@@ -713,6 +780,9 @@ document.addEventListener('DOMContentLoaded', function () {
         
         // Sales Officer
         $('#editSalesOfficer').val(customer.associated_sales_officer_id || '').trigger('change');
+        
+        // Supplier Man
+        $('#editSupplierMan').val(customer.supplier_man_id || '').trigger('change');
         
         // Territory - load cascading data
         if (customer.country_id) {
@@ -939,6 +1009,9 @@ document.addEventListener('DOMContentLoaded', function () {
         const tbody = document.getElementById('editSubAccountsTableBody');
         editSubAccountCounter++;
         const row = document.createElement('tr');
+        if (subAccount && subAccount.id) {
+            row.dataset.subAccountId = subAccount.id;
+        }
         row.innerHTML = `
             <td style="padding: 12px; border: 1px solid var(--border-default);">${editSubAccountCounter}</td>
             <td style="padding: 12px; border: 1px solid var(--border-default);">
@@ -1024,11 +1097,15 @@ document.addEventListener('DOMContentLoaded', function () {
             const debit = parseFloat(row.querySelector('.edit-sub-account-debit').value) || 0;
             const credit = parseFloat(row.querySelector('.edit-sub-account-credit').value) || 0;
             if (name) {
-                subAccounts.push({ 
+                const subAccount = { 
                     sub_account_name: name,
                     debit: debit,
                     credit: credit
-                });
+                };
+                if (row.dataset.subAccountId) {
+                    subAccount.id = parseInt(row.dataset.subAccountId);
+                }
+                subAccounts.push(subAccount);
             }
         });
         return subAccounts;
@@ -1085,6 +1162,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const formData = {
             id: currentEditingCustomerId,
             companyId: $('#editCompany').val(),
+            customerTypeId: $('#editCustomerType').val() || null,
             customerName: document.getElementById('editCustomerName').value.trim(),
             address: document.getElementById('editAddress').value.trim(),
             primaryPhone: document.getElementById('editPrimaryPhone').value.trim(),
@@ -1092,6 +1170,7 @@ document.addEventListener('DOMContentLoaded', function () {
             email: document.getElementById('editEmail').value.trim(),
             identityCard: document.getElementById('editIdentityCard').value.trim(),
             salesOfficerId: $('#editSalesOfficer').val() || null,
+            supplierManId: $('#editSupplierMan').val() || null,
             countryId: $('#editCountry').val() || null,
             regionId: $('#editRegion').val() || null,
             cityId: $('#editCity').val() || null,
@@ -1200,3 +1279,15 @@ document.addEventListener('DOMContentLoaded', function () {
             });
     }
 });
+
+    
+    // Customer Types Management
+    const typesModal = document.getElementById('typesModal');
+    const typesModalClose = document.getElementById('typesModalClose');
+    const typesCloseBtn = document.getElementById('typesCloseBtn');
+    const manageTypesBtn = document.getElementById('manageTypesBtn');
+    const addTypeBtn = document.getElementById('addTypeBtn');
+    const typesTableBody = document.getElementById('typesTableBody');
+    
+    const typeFormModal = document.getElementById('typeFormModal');
+    const typeFormModalClose = document.getElementById('typeFormModalClose');

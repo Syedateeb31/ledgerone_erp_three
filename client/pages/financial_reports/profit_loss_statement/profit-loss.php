@@ -113,6 +113,14 @@ $currency_symbol = $currency['symbol'];
                         </select>
                         <div class="helper-text">Filter report by company</div>
                     </div>
+                    
+                    <div class="form-group">
+                        <label for="currencyFilter">Currency <span class="help-tip" title="Select reporting currency">?</span></label>
+                        <select id="currencyFilter">
+                            <option value="">Loading...</option>
+                        </select>
+                        <div class="helper-text">Select reporting currency</div>
+                    </div>
                 </div>
                 
                 <div class="form-row">

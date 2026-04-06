@@ -103,17 +103,28 @@
         }
 
         try {
-            const res = await fetch(`${API_URL}?action=calculate_materials&bom_id=${selectedBOM.id}&order_qty=${orderQty}&branch_id=${branchId}`);
-            const data = await res.json();
+            const url = `${API_URL}?action=calculate_materials&bom_id=${selectedBOM.id}&order_qty=${orderQty}&branch_id=${branchId}`;
+            console.log('Fetching materials from:', url);
+            
+            const res = await fetch(url);
+            console.log('Response status:', res.status);
+            
+            const text = await res.text();
+            console.log('Raw response:', text);
+            
+            const data = JSON.parse(text);
+            console.log('Parsed data:', data);
 
             if (data.success) {
                 materialRequirements = data.data;
                 renderMaterialsTable(data.data);
             } else {
+                console.error('API Error:', data.message);
                 alert('Error: ' + data.message);
             }
         } catch (err) {
-            alert('Error loading materials');
+            console.error('Fetch Error:', err);
+            alert('Error loading materials: ' + err.message);
         }
     }
 
@@ -126,20 +137,95 @@
             return;
         }
 
+        // Find max units
+        let maxUnits = 0;
+        materials.forEach(mat => {
+            if (mat.units.length > maxUnits) {
+                maxUnits = mat.units.length;
+            }
+        });
+
         materials.forEach(mat => {
             const tr = document.createElement('tr');
-            const status = mat.available_stock >= mat.required_qty ? 'available' : 'short';
-            const statusText = mat.available_stock >= mat.required_qty ? 'Available' : 'Short';
+            
+            // Material name cell
+            const nameCell = document.createElement('td');
+            nameCell.innerHTML = `<strong>${mat.material_code} - ${mat.material_name}</strong>`;
+            tr.appendChild(nameCell);
+            
+            // Units cells - create cells for all units
+            for (let i = 0; i < maxUnits; i++) {
+                const unitCell = document.createElement('td');
+                if (i < mat.units.length) {
+                    const unit = mat.units[i];
+                    unitCell.innerHTML = `
+                        <div style="text-align: center;">
+                            <div style="font-weight: 600; color: #0E1A2B;">${unit.uom_name}</div>
+                            <div style="font-size: 14px; color: #2F3B4C; margin-top: 4px;">${unit.required_qty}</div>
+                        </div>
+                    `;
+                } else {
+                    // Readonly cell for missing units
+                    unitCell.innerHTML = `
+                        <div style="text-align: center; color: #9AA1AE;">
+                            <div style="font-weight: 600;">-</div>
+                        </div>
+                    `;
+                    unitCell.style.background = '#F2F4F8';
+                }
+                tr.appendChild(unitCell);
+            }
+            
+            // Available stock - parse all values as numbers
+            const stockCell = document.createElement('td');
+            let totalStock = 0;
+            mat.units.forEach(unit => {
+                const stock = parseFloat(unit.available_stock) || 0;
+                const convFactor = parseFloat(unit.conversion_factor) || 1;
+                if (unit.is_base_unit == 1) {
+                    totalStock = stock;
+                } else {
+                    totalStock += stock * convFactor;
+                }
+            });
+            console.log('totalStock type:', typeof totalStock, 'value:', totalStock);
+            stockCell.textContent = Number(totalStock).toFixed(2);
+            tr.appendChild(stockCell);
+            
+            // Status - parse all values as numbers
+            const statusCell = document.createElement('td');
+            let totalRequired = 0;
+            mat.units.forEach(unit => {
+                const reqQty = parseFloat(unit.required_qty) || 0;
+                const convFactor = parseFloat(unit.conversion_factor) || 1;
+                if (unit.is_base_unit == 1) {
+                    totalRequired = reqQty;
+                } else {
+                    totalRequired += reqQty * convFactor;
+                }
+            });
+            
+            const status = totalStock >= totalRequired ? 'available' : 'short';
+            const statusText = totalStock >= totalRequired ? 'Available' : 'Short';
+            statusCell.innerHTML = `<span class="badge ${status}">${statusText}</span>`;
+            tr.appendChild(statusCell);
 
-            tr.innerHTML = `
-                <td><strong>${mat.material_code} - ${mat.material_name}</strong></td>
-                <td>${mat.required_qty}</td>
-                <td>${mat.uom_name}</td>
-                <td>${mat.available_stock}</td>
-                <td><span class="badge ${status}">${statusText}</span></td>
-            `;
             tbody.appendChild(tr);
         });
+        
+        // Update table headers
+        updateTableHeaders(maxUnits);
+    }
+
+    function updateTableHeaders(maxUnits) {
+        const thead = document.querySelector('#materialsTable').closest('table').querySelector('thead tr');
+        
+        // Rebuild headers
+        thead.innerHTML = '<th>Material</th>';
+        for (let i = 0; i < maxUnits; i++) {
+            thead.innerHTML += `<th>Unit ${i + 1}</th>`;
+        }
+        thead.innerHTML += '<th>Available Stock</th><th>Status</th>';
     }
 
     async function saveProductionOrder() {
@@ -170,6 +256,18 @@
             return;
         }
 
+        // Flatten materials for saving
+        const materials = [];
+        materialRequirements.forEach(mat => {
+            mat.units.forEach(unit => {
+                materials.push({
+                    material_id: mat.material_id,
+                    required_qty: unit.required_qty,
+                    uom_id: unit.uom_id
+                });
+            });
+        });
+
         const payload = {
             order_no: orderNo,
             product_id: selectedProduct.id,
@@ -180,7 +278,7 @@
             order_qty: orderQty,
             start_date: startDate,
             end_date: endDate,
-            materials: materialRequirements
+            materials: materials
         };
 
         try {

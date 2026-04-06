@@ -217,26 +217,36 @@ $page_title = $mode === 'view' ? 'View Employee' : ($mode === 'edit' ? 'Edit Emp
                         </div>
                         <div class="form-group">
                             <label for="department" class="required">Department</label>
-                            <select id="department" name="department" <?php echo $readonly; ?>>
-                                <option value="">Select</option>
-                                <?php
-                                $stmt = $pdo->prepare("SELECT id, department_name FROM departments WHERE (tenant_id = 0 OR tenant_id = ?) AND is_active = 1 ORDER BY department_name");
-                                $stmt->execute([$_SESSION['tenant_id']]);
-                                while ($dept = $stmt->fetch()) {
-                                    $selected = ($employee['department_id'] ?? '') == $dept['id'] ? 'selected' : '';
-                                    echo '<option value="' . $dept['id'] . '" ' . $selected . '>' . htmlspecialchars($dept['department_name']) . '</option>';
-                                }
-                                ?>
-                            </select>
+                            <div style="display: flex; gap: 8px;">
+                                <select id="department" name="department" <?php echo $readonly; ?> style="flex: 1;">
+                                    <option value="">Select</option>
+                                    <?php
+                                    $stmt = $pdo->prepare("SELECT id, department_name FROM departments WHERE (tenant_id = 0 OR tenant_id = ?) AND is_active = 1 ORDER BY department_name");
+                                    $stmt->execute([$_SESSION['tenant_id']]);
+                                    while ($dept = $stmt->fetch()) {
+                                        $selected = ($employee['department_id'] ?? '') == $dept['id'] ? 'selected' : '';
+                                        echo '<option value="' . $dept['id'] . '" ' . $selected . '>' . htmlspecialchars($dept['department_name']) . '</option>';
+                                    }
+                                    ?>
+                                </select>
+                                <button type="button" class="btn btn-secondary" onclick="openDepartmentModal()" <?php echo $readonly; ?> style="width: 40px; padding: 0;">
+                                    <i class="fas fa-plus"></i>
+                                </button>
+                            </div>
                         </div>
                         <div class="form-group">
                             <label for="position" class="required">Position/Title</label>
-                            <select id="position" name="position" <?php echo $readonly; ?>>
-                                <option value="">Select</option>
-                                <?php if ($employee): ?>
-                                <option value="<?php echo $employee['position_id']; ?>" selected><?php echo htmlspecialchars($employee['position_title']); ?></option>
-                                <?php endif; ?>
-                            </select>
+                            <div style="display: flex; gap: 8px;">
+                                <select id="position" name="position" <?php echo $readonly; ?> style="flex: 1;">
+                                    <option value="">Select</option>
+                                    <?php if ($employee): ?>
+                                    <option value="<?php echo $employee['position_id']; ?>" selected><?php echo htmlspecialchars($employee['position_title']); ?></option>
+                                    <?php endif; ?>
+                                </select>
+                                <button type="button" class="btn btn-secondary" onclick="openPositionModal()" <?php echo $readonly; ?> style="width: 40px; padding: 0;">
+                                    <i class="fas fa-plus"></i>
+                                </button>
+                            </div>
                         </div>
                     </div>
                     <div class="form-row">
@@ -723,6 +733,64 @@ $page_title = $mode === 'view' ? 'View Employee' : ($mode === 'edit' ? 'Edit Emp
                 <?php endif; ?>
             </div>
         </form>
+    </div>
+
+    <!-- Department Modal -->
+    <div class="modal" id="departmentModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Manage Departments</h3>
+                <button class="modal-close" onclick="closeDepartmentModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="newDepartmentName">Department Name</label>
+                    <input type="text" id="newDepartmentName" placeholder="Enter department name">
+                </div>
+                <button class="btn btn-primary" onclick="saveDepartment()">
+                    <i class="fas fa-save"></i> Save Department
+                </button>
+                
+                <div style="margin-top: 24px;">
+                    <h4 style="font-size: 14px; margin-bottom: 12px;">Existing Departments</h4>
+                    <div id="departmentList" style="max-height: 300px; overflow-y: auto;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Position Modal -->
+    <div class="modal" id="positionModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Manage Positions</h3>
+                <button class="modal-close" onclick="closePositionModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="positionDepartment">Department</label>
+                    <select id="positionDepartment" onchange="loadPositionsList()">
+                        <option value="">Select Department</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="newPositionName">Position Title</label>
+                    <input type="text" id="newPositionName" placeholder="Enter position title">
+                </div>
+                <button class="btn btn-primary" onclick="savePosition()">
+                    <i class="fas fa-save"></i> Save Position
+                </button>
+                
+                <div style="margin-top: 24px;">
+                    <h4 style="font-size: 14px; margin-bottom: 12px;">Existing Positions</h4>
+                    <div id="positionList" style="max-height: 300px; overflow-y: auto;"></div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script src="../../../assets/js/hrm/employees/employee-add.js"></script>

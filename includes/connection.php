@@ -1,8 +1,8 @@
 <?php
 // connection.php
-$servername = "localhost";
-$username = "ateeb";
-$password = "root";
+$servername = "31.97.123.46";
+$username = "ledgerone_tenant";
+$password = "JAAsqzFU6fujVoQD";
 $dbname = "ledgerone_tenant";
 
 try {

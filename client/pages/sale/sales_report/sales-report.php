@@ -78,6 +78,7 @@ $currency_symbol = $currency['symbol'];
                     <option value="invoice">Invoice Wise</option>
                     <option value="vendor">Vendor Wise</option>
                     <option value="customer">Customer Wise</option>
+                    <option value="supplier_man">Supplier Man Wise</option>
                     <option value="category">Category Wise</option>
                 </select>
             </div>
@@ -244,6 +245,30 @@ $currency_symbol = $currency['symbol'];
                         </tr>
                     </thead>
                     <tbody id="officerTableBody">
+                        <!-- Data will be populated by JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- Supplier Man Wise Sales Table -->
+        <div class="table-card">
+            <div class="table-title">Supplier Man Wise Sales Details</div>
+            <div style="margin-bottom: 16px;">
+                <input type="text" id="search-supplier-man" class="form-input" placeholder="Search by Employee ID or Supplier Man Name..." style="max-width: 400px;">
+            </div>
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Employee ID</th>
+                            <th>Supplier Man Name</th>
+                            <th>Total Invoices</th>
+                            <th>Total Sales (<?php echo $currency_symbol; ?>)</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="supplierManTableBody">
                         <!-- Data will be populated by JavaScript -->
                     </tbody>
                 </table>

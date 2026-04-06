@@ -26,7 +26,7 @@ try {
     $type = $_GET['type'] ?? '';
     $base_only = $_GET['base_only'] ?? 0;
     
-    $sql = "SELECT id, uom_name, uom_type FROM uom WHERE tenant_id = ? OR tenant_id = 0";
+    $sql = "SELECT id, uom_name, uom_type, unit_scope, is_base_unit FROM uom WHERE tenant_id = ? OR tenant_id = 0";
     $params = [$tenant_id];
     
     if ($type) {

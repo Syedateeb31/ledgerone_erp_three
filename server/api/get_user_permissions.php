@@ -1,6 +1,8 @@
 <?php
+ob_start();
 session_start();
 require_once '../../includes/connection.php';
+ob_end_clean();
 
 header('Content-Type: application/json');
 

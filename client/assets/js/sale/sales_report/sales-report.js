@@ -44,6 +44,7 @@ function updateDashboard() {
     populateInvoiceTable();
     populateVendorTable();
     populateCustomerTable();
+    populateSupplierManTable();
     initializeCharts();
     filterReportType();
 }
@@ -142,15 +143,16 @@ function filterReportType() {
     const tables = document.querySelectorAll('.table-card');
     const charts = document.querySelectorAll('.chart-card');
     const officerTable = tables[0];
-    const productTable = tables[1];
-    const branchTable = tables[2];
-    const categoryTable = tables[3];
-    const territoryTable = tables[4];
-    const invoiceTable = tables[5];
-    const vendorTable = tables[6];
-    const customerTable = tables[7];
+    const supplierManTable = tables[1];
+    const productTable = tables[2];
+    const branchTable = tables[3];
+    const categoryTable = tables[4];
+    const territoryTable = tables[5];
+    const invoiceTable = tables[6];
+    const vendorTable = tables[7];
+    const customerTable = tables[8];
     
-    if (!officerTable || !productTable || !branchTable || !categoryTable || !territoryTable || !invoiceTable || !vendorTable || !customerTable) return;
+    if (!officerTable || !supplierManTable || !productTable || !branchTable || !categoryTable || !territoryTable || !invoiceTable || !vendorTable || !customerTable) return;
     
     // Hide all tables and charts first
     tables.forEach(table => table.style.display = 'none');
@@ -158,6 +160,7 @@ function filterReportType() {
     
     if (reportType === 'all') {
         officerTable.style.display = 'block';
+        supplierManTable.style.display = 'block';
         productTable.style.display = 'block';
         branchTable.style.display = 'block';
         categoryTable.style.display = 'block';
@@ -190,6 +193,10 @@ function filterReportType() {
         charts[4].style.display = 'block'; // Top 5 Vendors
     } else if (reportType === 'customer') {
         customerTable.style.display = 'block';
+        charts[0].style.display = 'block'; // Sales Trend
+        charts[4].style.display = 'block'; // Monthly Comparison
+    } else if (reportType === 'supplier_man') {
+        supplierManTable.style.display = 'block';
         charts[0].style.display = 'block'; // Sales Trend
         charts[4].style.display = 'block'; // Monthly Comparison
     } else if (reportType === 'category') {
@@ -480,6 +487,51 @@ function populateCustomerTable() {
     });
     setupSearch('search-customer', '.customer-row', ['data-search']);
     setupPagination('customerTableBody', 50);
+}
+
+function populateSupplierManTable() {
+    const tableBody = document.getElementById('supplierManTableBody');
+    tableBody.innerHTML = '';
+
+    if (!reportData || !reportData.supplier_man_sales.length) {
+        tableBody.innerHTML = '<tr><td colspan="5" style="text-align:center">No data available</td></tr>';
+        return;
+    }
+
+    reportData.supplier_man_sales.forEach((item, index) => {
+        // Skip if supplier_man_id is null or undefined
+        if (!item.supplier_man_id) return;
+        
+        const row = document.createElement('tr');
+        row.style.cursor = 'pointer';
+        row.className = 'supplier-man-row';
+        row.setAttribute('data-search', `${item.employee_id} ${item.supplier_man_name}`.toLowerCase());
+        row.innerHTML = `
+            <td><i class="fas fa-chevron-right" style="margin-right: 8px; transition: transform 0.3s;"></i>${item.employee_id}</td>
+            <td>${item.supplier_man_name}</td>
+            <td>${parseFloat(item.total_invoices || 0).toLocaleString()}</td>
+            <td>${CURRENCY_SYMBOL}${parseFloat(item.total_sales || 0).toLocaleString()}</td>
+            <td><span class="badge ${item.status === 'Active' ? 'badge-success' : 'badge-warning'}">${item.status}</span></td>
+        `;
+        
+        const detailRow = document.createElement('tr');
+        detailRow.style.display = 'none';
+        detailRow.innerHTML = `
+            <td colspan="5" style="padding: 0;">
+                <div style="padding: 16px; background: #f7f9fc; border-left: 3px solid #946CE6;">
+                    <div style="font-weight: 600; margin-bottom: 8px;">Daily Breakdown</div>
+                    <div id="supplier_man-breakdown-${index}">Loading...</div>
+                </div>
+            </td>
+        `;
+        
+        row.addEventListener('click', () => toggleBreakdown(row, detailRow, 'supplier_man', item.supplier_man_id, index));
+        
+        tableBody.appendChild(row);
+        tableBody.appendChild(detailRow);
+    });
+    setupSearch('search-supplier-man', '.supplier-man-row', ['data-search']);
+    setupPagination('supplierManTableBody', 50);
 }
 
 let trendChart = null;
@@ -780,10 +832,17 @@ async function toggleBreakdown(row, detailRow, type, id, index) {
             
             if (result.success) {
                 const container = document.getElementById(`${type}-breakdown-${index}`);
+                
+                if (!container) {
+                    console.error(`Container not found: ${type}-breakdown-${index}`);
+                    return;
+                }
+                
                 const data = result.data;
                 
                 const headers = type === 'branch' ? '<tr><th>Date</th><th>Quantity</th><th>Unit</th><th>Revenue</th></tr>' : 
                                type === 'officer' ? '<tr><th>Date</th><th>Invoices</th><th>Revenue</th></tr>' : 
+                               type === 'supplier_man' ? '<tr><th>Date</th><th>Invoices</th><th>Revenue</th></tr>' : 
                                '<tr><th>Date</th><th>Quantity</th><th>Revenue</th></tr>';
                 
                 let html = `
@@ -801,7 +860,7 @@ async function toggleBreakdown(row, detailRow, type, id, index) {
                 data.forEach(item => {
                     if (type === 'branch') {
                         html += `<tr class="breakdown-row"><td>${item.date}</td><td>${parseFloat(item.volume || 0).toLocaleString()}</td><td>${item.unit || '-'}</td><td>${CURRENCY_SYMBOL}${parseFloat(item.revenue || 0).toLocaleString()}</td></tr>`;
-                    } else if (type === 'officer') {
+                    } else if (type === 'officer' || type === 'supplier_man') {
                         html += `<tr class="breakdown-row"><td>${item.date}</td><td>${parseFloat(item.invoices || 0).toLocaleString()}</td><td>${CURRENCY_SYMBOL}${parseFloat(item.revenue || 0).toLocaleString()}</td></tr>`;
                     } else {
                         html += `<tr class="breakdown-row"><td>${item.date}</td><td>${parseFloat(item.volume || 0).toLocaleString()}</td><td>${CURRENCY_SYMBOL}${parseFloat(item.revenue || 0).toLocaleString()}</td></tr>`;
@@ -821,10 +880,17 @@ async function toggleBreakdown(row, detailRow, type, id, index) {
                     });
                 });
             } else {
-                document.getElementById(`${type}-breakdown-${index}`).innerHTML = 'No breakdown data available';
+                const container = document.getElementById(`${type}-breakdown-${index}`);
+                if (container) {
+                    container.innerHTML = 'No breakdown data available';
+                }
             }
         } catch (error) {
-            document.getElementById(`${type}-breakdown-${index}`).innerHTML = 'Error loading breakdown';
+            console.error('Error loading breakdown:', error);
+            const container = document.getElementById(`${type}-breakdown-${index}`);
+            if (container) {
+                container.innerHTML = 'Error loading breakdown';
+            }
         }
     } else {
         icon.style.transform = 'rotate(0deg)';

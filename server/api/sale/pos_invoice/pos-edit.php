@@ -46,6 +46,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 cur.name as currency_name,
                 e.id as sales_officer_id,
                 e.full_name as sales_officer_name,
+                sm.id as supplier_man_id,
+                sm.employee_id as supplier_man_employee_id,
+                sm.full_name as supplier_man_name,
                 COALESCE(rv.amount, 0) as amount_paid,
                 CASE 
                     WHEN rv.payment_method_id = 1 THEN 'Cash'
@@ -60,6 +63,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             LEFT JOIN branches pb ON b.parent_branch_id = pb.id
             LEFT JOIN ledgerone_public.currencies cur ON si.currency_id = cur.id
             LEFT JOIN employees e ON si.sale_officer_id = e.id
+            LEFT JOIN employees sm ON si.supplier_man_id = sm.id
             LEFT JOIN receive_voucher rv ON si.bill_no = rv.bill_no AND si.tenant_id = rv.tenant_id
             WHERE si.id = ? AND si.tenant_id = ?
         ");
@@ -128,8 +132,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
         $stmt = $pdo->prepare("
             UPDATE sale_invoice SET
                 currency_id = ?, sale_date = ?, customer_id = ?, sub_account_id = ?, company_id = ?, branch_id = ?,
-                previous_balance = ?, sale_officer_id = ?, sale_order_id = ?, bilty_no = ?, transport_name = ?, total_bill = ?, total_discount_percent = ?,
-                total_discount_amount = ?, net_amount = ?, withholding_tax_percent = ?, withholding_tax_amount = ?, remarks = ?, status = ?, updated_by = ?
+                previous_balance = ?, sale_officer_id = ?, supplier_man_id = ?, sale_order_id = ?, bilty_no = ?, transport_name = ?, total_bill = ?, total_discount_percent = ?,
+                total_discount_amount = ?, net_amount = ?, withholding_tax_percent = ?, withholding_tax_amount = ?, amount_paid_auto_fill = ?, remarks = ?, status = ?, updated_by = ?
             WHERE id = ? AND tenant_id = ?
         ");
         $stmt->execute([
@@ -141,6 +145,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
             $input['branchId'],
             extractBalanceAmount($input['previousBalance'] ?? '0.00'),
             $input['salesOfficerId'] ?? null,
+            $input['supplierManId'] ?? null,
             $input['saleOrderId'] ?? null,
             $input['biltyNo'] ?? null,
             $input['transportName'] ?? null,
@@ -150,6 +155,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
             $input['netAmount'],
             $withholdingTaxPercent,
             $withholdingTaxAmount,
+            $input['amountPaidAutoFill'] ?? 'yes',
             $input['remarks'] ?? null,
             $input['status'] ?? 'Posted',
             $user_id,

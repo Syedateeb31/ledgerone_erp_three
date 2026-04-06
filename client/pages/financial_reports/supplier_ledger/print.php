@@ -10,10 +10,22 @@ if (!$user_id) {
 }
 
 require_once '../../../../includes/connection.php';
+require_once '../../../../server/api/financial_reports/supplier_ledger/currency-converter.php';
+
 $stmt = $pdo->prepare("SELECT c.symbol FROM tenant_currencies tc JOIN ledgerone_public.currencies c ON tc.currency_id = c.id WHERE tc.tenant_id = ? AND tc.is_base_currency = 1");
 $stmt->execute([$_SESSION['tenant_id']]);
 $currency = $stmt->fetch();
 $currency_symbol = $currency['symbol'];
+
+$target_currency_id = $_GET['currency_id'] ?? null;
+if ($target_currency_id) {
+    $stmt = $pdo->prepare("SELECT c.symbol FROM ledgerone_public.currencies c WHERE c.id = ?");
+    $stmt->execute([$target_currency_id]);
+    $currency = $stmt->fetch();
+    if ($currency) {
+        $currency_symbol = $currency['symbol'];
+    }
+}
 
 $stmt = $pdo->prepare("SELECT full_name FROM users WHERE id = ?");
 $stmt->execute([$user_id]);
@@ -26,6 +38,7 @@ $date_to = $_GET['date_to'] ?? null;
 $ledger_type = $_GET['ledger_type'] ?? 'summary';
 $expanded = $_GET['expanded'] ?? '';
 $expandedList = $expanded ? explode(',', $expanded) : [];
+$target_currency_id = $_GET['currency_id'] ?? null;
 $company_id = $_GET['company_id'] ?? null;
 
 // Fetch company info based on selected company_id
@@ -126,7 +139,8 @@ $company_timezone = $company['timezone'] ?? 'UTC';
             <?php if ($supplier_id): ?>supplier_id: '<?php echo $supplier_id; ?>',<?php endif; ?>
             <?php if ($date_from): ?>from_date: '<?php echo $date_from; ?>',<?php endif; ?>
             <?php if ($date_to): ?>to_date: '<?php echo $date_to; ?>',<?php endif; ?>
-            <?php if ($company_id): ?>company_id: '<?php echo $company_id; ?>'<?php endif; ?>
+            <?php if ($company_id): ?>company_id: '<?php echo $company_id; ?>',<?php endif; ?>
+            <?php if ($target_currency_id): ?>currency_id: '<?php echo $target_currency_id; ?>'<?php endif; ?>
         });
 
         function numberToWords(num) {

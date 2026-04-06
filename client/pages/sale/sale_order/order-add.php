@@ -110,6 +110,13 @@ if (!$user_id) {
                             <!-- Options loaded dynamically -->
                         </select>
                     </div>
+                    <div class="form-group" id="supplierManGroup">
+                        <label for="supplierMan">Supplier Man</label>
+                        <select id="supplierMan" tabindex="-1">
+                            <option value="">Select Supplier Man</option>
+                            <!-- Options loaded dynamically -->
+                        </select>
+                    </div>
                     <div class="form-group" id="biltyNoGroup">
                         <label for="biltyNo">Bilty No</label>
                         <input type="text" id="biltyNo" placeholder="Enter bilty number" tabindex="-1">
@@ -143,11 +150,6 @@ if (!$user_id) {
                             <tr>
                                 <th width="3%">S#</th>
                                 <th width="15%">Product Code / Name</th>
-                                <th width="6%">Unit</th>
-                                <th width="5%">Qty</th>
-                                <th width="4%">Pcs</th>
-                                <th width="4%">Ctn</th>
-                                <th width="4%">Dz</th>
                                 <th width="8%"><span id="salePriceLabel">Sale Price</span></th>
                                 <th width="8%"><span id="grossAmountLabel">Gross Amount</span></th>
                                 <th width="5%">Disc %</th>
@@ -166,11 +168,7 @@ if (!$user_id) {
                         </tbody>
                         <tfoot>
                             <tr class="totals-row">
-                                <th colspan="3">Totals</th>
-                                <th id="totalQty">0.00</th>
-                                <th id="totalPcs">0.00</th>
-                                <th id="totalCtn">0.00</th>
-                                <th id="totalDz">0.00</th>
+                                <th colspan="2">Totals</th>
                                 <th id="totalSalePrice">0.00</th>
                                 <th id="totalGrossAmount">0.00</th>
                                 <th></th>
@@ -427,6 +425,7 @@ if (!$user_id) {
         </div>
     </div>
 
+    <script src="../../../assets/js/sale/sale_order/order-add-uom.js"></script>
     <script src="../../../assets/js/sale/sale_order/order-add.js"></script>
 </body>
 </html>

@@ -173,6 +173,12 @@ $currency_symbol = $currency['symbol'] ?? '$';
                             <input type="text" id="editSupplierCode" readonly>
                         </div>
                         <div class="form-group col-4">
+                            <label>Salesman</label>
+                            <select id="editSalesman">
+                                <option value="">Select Salesman</option>
+                            </select>
+                        </div>
+                        <div class="form-group col-4">
                             <label class="required">Supplier Name</label>
                             <input type="text" id="editSupplierName" required>
                         </div>
@@ -296,8 +302,8 @@ $currency_symbol = $currency['symbol'] ?? '$';
             <div class="modal-body">
                 <div class="form-grid">
                     <div class="form-group col-4">
-                        <label>Company</label>
-                        <div class="view-field" id="viewCompany"></div>
+                        <label>Salesman</label>
+                        <div class="view-field" id="viewSalesman"></div>
                     </div>
                     <div class="form-group col-4">
                         <label>Supplier Code</label>

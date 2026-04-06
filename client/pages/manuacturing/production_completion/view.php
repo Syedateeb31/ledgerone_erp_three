@@ -11,7 +11,12 @@ if (!$user_id) {
 
 $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
 $host = $_SERVER['HTTP_HOST'];
-$base_url = $protocol . '://' . $host . '/ledgerone_erp';
+// Check if running on production or local
+if (strpos($host, 'unisensystems.com') !== false) {
+    $base_url = $protocol . '://' . $host;
+} else {
+    $base_url = $protocol . '://' . $host . '/ledgerone_erp';
+}
 $id = $_GET['id'] ?? null;
 ?>
 <!DOCTYPE html>

@@ -71,7 +71,8 @@ try {
     }
     
     if ($accountNumber) {
-        $query .= " AND a.sub_account_id = ?";
+        $query .= " AND (a.sub_account_id = ? OR a.id = ?)";
+        $params[] = $accountNumber;
         $params[] = $accountNumber;
     }
     

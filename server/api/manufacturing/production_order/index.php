@@ -1,4 +1,7 @@
 <?php
+// Suppress any output before JSON
+ob_start();
+
 if (session_status() == PHP_SESSION_NONE) {
     session_start();
 }
@@ -9,6 +12,9 @@ header('Access-Control-Allow-Methods: GET, POST');
 header('Access-Control-Allow-Headers: Content-Type');
 
 require_once '../../../../includes/connection.php';
+
+// Clear any output buffer
+ob_end_clean();
 
 $user_id = $_SESSION['user_id'] ?? 1;
 $tenant_id = $_SESSION['tenant_id'] ?? 1;
@@ -79,7 +85,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $orderQty = $_GET['order_qty'];
         $branchId = $_GET['branch_id'];
         
-        // Get BOM materials
+        // Get BOM materials with product UOM info
         $stmt = $pdo->prepare("
             SELECT 
                 bm.raw_material_id,
@@ -87,7 +93,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 bm.unit_id,
                 p.code as material_code,
                 p.name as material_name,
-                u.uom_name
+                p.uom_type,
+                p.default_unit_id,
+                p.uom_group_id,
+                p.product_conversion_factor,
+                u.uom_name,
+                u.conversion_factor,
+                u.is_base_unit,
+                u.unit_scope
             FROM bom_materials bm
             JOIN products p ON bm.raw_material_id = p.id
             JOIN uom u ON bm.unit_id = u.id
@@ -96,31 +109,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $stmt->execute([$bomId]);
         $materials = $stmt->fetchAll();
         
-        $result = [];
+        // Group materials by product
+        $groupedMaterials = [];
         foreach ($materials as $mat) {
+            $productId = $mat['raw_material_id'];
+            
+            if (!isset($groupedMaterials[$productId])) {
+                $groupedMaterials[$productId] = [
+                    'material_id' => $productId,
+                    'material_code' => $mat['material_code'],
+                    'material_name' => $mat['material_name'],
+                    'uom_type' => $mat['uom_type'],
+                    'units' => []
+                ];
+            }
+            
             $requiredQty = $mat['bom_qty'] * $orderQty;
             
-            // Get available stock from stock_ledger
+            // Get available stock from stock_ledger for this specific unit
             $stockStmt = $pdo->prepare("
                 SELECT COALESCE(SUM(qty_in - qty_out), 0) as available_stock
                 FROM stock_ledger
                 WHERE tenant_id = ? 
                 AND product_id = ? 
                 AND branch_id = ?
+                AND unit_id = ?
             ");
-            $stockStmt->execute([$tenant_id, $mat['raw_material_id'], $branchId]);
+            $stockStmt->execute([$tenant_id, $productId, $branchId, $mat['unit_id']]);
             $stock = $stockStmt->fetch();
             
-            $result[] = [
-                'material_id' => $mat['raw_material_id'],
-                'material_code' => $mat['material_code'],
-                'material_name' => $mat['material_name'],
-                'required_qty' => $requiredQty,
+            $groupedMaterials[$productId]['units'][] = [
                 'uom_id' => $mat['unit_id'],
                 'uom_name' => $mat['uom_name'],
-                'available_stock' => $stock['available_stock']
+                'required_qty' => $requiredQty,
+                'available_stock' => $stock['available_stock'],
+                'conversion_factor' => $mat['unit_scope'] === 'per_product' ? $mat['product_conversion_factor'] : $mat['conversion_factor'],
+                'is_base_unit' => $mat['is_base_unit']
             ];
         }
+        
+        // Convert to array
+        $result = array_values($groupedMaterials);
         
         echo json_encode(['success' => true, 'data' => $result]);
         exit;

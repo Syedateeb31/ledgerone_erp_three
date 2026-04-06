@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once '../../../../includes/connection.php';
+require_once 'currency-converter.php';
 
 header('Content-Type: application/json');
 
@@ -23,9 +24,11 @@ $start_date = $_GET['start_date'] ?? null;
 $end_date = $_GET['end_date'] ?? null;
 $branch_id = $_GET['branch_id'] ?? null;
 $company_id = !empty($_GET['company_id']) ? $_GET['company_id'] : null;
+$category_id = !empty($_GET['category_id']) ? $_GET['category_id'] : null;
 $customer_id = !empty($_GET['customer_id']) ? $_GET['customer_id'] : null;
 $product_id = !empty($_GET['product_id']) ? $_GET['product_id'] : null;
 $invoice_id = !empty($_GET['invoice_id']) ? $_GET['invoice_id'] : null;
+$target_currency_id = $_GET['currency_id'] ?? null;
 
 if (!$start_date || !$end_date) {
     http_response_code(400);
@@ -34,6 +37,20 @@ if (!$start_date || !$end_date) {
 }
 
 try {
+    // Initialize currency converter
+    $converter = new CurrencyConverter($pdo, $tenant_id);
+    
+    // Get base currency
+    $stmt = $pdo->prepare("SELECT currency_id FROM tenant_currencies WHERE tenant_id = ? AND is_base_currency = 1");
+    $stmt->execute([$tenant_id]);
+    $baseCurrency = $stmt->fetch(PDO::FETCH_ASSOC);
+    $base_currency_id = $baseCurrency['currency_id'];
+    
+    // If no target currency specified, use base currency
+    if (!$target_currency_id) {
+        $target_currency_id = $base_currency_id;
+    }
+    
     // Build branch filter
     $branch_condition = '';
     $branch_params = [];
@@ -44,13 +61,14 @@ try {
 
     // ==================== ITEM-WISE PROFIT & LOSS ====================
     
-    // Get sales data from sale_invoice_items
+    // Get sales data from sale_invoice_items with currency
     $sql = "
         SELECT 
             p.id as product_id,
             p.name as product_name,
-            SUM(sii.quantity) as qty_sold,
-            SUM(sii.net_amount) as revenue
+            sii.quantity as qty_sold,
+            sii.net_amount as revenue,
+            si.currency_id
         FROM sale_invoice si
         JOIN sale_invoice_items sii ON si.id = sii.sale_invoice_id
         JOIN products p ON sii.product_id = p.id
@@ -60,24 +78,49 @@ try {
         AND p.product_type IN ('physical', 'service')
         $branch_condition
         " . ($company_id ? " AND si.company_id = ?" : "") . "
+        " . ($category_id ? " AND p.category_id = ?" : "") . "
         " . ($customer_id ? " AND si.customer_id = ?" : "") . "
         " . ($product_id ? " AND p.id = ?" : "") . "
         " . ($invoice_id ? " AND si.id = ?" : "") . "
-        GROUP BY p.id, p.name
-        ORDER BY revenue DESC
     ";
     
     $params = array_merge([$tenant_id, $start_date, $end_date], $branch_params);
     if ($company_id) $params[] = $company_id;
+    if ($category_id) $params[] = $category_id;
     if ($customer_id) $params[] = $customer_id;
     if ($product_id) $params[] = $product_id;
     if ($invoice_id) $params[] = $invoice_id;
     
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
-    $sales_items = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $sales_items_raw = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    // Group and convert sales items
+    $sales_items = [];
+    foreach ($sales_items_raw as $row) {
+        $product_id_key = $row['product_id'];
+        $revenue = $row['revenue'];
+        $qty = $row['qty_sold'];
+        $from_currency = $row['currency_id'] ?? $base_currency_id;
+        
+        if ($from_currency != $target_currency_id) {
+            $revenue = $converter->convert($revenue, $from_currency, $target_currency_id);
+        }
+        
+        if (!isset($sales_items[$product_id_key])) {
+            $sales_items[$product_id_key] = [
+                'product_id' => $product_id_key,
+                'product_name' => $row['product_name'],
+                'qty_sold' => 0,
+                'revenue' => 0
+            ];
+        }
+        $sales_items[$product_id_key]['qty_sold'] += $qty;
+        $sales_items[$product_id_key]['revenue'] += $revenue;
+    }
+    $sales_items = array_values($sales_items);
 
-    // Get sales from station_daily_usage (fuel products)
+    // Get sales from station_daily_usage (fuel products) - base currency
     $sql_fuel = "
         SELECT 
             p.id as product_id,
@@ -91,43 +134,45 @@ try {
         AND sdu.usage_date BETWEEN ? AND ?
         $branch_condition
         " . ($product_id ? " AND p.id = ?" : "") . "
+        " . ($category_id ? " AND p.category_id = ?" : "") . "
         GROUP BY p.id, p.name
     ";
     
     $params_fuel = array_merge([$tenant_id, $start_date, $end_date], $branch_params);
     if ($product_id) $params_fuel[] = $product_id;
+    if ($category_id) $params_fuel[] = $category_id;
     
     $stmt = $pdo->prepare($sql_fuel);
     $stmt->execute($params_fuel);
-    $fuel_items = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $fuel_items_raw = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    // Convert fuel items (base currency)
+    $fuel_items = [];
+    foreach ($fuel_items_raw as $row) {
+        $revenue = $row['revenue'];
+        if ($base_currency_id != $target_currency_id) {
+            $revenue = $converter->convert($revenue, $base_currency_id, $target_currency_id);
+        }
+        $fuel_items[] = [
+            'product_id' => $row['product_id'],
+            'product_name' => $row['product_name'],
+            'qty_sold' => $row['qty_sold'],
+            'revenue' => $revenue
+        ];
+    }
 
     // Merge sales items
     $all_sales = array_merge($sales_items, $fuel_items);
 
-    // Calculate COGS for each product
+    // Calculate COGS for each product with currency conversion
     $itemwise_data = [];
     foreach ($all_sales as $item) {
-        // Get average cost including opening stock
-        $stock_opening_filter = $company_id ? " AND so.product_id IN (SELECT id FROM products WHERE company_id = ?)" : "";
+        // Get purchase data with currency
         $stmt = $pdo->prepare("
             SELECT 
-                COALESCE(
-                    (
-                        COALESCE(SUM(pii.net_amount), 0) + 
-                        COALESCE((SELECT SUM(so.opening_qty * so.opening_price) 
-                                  FROM stock_opening so
-                                  WHERE so.product_id = ? 
-                                  AND so.tenant_id = ?
-                                  $stock_opening_filter), 0)
-                    ) / NULLIF(
-                        COALESCE(SUM(pii.quantity), 0) + 
-                        COALESCE((SELECT SUM(so.opening_qty) 
-                                  FROM stock_opening so
-                                  WHERE so.product_id = ? 
-                                  AND so.tenant_id = ?
-                                  $stock_opening_filter), 0)
-                    , 0), 0
-                ) as avg_cost
+                pii.net_amount,
+                pii.quantity,
+                pi.currency_id
             FROM purchase_invoice pi
             JOIN purchase_invoice_items pii ON pi.id = pii.purchase_invoice_id
             WHERE pii.product_id = ?
@@ -136,20 +181,52 @@ try {
             " . ($company_id ? " AND pi.company_id = ?" : "") . "
         ");
         
-        $params_cogs = [$item['product_id'], $tenant_id];
-        if ($company_id) $params_cogs[] = $company_id;
-        $params_cogs[] = $item['product_id'];
-        $params_cogs[] = $tenant_id;
-        if ($company_id) $params_cogs[] = $company_id;
-        $params_cogs[] = $item['product_id'];
-        $params_cogs[] = $tenant_id;
-        $params_cogs[] = $end_date;
+        $params_cogs = [$item['product_id'], $tenant_id, $end_date];
         if ($company_id) $params_cogs[] = $company_id;
         
         $stmt->execute($params_cogs);
-        $cost_data = $stmt->fetch(PDO::FETCH_ASSOC);
+        $purchase_data = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
-        $avg_cost = (float)$cost_data['avg_cost'];
+        $total_cost = 0;
+        $total_qty = 0;
+        
+        foreach ($purchase_data as $purchase) {
+            $cost = $purchase['net_amount'];
+            $from_currency = $purchase['currency_id'] ?? $base_currency_id;
+            if ($from_currency != $target_currency_id) {
+                $cost = $converter->convert($cost, $from_currency, $target_currency_id);
+            }
+            $total_cost += $cost;
+            $total_qty += $purchase['quantity'];
+        }
+        
+        // Add opening stock (base currency)
+        $stock_opening_filter = $company_id ? " AND so.product_id IN (SELECT id FROM products WHERE company_id = ?)" : "";
+        $stmt = $pdo->prepare("
+            SELECT SUM(so.opening_qty * so.opening_price) as opening_cost, SUM(so.opening_qty) as opening_qty
+            FROM stock_opening so
+            WHERE so.product_id = ? 
+            AND so.tenant_id = ?
+            $stock_opening_filter
+        ");
+        $params_opening = [$item['product_id'], $tenant_id];
+        if ($company_id) $params_opening[] = $company_id;
+        $stmt->execute($params_opening);
+        $opening_data = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($opening_data) {
+            $opening_cost = $opening_data['opening_cost'] ?? 0;
+            $opening_qty = $opening_data['opening_qty'] ?? 0;
+            
+            if ($base_currency_id != $target_currency_id) {
+                $opening_cost = $converter->convert($opening_cost, $base_currency_id, $target_currency_id);
+            }
+            
+            $total_cost += $opening_cost;
+            $total_qty += $opening_qty;
+        }
+        
+        $avg_cost = $total_qty > 0 ? $total_cost / $total_qty : 0;
         $qty_sold = (float)$item['qty_sold'];
         $cogs = $avg_cost * $qty_sold;
         
@@ -163,15 +240,48 @@ try {
         ];
     }
 
-    // ==================== CUSTOMER-WISE PROFIT & LOSS ====================
+    // ==================== CATEGORY-WISE PROFIT & LOSS ====================
     
-    // Get customer sales summary
+    $categorywise_data = [];
+    $category_map = [];
+    
+    foreach ($itemwise_data as $item) {
+        $stmt = $pdo->prepare("SELECT c.id, c.category_name FROM products p LEFT JOIN categories c ON p.category_id = c.id WHERE p.id = ?");
+        $stmt->execute([$item['product_id']]);
+        $cat = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        $category_id = $cat['id'] ?? 0;
+        $category_name = $cat['category_name'] ?? 'Uncategorized';
+        
+        if (!isset($category_map[$category_id])) {
+            $category_map[$category_id] = [
+                'category_id' => $category_id,
+                'category_name' => $category_name,
+                'product_count' => 0,
+                'revenue' => 0,
+                'cogs' => 0,
+                'profit' => 0
+            ];
+        }
+        
+        $category_map[$category_id]['product_count']++;
+        $category_map[$category_id]['revenue'] += $item['revenue'];
+        $category_map[$category_id]['cogs'] += $item['cogs'];
+        $category_map[$category_id]['profit'] += $item['profit'];
+    }
+    
+    $categorywise_data = array_values($category_map);
+
+    // ==================== INVOICE-WISE PROFIT & LOSS ====================
+    
+    // Get customer sales summary with currency
     $sql = "
         SELECT 
             c.id as customer_id,
             c.customer_name as customer_name,
-            COUNT(DISTINCT si.id) as invoice_count,
-            SUM(si.net_amount) as revenue
+            si.id as invoice_id,
+            si.net_amount as revenue,
+            si.currency_id
         FROM sale_invoice si
         JOIN customers c ON si.customer_id = c.id
         JOIN branches b ON si.branch_id = b.id
@@ -180,8 +290,6 @@ try {
         $branch_condition
         " . ($company_id ? " AND si.company_id = ?" : "") . "
         " . ($customer_id ? " AND c.id = ?" : "") . "
-        GROUP BY c.id, c.customer_name
-        ORDER BY revenue DESC
     ";
     
     $params = array_merge([$tenant_id, $start_date, $end_date], $branch_params);
@@ -190,7 +298,31 @@ try {
     
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
-    $customer_sales = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $customer_sales_raw = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    // Group and convert customer sales
+    $customer_sales = [];
+    foreach ($customer_sales_raw as $row) {
+        $customer_id_key = $row['customer_id'];
+        $revenue = $row['revenue'];
+        $from_currency = $row['currency_id'] ?? $base_currency_id;
+        
+        if ($from_currency != $target_currency_id) {
+            $revenue = $converter->convert($revenue, $from_currency, $target_currency_id);
+        }
+        
+        if (!isset($customer_sales[$customer_id_key])) {
+            $customer_sales[$customer_id_key] = [
+                'customer_id' => $customer_id_key,
+                'customer_name' => $row['customer_name'],
+                'invoice_count' => 0,
+                'revenue' => 0
+            ];
+        }
+        $customer_sales[$customer_id_key]['invoice_count']++;
+        $customer_sales[$customer_id_key]['revenue'] += $revenue;
+    }
+    $customer_sales = array_values($customer_sales);
 
     // Calculate COGS for each customer
     $customerwise_data = [];
@@ -220,27 +352,12 @@ try {
 
         $total_cogs = 0;
         foreach ($customer_products as $prod) {
-            // Get average cost
-            $stock_opening_filter = $company_id ? " AND so.product_id IN (SELECT id FROM products WHERE company_id = ?)" : "";
+            // Get purchase data with currency
             $stmt = $pdo->prepare("
                 SELECT 
-                    COALESCE(
-                        (
-                            COALESCE(SUM(pii.net_amount), 0) + 
-                            COALESCE((SELECT SUM(so.opening_qty * so.opening_price) 
-                                      FROM stock_opening so
-                                      WHERE so.product_id = ? 
-                                      AND so.tenant_id = ?
-                                      $stock_opening_filter), 0)
-                        ) / NULLIF(
-                            COALESCE(SUM(pii.quantity), 0) + 
-                            COALESCE((SELECT SUM(so.opening_qty) 
-                                      FROM stock_opening so
-                                      WHERE so.product_id = ? 
-                                      AND so.tenant_id = ?
-                                      $stock_opening_filter), 0)
-                        , 0), 0
-                    ) as avg_cost
+                    pii.net_amount,
+                    pii.quantity,
+                    pi.currency_id
                 FROM purchase_invoice pi
                 JOIN purchase_invoice_items pii ON pi.id = pii.purchase_invoice_id
                 WHERE pii.product_id = ?
@@ -249,20 +366,52 @@ try {
                 " . ($company_id ? " AND pi.company_id = ?" : "") . "
             ");
             
-            $params_cogs = [$prod['product_id'], $tenant_id];
-            if ($company_id) $params_cogs[] = $company_id;
-            $params_cogs[] = $prod['product_id'];
-            $params_cogs[] = $tenant_id;
-            if ($company_id) $params_cogs[] = $company_id;
-            $params_cogs[] = $prod['product_id'];
-            $params_cogs[] = $tenant_id;
-            $params_cogs[] = $end_date;
+            $params_cogs = [$prod['product_id'], $tenant_id, $end_date];
             if ($company_id) $params_cogs[] = $company_id;
             
             $stmt->execute($params_cogs);
-            $cost_data = $stmt->fetch(PDO::FETCH_ASSOC);
+            $purchase_data = $stmt->fetchAll(PDO::FETCH_ASSOC);
             
-            $avg_cost = (float)$cost_data['avg_cost'];
+            $total_cost = 0;
+            $total_qty = 0;
+            
+            foreach ($purchase_data as $purchase) {
+                $cost = $purchase['net_amount'];
+                $from_currency = $purchase['currency_id'] ?? $base_currency_id;
+                if ($from_currency != $target_currency_id) {
+                    $cost = $converter->convert($cost, $from_currency, $target_currency_id);
+                }
+                $total_cost += $cost;
+                $total_qty += $purchase['quantity'];
+            }
+            
+            // Add opening stock
+            $stock_opening_filter = $company_id ? " AND so.product_id IN (SELECT id FROM products WHERE company_id = ?)" : "";
+            $stmt = $pdo->prepare("
+                SELECT SUM(so.opening_qty * so.opening_price) as opening_cost, SUM(so.opening_qty) as opening_qty
+                FROM stock_opening so
+                WHERE so.product_id = ? 
+                AND so.tenant_id = ?
+                $stock_opening_filter
+            ");
+            $params_opening = [$prod['product_id'], $tenant_id];
+            if ($company_id) $params_opening[] = $company_id;
+            $stmt->execute($params_opening);
+            $opening_data = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if ($opening_data) {
+                $opening_cost = $opening_data['opening_cost'] ?? 0;
+                $opening_qty = $opening_data['opening_qty'] ?? 0;
+                
+                if ($base_currency_id != $target_currency_id) {
+                    $opening_cost = $converter->convert($opening_cost, $base_currency_id, $target_currency_id);
+                }
+                
+                $total_cost += $opening_cost;
+                $total_qty += $opening_qty;
+            }
+            
+            $avg_cost = $total_qty > 0 ? $total_cost / $total_qty : 0;
             $qty_sold = (float)$prod['qty_sold'];
             $total_cogs += $avg_cost * $qty_sold;
         }
@@ -279,13 +428,14 @@ try {
 
     // ==================== INVOICE-WISE PROFIT & LOSS ====================
     
-    // Get all invoices with revenue
+    // Get all invoices with revenue and currency
     $sql = "SELECT 
             si.id as invoice_id,
             si.bill_no,
             si.sale_date,
             c.customer_name,
-            si.net_amount as revenue
+            si.net_amount as revenue,
+            si.currency_id
         FROM sale_invoice si
         JOIN customers c ON si.customer_id = c.id
         JOIN branches b ON si.branch_id = b.id
@@ -305,7 +455,24 @@ try {
     
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
-    $invoices = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $invoices_raw = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    // Convert invoice revenue
+    $invoices = [];
+    foreach ($invoices_raw as $row) {
+        $revenue = $row['revenue'];
+        $from_currency = $row['currency_id'] ?? $base_currency_id;
+        if ($from_currency != $target_currency_id) {
+            $revenue = $converter->convert($revenue, $from_currency, $target_currency_id);
+        }
+        $invoices[] = [
+            'invoice_id' => $row['invoice_id'],
+            'bill_no' => $row['bill_no'],
+            'sale_date' => $row['sale_date'],
+            'customer_name' => $row['customer_name'],
+            'revenue' => $revenue
+        ];
+    }
 
     // Calculate COGS for each invoice
     $invoicewise_data = [];
@@ -330,27 +497,12 @@ try {
 
         $total_cogs = 0;
         foreach ($invoice_products as $prod) {
-            // Get average cost
-            $stock_opening_filter = $company_id ? " AND so.product_id IN (SELECT id FROM products WHERE company_id = ?)" : "";
+            // Get purchase data with currency
             $stmt = $pdo->prepare("
                 SELECT 
-                    COALESCE(
-                        (
-                            COALESCE(SUM(pii.net_amount), 0) + 
-                            COALESCE((SELECT SUM(so.opening_qty * so.opening_price) 
-                                      FROM stock_opening so
-                                      WHERE so.product_id = ? 
-                                      AND so.tenant_id = ?
-                                      $stock_opening_filter), 0)
-                        ) / NULLIF(
-                            COALESCE(SUM(pii.quantity), 0) + 
-                            COALESCE((SELECT SUM(so.opening_qty) 
-                                      FROM stock_opening so
-                                      WHERE so.product_id = ? 
-                                      AND so.tenant_id = ?
-                                      $stock_opening_filter), 0)
-                        , 0), 0
-                    ) as avg_cost
+                    pii.net_amount,
+                    pii.quantity,
+                    pi.currency_id
                 FROM purchase_invoice pi
                 JOIN purchase_invoice_items pii ON pi.id = pii.purchase_invoice_id
                 WHERE pii.product_id = ?
@@ -359,20 +511,52 @@ try {
                 " . ($company_id ? " AND pi.company_id = ?" : "") . "
             ");
             
-            $params_cogs = [$prod['product_id'], $tenant_id];
-            if ($company_id) $params_cogs[] = $company_id;
-            $params_cogs[] = $prod['product_id'];
-            $params_cogs[] = $tenant_id;
-            if ($company_id) $params_cogs[] = $company_id;
-            $params_cogs[] = $prod['product_id'];
-            $params_cogs[] = $tenant_id;
-            $params_cogs[] = $invoice['sale_date'];
+            $params_cogs = [$prod['product_id'], $tenant_id, $invoice['sale_date']];
             if ($company_id) $params_cogs[] = $company_id;
             
             $stmt->execute($params_cogs);
-            $cost_data = $stmt->fetch(PDO::FETCH_ASSOC);
+            $purchase_data = $stmt->fetchAll(PDO::FETCH_ASSOC);
             
-            $avg_cost = (float)$cost_data['avg_cost'];
+            $total_cost = 0;
+            $total_qty = 0;
+            
+            foreach ($purchase_data as $purchase) {
+                $cost = $purchase['net_amount'];
+                $from_currency = $purchase['currency_id'] ?? $base_currency_id;
+                if ($from_currency != $target_currency_id) {
+                    $cost = $converter->convert($cost, $from_currency, $target_currency_id);
+                }
+                $total_cost += $cost;
+                $total_qty += $purchase['quantity'];
+            }
+            
+            // Add opening stock
+            $stock_opening_filter = $company_id ? " AND so.product_id IN (SELECT id FROM products WHERE company_id = ?)" : "";
+            $stmt = $pdo->prepare("
+                SELECT SUM(so.opening_qty * so.opening_price) as opening_cost, SUM(so.opening_qty) as opening_qty
+                FROM stock_opening so
+                WHERE so.product_id = ? 
+                AND so.tenant_id = ?
+                $stock_opening_filter
+            ");
+            $params_opening = [$prod['product_id'], $tenant_id];
+            if ($company_id) $params_opening[] = $company_id;
+            $stmt->execute($params_opening);
+            $opening_data = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if ($opening_data) {
+                $opening_cost = $opening_data['opening_cost'] ?? 0;
+                $opening_qty = $opening_data['opening_qty'] ?? 0;
+                
+                if ($base_currency_id != $target_currency_id) {
+                    $opening_cost = $converter->convert($opening_cost, $base_currency_id, $target_currency_id);
+                }
+                
+                $total_cost += $opening_cost;
+                $total_qty += $opening_qty;
+            }
+            
+            $avg_cost = $total_qty > 0 ? $total_cost / $total_qty : 0;
             $qty_sold = (float)$prod['qty_sold'];
             $total_cogs += $avg_cost * $qty_sold;
         }
@@ -382,9 +566,9 @@ try {
             'bill_no' => $invoice['bill_no'],
             'sale_date' => $invoice['sale_date'],
             'customer_name' => $invoice['customer_name'],
-            'revenue' => (float)$invoice['revenue'],
+            'revenue' => $invoice['revenue'],
             'cogs' => $total_cogs,
-            'profit' => (float)$invoice['revenue'] - $total_cogs
+            'profit' => $invoice['revenue'] - $total_cogs
         ];
     }
 
@@ -392,6 +576,7 @@ try {
         'success' => true,
         'data' => [
             'itemwise' => $itemwise_data,
+            'categorywise' => $categorywise_data,
             'customerwise' => $customerwise_data,
             'invoicewise' => $invoicewise_data
         ]

@@ -1,4 +1,5 @@
 <?php
+ob_start();
 if (session_status() == PHP_SESSION_NONE) {
     session_start();
 }
@@ -9,6 +10,8 @@ header('Access-Control-Allow-Methods: GET, POST');
 header('Access-Control-Allow-Headers: Content-Type');
 
 require_once '../../../../includes/connection.php';
+
+ob_end_clean();
 
 $user_id = $_SESSION['user_id'] ?? 1;
 $tenant_id = $_SESSION['tenant_id'] ?? 1;
@@ -116,6 +119,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     
     // Load WIP Items
     if ($action === 'wip_items' && isset($_GET['id'])) {
+        ob_start();
         $stmt = $pdo->prepare("
             SELECT 
                 wi.*,
@@ -126,6 +130,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             JOIN products p ON wi.material_id = p.id
             LEFT JOIN uom u ON wi.uom_id = u.id
             WHERE wi.work_in_progress_id = ?
+            ORDER BY p.code, u.id
         ");
         $stmt->execute([$_GET['id']]);
         $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -138,97 +143,103 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         
         // Get real-time issued and available for each material
         foreach ($items as &$item) {
-            // Cumulative issued qty - sum all issue_qty for this material in all WIPs
+            // Cumulative issued qty - sum all issue_qty for this material+unit in all WIPs
             $issuedStmt = $pdo->prepare("
                 SELECT COALESCE(SUM(wi.issue_qty), 0) as total_issued
                 FROM work_in_progress_items wi
                 JOIN work_in_progress wip ON wi.work_in_progress_id = wip.id
                 WHERE wip.production_order_id = (
                     SELECT production_order_id FROM work_in_progress WHERE id = ?
-                ) AND wi.material_id = ?
+                ) AND wi.material_id = ? AND wi.uom_id = ?
             ");
-            $issuedStmt->execute([$_GET['id'], $item['material_id']]);
+            $issuedStmt->execute([$_GET['id'], $item['material_id'], $item['uom_id']]);
             $issuedData = $issuedStmt->fetch(PDO::FETCH_ASSOC);
             $item['issued_qty'] = $issuedData['total_issued'] ?? 0;
             
-            // Real-time available stock
+            // Real-time available stock per unit
             $stockStmt = $pdo->prepare("
                 SELECT COALESCE(SUM(qty_in - qty_out), 0) as available_stock
                 FROM stock_ledger
-                WHERE tenant_id = ? AND product_id = ? AND branch_id = ?
+                WHERE tenant_id = ? AND product_id = ? AND branch_id = ? AND unit_id = ?
             ");
-            $stockStmt->execute([$tenant_id, $item['material_id'], $branchId]);
+            $stockStmt->execute([$tenant_id, $item['material_id'], $branchId, $item['uom_id']]);
             $stockData = $stockStmt->fetch(PDO::FETCH_ASSOC);
             $item['available_qty'] = $stockData['available_stock'];
         }
         
+        ob_end_clean();
         echo json_encode(['success' => true, 'data' => $items]);
         exit;
     }
     
     // Load Materials with Stock and Cost
     if ($action === 'materials' && isset($_GET['po_id']) && isset($_GET['branch_id'])) {
+        ob_start();
         $poId = $_GET['po_id'];
         $branchId = $_GET['branch_id'];
         
-        $stmt = $pdo->prepare("
-            SELECT 
-                pom.id as pom_id,
-                pom.material_id,
-                pom.required_qty,
-                pom.issued_qty,
-                pom.uom_id,
-                pom.status,
-                p.code as material_code,
-                p.name as material_name,
-                u.uom_name
-            FROM production_order_materials pom
-            JOIN products p ON pom.material_id = p.id
-            LEFT JOIN uom u ON pom.uom_id = u.id
-            WHERE pom.production_order_id = ?
-        ");
-        $stmt->execute([$poId]);
-        $materials = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        
-        // Get available stock and unit cost for each material
-        foreach ($materials as &$mat) {
-            // Available Stock
-            $stockStmt = $pdo->prepare("
-                SELECT COALESCE(SUM(qty_in - qty_out), 0) as available_stock
-                FROM stock_ledger
-                WHERE tenant_id = ?
-                AND product_id = ?
-                AND branch_id = ?
+        try {
+            $stmt = $pdo->prepare("
+                SELECT 
+                    pom.id as pom_id,
+                    pom.material_id,
+                    pom.required_qty,
+                    pom.issued_qty,
+                    pom.uom_id,
+                    pom.status,
+                    p.code as material_code,
+                    p.name as material_name,
+                    u.uom_name
+                FROM production_order_materials pom
+                JOIN products p ON pom.material_id = p.id
+                LEFT JOIN uom u ON pom.uom_id = u.id
+                WHERE pom.production_order_id = ?
+                ORDER BY p.code, u.id
             ");
-            $stockStmt->execute([$tenant_id, $mat['material_id'], $branchId]);
-            $stock = $stockStmt->fetch(PDO::FETCH_ASSOC);
-            $mat['available_stock'] = $stock['available_stock'];
+            $stmt->execute([$poId]);
+            $materials = $stmt->fetchAll(PDO::FETCH_ASSOC);
             
-            // Unit Cost (Last purchase cost)
-            $costStmt = $pdo->prepare("
-                SELECT unit_cost
-                FROM stock_ledger
-                WHERE tenant_id = ?
-                AND product_id = ?
-                AND qty_in > 0
-                ORDER BY transaction_date DESC
-                LIMIT 1
-            ");
-            $costStmt->execute([$tenant_id, $mat['material_id']]);
-            $cost = $costStmt->fetch(PDO::FETCH_ASSOC);
-            
-            // Fallback to purchase price
-            if (!$cost) {
-                $priceStmt = $pdo->prepare("SELECT purchase_price FROM products WHERE id = ?");
-                $priceStmt->execute([$mat['material_id']]);
-                $price = $priceStmt->fetch(PDO::FETCH_ASSOC);
-                $mat['unit_cost'] = $price['purchase_price'] ?? 0;
-            } else {
-                $mat['unit_cost'] = $cost['unit_cost'];
+            // Get available stock and unit cost for each material
+            foreach ($materials as &$mat) {
+                // Available Stock per unit
+                $stockStmt = $pdo->prepare("
+                    SELECT COALESCE(SUM(qty_in - qty_out), 0) as available_stock
+                    FROM stock_ledger
+                    WHERE tenant_id = ? AND product_id = ? AND branch_id = ? AND unit_id = ?
+                ");
+                $stockStmt->execute([$tenant_id, $mat['material_id'], $branchId, $mat['uom_id']]);
+                $stock = $stockStmt->fetch(PDO::FETCH_ASSOC);
+                $mat['available_stock'] = $stock['available_stock'];
+                
+                // Unit Cost (Last purchase cost)
+                $costStmt = $pdo->prepare("
+                    SELECT unit_cost
+                    FROM stock_ledger
+                    WHERE tenant_id = ? AND product_id = ? AND unit_id = ? AND qty_in > 0
+                    ORDER BY transaction_date DESC
+                    LIMIT 1
+                ");
+                $costStmt->execute([$tenant_id, $mat['material_id'], $mat['uom_id']]);
+                $cost = $costStmt->fetch(PDO::FETCH_ASSOC);
+                
+                // Fallback to purchase price
+                if (!$cost) {
+                    $priceStmt = $pdo->prepare("SELECT purchase_price FROM products WHERE id = ?");
+                    $priceStmt->execute([$mat['material_id']]);
+                    $price = $priceStmt->fetch(PDO::FETCH_ASSOC);
+                    $mat['unit_cost'] = $price['purchase_price'] ?? 0;
+                } else {
+                    $mat['unit_cost'] = $cost['unit_cost'];
+                }
             }
+            
+            ob_end_clean();
+            echo json_encode(['success' => true, 'data' => $materials]);
+        } catch (Exception $e) {
+            ob_end_clean();
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
         }
-        
-        echo json_encode(['success' => true, 'data' => $materials]);
         exit;
     }
     
@@ -466,7 +477,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stockInStmt->execute([
                 $tenant_id,
                 $branch_id,
-                $material_id,
+                $wip_product_id,
                 $wipHeaderId,
                 $issue_qty,
                 $unit_cost,
@@ -527,7 +538,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $totalItems++;
                     $totalCost += $mat['total_cost'];
                     
-                    // Get old issue_qty
+                    // Get old issue_qty and material details
                     $oldStmt = $pdo->prepare("SELECT issue_qty, unit_cost, material_id, uom_id FROM work_in_progress_items WHERE id = ?");
                     $oldStmt->execute([$mat['id']]);
                     $oldData = $oldStmt->fetch(PDO::FETCH_ASSOC);
@@ -542,14 +553,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     ");
                     $updateStmt->execute([$mat['issue_qty'], $mat['total_cost'], $mat['id']]);
                     
-                    // Update production_order_materials issued_qty
+                    // Update production_order_materials issued_qty per unit
                     if ($qtyDiff != 0) {
                         $pomUpdateStmt = $pdo->prepare("
                             UPDATE production_order_materials
-                            SET issued_qty = issued_qty + ?, status = 'Issued'
-                            WHERE production_order_id = ? AND material_id = ?
+                            SET issued_qty = issued_qty + ?
+                            WHERE production_order_id = ? AND material_id = ? AND uom_id = ?
                         ");
-                        $pomUpdateStmt->execute([$qtyDiff, $wipData['production_order_id'], $oldData['material_id']]);
+                        $pomUpdateStmt->execute([$qtyDiff, $wipData['production_order_id'], $oldData['material_id'], $oldData['uom_id']]);
                     }
                     
                     // Update stock ledger if qty changed
@@ -561,10 +572,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             WHERE reference_table = 'work_in_progress'
                             AND reference_id = ?
                             AND product_id = ?
+                            AND unit_id = ?
                             AND account_id = 115
                             AND transaction_type = 'WIP_ISSUE'
                         ");
-                        $updateRawStmt->execute([$mat['issue_qty'], $wip_id, $oldData['material_id']]);
+                        $updateRawStmt->execute([$mat['issue_qty'], $wip_id, $oldData['material_id'], $oldData['uom_id']]);
                         
                         // Update WIP product stock ledger entry
                         $updateWIPStmt = $pdo->prepare("
@@ -573,10 +585,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             WHERE reference_table = 'work_in_progress'
                             AND reference_id = ?
                             AND product_id = ?
+                            AND unit_id = ?
                             AND account_id = 116
                             AND transaction_type = 'WIP_RECEIVE'
                         ");
-                        $updateWIPStmt->execute([$mat['issue_qty'], $wip_id, $wipProductId]);
+                        $updateWIPStmt->execute([$mat['issue_qty'], $wip_id, $oldData['material_id'], $oldData['uom_id']]);
                     }
                 }
             }
@@ -633,26 +646,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 WHERE reference_table = 'work_in_progress'
                 AND reference_id = ?
                 AND product_id = ?
+                AND unit_id = ?
                 AND account_id = 115
             ");
-            $deleteRawStmt->execute([$wip_id, $item['material_id']]);
+            $deleteRawStmt->execute([$wip_id, $item['material_id'], $item['uom_id']]);
             
             // Delete stock ledger entries for WIP product
             $deleteWIPStmt = $pdo->prepare("
                 DELETE FROM stock_ledger
                 WHERE reference_table = 'work_in_progress'
                 AND reference_id = ?
+                AND product_id = ?
+                AND unit_id = ?
                 AND account_id = 116
             ");
-            $deleteWIPStmt->execute([$wip_id]);
+            $deleteWIPStmt->execute([$wip_id, $item['material_id'], $item['uom_id']]);
             
-            // Update production_order_materials
+            // Update production_order_materials - subtract issued_qty per unit
             $pomStmt = $pdo->prepare("
                 UPDATE production_order_materials
-                SET issued_qty = issued_qty - ?
-                WHERE production_order_id = ? AND material_id = ?
+                SET issued_qty = GREATEST(0, issued_qty - ?)
+                WHERE production_order_id = ? AND material_id = ? AND uom_id = ?
             ");
-            $pomStmt->execute([$item['issue_qty'], $wipData['production_order_id'], $item['material_id']]);
+            $pomStmt->execute([$item['issue_qty'], $wipData['production_order_id'], $item['material_id'], $item['uom_id']]);
             
             // Delete item
             $deleteStmt = $pdo->prepare("DELETE FROM work_in_progress_items WHERE id = ?");
@@ -713,32 +729,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $items = $itemsStmt->fetchAll(PDO::FETCH_ASSOC);
             
             foreach ($items as $item) {
-                // Delete stock ledger entries for raw material
+                // Delete stock ledger entries for raw material per unit
                 $deleteRawStmt = $pdo->prepare("
                     DELETE FROM stock_ledger
                     WHERE reference_table = 'work_in_progress'
                     AND reference_id = ?
                     AND product_id = ?
+                    AND unit_id = ?
                     AND account_id = 115
                 ");
-                $deleteRawStmt->execute([$wip_id, $item['material_id']]);
+                $deleteRawStmt->execute([$wip_id, $item['material_id'], $item['uom_id']]);
                 
-                // Delete stock ledger entries for WIP product
+                // Delete stock ledger entries for WIP product per unit
                 $deleteWIPStmt = $pdo->prepare("
                     DELETE FROM stock_ledger
                     WHERE reference_table = 'work_in_progress'
                     AND reference_id = ?
+                    AND product_id = ?
+                    AND unit_id = ?
                     AND account_id = 116
                 ");
-                $deleteWIPStmt->execute([$wip_id]);
+                $deleteWIPStmt->execute([$wip_id, $item['material_id'], $item['uom_id']]);
                 
-                // Update production_order_materials
+                // Update production_order_materials per unit with GREATEST to prevent negative
                 $pomStmt = $pdo->prepare("
                     UPDATE production_order_materials
-                    SET issued_qty = issued_qty - ?
-                    WHERE production_order_id = ? AND material_id = ?
+                    SET issued_qty = GREATEST(0, issued_qty - ?)
+                    WHERE production_order_id = ? AND material_id = ? AND uom_id = ?
                 ");
-                $pomStmt->execute([$item['issue_qty'], $wipData['production_order_id'], $item['material_id']]);
+                $pomStmt->execute([$item['issue_qty'], $wipData['production_order_id'], $item['material_id'], $item['uom_id']]);
             }
             
             // Delete all items
@@ -866,11 +885,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $issue_date
             ]);
             
-            // 2. WIP Product Receive (qty_in)
+            // 2. WIP Product Receive (qty_in) - use wip_product_id not material_id
             $stockInStmt->execute([
                 $tenant_id,
                 $branch_id,
-                $mat['material_id'],
+                $wip_product_id,
                 $wipHeaderId,
                 $mat['issue_qty'],
                 $mat['unit_cost'],

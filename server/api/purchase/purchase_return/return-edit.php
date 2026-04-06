@@ -66,18 +66,90 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             exit;
         }
         
-        // Get invoice items
+        // Get invoice items grouped by product
         $itemStmt = $pdo->prepare("
             SELECT 
                 pii.*,
                 p.name as product_name,
-                p.code as product_code
+                p.code as product_code,
+                p.uom_type,
+                p.uom_group_id,
+                p.default_unit_id,
+                u.uom_name
             FROM purchase_return_items pii
             LEFT JOIN products p ON pii.product_id = p.id
+            LEFT JOIN uom u ON pii.uom_id = u.id
             WHERE pii.purchase_invoice_id = ? AND pii.tenant_id = ?
+            ORDER BY pii.id
         ");
         $itemStmt->execute([$invoice_id, $tenant_id]);
-        $items = $itemStmt->fetchAll(PDO::FETCH_ASSOC);
+        $rawItems = $itemStmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Group items: merge all entries with same product_id
+        $productGroups = [];
+        foreach ($rawItems as $item) {
+            $productGroups[$item['product_id']][] = $item;
+        }
+        
+        $groupedItems = [];
+        $itemIndex = 0;
+        
+        foreach ($productGroups as $productId => $items) {
+            $uomMap = [];
+            $firstItem = null;
+            $totalGross = 0;
+            $totalDiscount = 0;
+            $totalTradeOffer = 0;
+            $totalGst = 0;
+            $totalFoc = 0;
+            $totalNet = 0;
+            
+            foreach ($items as $item) {
+                if (!$firstItem) $firstItem = $item;
+                
+                $uomId = $item['uom_id'];
+                if (!isset($uomMap[$uomId])) {
+                    $uomMap[$uomId] = [
+                        'uom_id' => $uomId,
+                        'uom_name' => $item['uom_name'],
+                        'quantity' => 0
+                    ];
+                }
+                $uomMap[$uomId]['quantity'] += floatval($item['quantity']);
+                
+                if (floatval($item['gross_amount']) > 0) {
+                    $totalGross += floatval($item['gross_amount']);
+                    $totalDiscount += floatval($item['discount_amount']);
+                    $totalTradeOffer += floatval($item['trade_offer_amount']);
+                    $totalGst += floatval($item['gst_amount']);
+                    $totalFoc += floatval($item['foc_quantity']);
+                    $totalNet += floatval($item['net_amount']);
+                }
+            }
+            
+            $itemIndex++;
+            $groupedItems[$itemIndex] = [
+                'product_id' => $productId,
+                'product_name' => $firstItem['product_name'],
+                'product_code' => $firstItem['product_code'],
+                'uom_type' => $firstItem['uom_type'],
+                'uom_group_id' => $firstItem['uom_group_id'],
+                'default_unit_id' => $firstItem['default_unit_id'],
+                'purchase_price' => $firstItem['purchase_price'],
+                'gross_amount' => $totalGross,
+                'discount_percent' => $firstItem['discount_percent'],
+                'discount_amount' => $totalDiscount,
+                'trade_offer_percent' => $firstItem['trade_offer_percent'],
+                'trade_offer_amount' => $totalTradeOffer,
+                'gst_percent' => $firstItem['gst_percent'],
+                'gst_amount' => $totalGst,
+                'foc_quantity' => $totalFoc,
+                'net_amount' => $totalNet,
+                'unit_entries' => array_values($uomMap)
+            ];
+        }
+        
+        $items = array_values($groupedItems);
         
         echo json_encode([
             'success' => true,
@@ -154,32 +226,48 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
         ");
         
         foreach ($input['items'] as $item) {
-            $item_stmt->execute([
-                $tenant_id, $invoice_id, $item['productId'], $item['uomId'],
-                $item['quantity'], $item['purchasePrice'], $item['grossAmount'],
-                $item['discountPercent'] ?? 0.00, $item['discountAmount'] ?? 0.00,
-                $item['netAmount'], $item['vehicleNo'] ?? null,
-                $item['tradeOfferPercent'] ?? 0.00, $item['tradeOfferAmount'] ?? 0.00,
-                $item['gstPercent'] ?? 0.00, $item['gstAmount'] ?? 0.00,
-                $item['focQty'] ?? 0, $user_id, $user_id
-            ]);
+            // Each item can have multiple unit entries
+            $isFirstEntry = true;
+            foreach ($item['unitEntries'] as $unitEntry) {
+                $item_stmt->execute([
+                    $tenant_id, $invoice_id, $item['productId'], $unitEntry['uomId'],
+                    $unitEntry['quantity'], $item['purchasePrice'], 
+                    $isFirstEntry ? $item['grossAmount'] : 0,
+                    $item['discountPercent'] ?? 0.00, 
+                    $isFirstEntry ? $item['discountAmount'] : 0,
+                    $isFirstEntry ? $item['netAmount'] : 0, 
+                    $item['vehicleNo'] ?? null,
+                    $item['tradeOfferPercent'] ?? 0.00, 
+                    $isFirstEntry ? $item['tradeOfferAmount'] : 0,
+                    $item['gstPercent'] ?? 0.00, 
+                    $isFirstEntry ? $item['gstAmount'] : 0,
+                    $item['focQty'] ?? 0, $user_id, $user_id
+                ]);
+                $isFirstEntry = false;
+            }
             
-        // Get product's inventory_account_id
-        $product_stmt = $pdo->prepare("SELECT inventory_account_id FROM products WHERE id = ?");
-        $product_stmt->execute([$item['productId']]);
-        $account_id = $product_stmt->fetchColumn();
-        
-        // Insert stock ledger - qty_out for returns (reducing inventory)
-        $stock_stmt = $pdo->prepare("
-            INSERT INTO stock_ledger (
-                tenant_id, account_id, branch_id, product_id, reference_table, reference_id,
-                qty_out, unit_cost, unit_id, transaction_type, transaction_date
-            ) VALUES (?, ?, ?, ?, 'purchase_return', ?, ?, ?, ?, 'Purchase Return', ?)
-        ");
-        $stock_stmt->execute([
-            $tenant_id, $account_id, $input['branchId'], $item['productId'], $invoice_id,
-            $item['quantity'], $item['purchasePrice'], $item['uomId'], $input['purchaseDate']
-        ]);
+            // Get product's inventory_account_id
+            $product_stmt = $pdo->prepare("SELECT inventory_account_id FROM products WHERE id = ?");
+            $product_stmt->execute([$item['productId']]);
+            $account_id = $product_stmt->fetchColumn();
+            
+            // Calculate total quantity from all unit entries
+            $totalQty = 0;
+            foreach ($item['unitEntries'] as $unitEntry) {
+                $totalQty += $unitEntry['quantity'];
+            }
+            
+            // Insert stock ledger - qty_out for returns (reducing inventory)
+            $stock_stmt = $pdo->prepare("
+                INSERT INTO stock_ledger (
+                    tenant_id, account_id, branch_id, product_id, reference_table, reference_id,
+                    qty_out, unit_cost, unit_id, transaction_type, transaction_date
+                ) VALUES (?, ?, ?, ?, 'purchase_return', ?, ?, ?, ?, 'Purchase Return', ?)
+            ");
+            $stock_stmt->execute([
+                $tenant_id, $account_id, $input['branchId'], $item['productId'], $invoice_id,
+                $totalQty, $item['purchasePrice'], $item['unitEntries'][0]['uomId'], $input['purchaseDate']
+            ]);
         }
         
         // Get bill number

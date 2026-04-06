@@ -57,11 +57,13 @@ document.addEventListener('DOMContentLoaded', function () {
     const notificationMessage = document.getElementById('notificationMessage');
     const notificationClose = document.getElementById('notificationClose');
     const companySelect = document.getElementById('company');
+    const salesmanSelect = document.getElementById('salesman');
 
     let isSubmitting = false;
 
-    // Load companies
+    // Load companies and employees
     loadCompanies();
+    loadEmployees();
 
     function loadCompanies() {
         fetch('../../../../server/api/customer_supplier/suppliers/get-companies.php')
@@ -78,6 +80,22 @@ document.addEventListener('DOMContentLoaded', function () {
                     if (data.companies.length === 1) {
                         companySelect.value = data.companies[0].id;
                     }
+                }
+            });
+    }
+
+    function loadEmployees() {
+        fetch('../../../../server/api/customer_supplier/suppliers/get-employees.php')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    data.employees.forEach(employee => {
+                        const option = document.createElement('option');
+                        option.value = employee.id;
+                        option.textContent = `${employee.employee_id} - ${employee.full_name}`;
+                        salesmanSelect.appendChild(option);
+                    });
+                    // Do not auto-select - keep it optional for manual selection
                 }
             });
     }
@@ -336,6 +354,7 @@ document.addEventListener('DOMContentLoaded', function () {
         // Prepare form data
         const formData = {
             companyId: companySelect.value,
+            salesmanId: salesmanSelect.value || null,
             supplierName: supplierName.value.trim(),
             address: document.getElementById('address').value.trim(),
             primaryPhone: primaryPhone.value.trim(),

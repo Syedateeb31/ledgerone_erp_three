@@ -192,12 +192,8 @@
             <thead>
                 <tr>
                     <th width="5%">#</th>
-                    <th width="25%">Product</th>
-                    <th width="8%">Unit</th>
-                    <th width="8%" class="text-right">Ordered Qty</th>
-                    <th width="5%" class="text-right pcs-col">Pcs</th>
-                    <th width="5%" class="text-right ctn-col">Ctn</th>
-                    <th width="5%" class="text-right dz-col">Dz</th>
+                    <th width="30%">Product</th>
+                    <th width="15%">Quantities</th>
                     <th width="10%" class="text-right">Unit Price</th>
                     <th width="10%" class="text-right">Gross Amt</th>
                     <th width="7%" class="text-right">Disc %</th>
@@ -218,10 +214,6 @@
             <tfoot>
                 <tr style="background-color: #f5f5f5; font-weight: bold;">
                     <th colspan="3">Totals</th>
-                    <th class="text-right" id="totalOrderedQty">0.00</th>
-                    <th class="text-right pcs-col" id="totalPcs">0</th>
-                    <th class="text-right ctn-col" id="totalCtn">0</th>
-                    <th class="text-right dz-col" id="totalDz">0</th>
                     <th class="text-right" id="totalUnitPrice">0.00</th>
                     <th class="text-right" id="totalGrossAmount">0.00</th>
                     <th></th>
@@ -370,23 +362,34 @@
             const tbody = document.getElementById('itemsTableBody');
             tbody.innerHTML = '';
             
-            let totalOrderedQty = 0, totalPcs = 0, totalCtn = 0, totalDz = 0, totalUnitPrice = 0, totalGrossAmount = 0, totalDiscountAmountItems = 0, totalTradeOfferAmountItems = 0, totalGSTAmountItems = 0, totalFOCQty = 0, totalNetAmountItems = 0;
+            let totalUnitPrice = 0, totalGrossAmount = 0, totalDiscountAmountItems = 0, totalTradeOfferAmountItems = 0, totalGSTAmountItems = 0, totalFOCQty = 0, totalNetAmountItems = 0;
             
             items.forEach((item, index) => {
-                const orderedQty = parseFloat(item.quantity);
-                const pcs = parseInt(item.piece || 0);
-                const ctn = parseInt(item.carton || 0);
-                const dz = parseInt(item.dozen || 0);
+                // Build unit quantities display - combine same units
+                const unitMap = {};
+                item.unit_entries.forEach(entry => {
+                    const qty = parseFloat(entry.quantity);
+                    if (qty > 0) {
+                        const unitName = entry.uom_name || 'Unit';
+                        if (unitMap[unitName]) {
+                            unitMap[unitName] += qty;
+                        } else {
+                            unitMap[unitName] = qty;
+                        }
+                    }
+                });
+                
+                let unitQtyDisplay = '';
+                Object.keys(unitMap).forEach(unitName => {
+                    if (unitQtyDisplay) unitQtyDisplay += ', ';
+                    unitQtyDisplay += `${unitMap[unitName].toFixed(2)} ${unitName}`;
+                });
                 
                 const row = tbody.insertRow();
                 row.innerHTML = `
                     <td class="text-center">${index + 1}</td>
                     <td>${item.product_name}</td>
-                    <td>Unit</td>
-                    <td class="text-right">${orderedQty.toFixed(2)}</td>
-                    <td class="text-right pcs-col">${pcs}</td>
-                    <td class="text-right ctn-col">${ctn}</td>
-                    <td class="text-right dz-col">${dz}</td>
+                    <td>${unitQtyDisplay || '-'}</td>
                     <td class="text-right">${currencySymbol} ${parseFloat(item.purchase_price).toFixed(2)}</td>
                     <td class="text-right">${currencySymbol} ${parseFloat(item.gross_amount).toFixed(2)}</td>
                     <td class="text-right">${parseFloat(item.discount_percent).toFixed(2)}%</td>
@@ -400,10 +403,6 @@
                 `;
                 
                 // Calculate totals
-                totalOrderedQty += orderedQty;
-                totalPcs += pcs;
-                totalCtn += ctn;
-                totalDz += dz;
                 totalUnitPrice += parseFloat(item.purchase_price);
                 totalGrossAmount += parseFloat(item.gross_amount);
                 totalDiscountAmountItems += parseFloat(item.discount_amount);
@@ -413,22 +412,7 @@
                 totalNetAmountItems += parseFloat(item.net_amount);
             });
             
-            // Check if any Pcs/Ctn/Dz values exist
-            if (totalPcs > 0) {
-                document.querySelectorAll('.pcs-col').forEach(el => el.style.display = '');
-            }
-            if (totalCtn > 0) {
-                document.querySelectorAll('.ctn-col').forEach(el => el.style.display = '');
-            }
-            if (totalDz > 0) {
-                document.querySelectorAll('.dz-col').forEach(el => el.style.display = '');
-            }
-            
             // Update totals row
-            document.getElementById('totalOrderedQty').textContent = totalOrderedQty.toFixed(2);
-            document.getElementById('totalPcs').textContent = totalPcs;
-            document.getElementById('totalCtn').textContent = totalCtn;
-            document.getElementById('totalDz').textContent = totalDz;
             document.getElementById('totalUnitPrice').textContent = `${currencySymbol} ${totalUnitPrice.toFixed(2)}`;
             document.getElementById('totalGrossAmount').textContent = `${currencySymbol} ${totalGrossAmount.toFixed(2)}`;
             document.getElementById('totalDiscountAmountItems').textContent = `${currencySymbol} ${totalDiscountAmountItems.toFixed(2)}`;

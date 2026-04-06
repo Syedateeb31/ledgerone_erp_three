@@ -58,9 +58,13 @@ if (!$user_id) {
                 </div>
                 <div class="filter-group">
                     <label for="customerFilter">Customer</label>
-                    <select id="customerFilter">
-                        <option value="">All Customers</option>
-                    </select>
+                    <div class="searchable-dropdown">
+                        <input type="text" class="search-input" placeholder="Search customer..." id="customerFilterSearch" autocomplete="off">
+                        <div class="dropdown-options" id="customerFilterOptions">
+                            <!-- Options loaded dynamically -->
+                        </div>
+                        <input type="hidden" id="customerFilter">
+                    </div>
                 </div>
                 <div class="filter-group">
                     <label for="recoveryOfficerFilter">Recovery Officer</label>

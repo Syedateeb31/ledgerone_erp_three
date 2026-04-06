@@ -46,16 +46,55 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     }
     
     if ($action === 'raw_materials') {
-        $stmt = $pdo->prepare("SELECT id, code, name, default_unit_id FROM products WHERE tenant_id = ? AND inventory_account_id = 115 AND is_active = 1");
+        $stmt = $pdo->prepare("SELECT id, code, name, uom_type, default_unit_id, uom_group_id, product_conversion_factor FROM products WHERE tenant_id = ? AND inventory_account_id = 115 AND is_active = 1");
         $stmt->execute([$tenant_id]);
         echo json_encode(['success' => true, 'data' => $stmt->fetchAll()]);
         exit;
     }
     
-    if ($action === 'unit' && isset($_GET['unit_id'])) {
-        $stmt = $pdo->prepare("SELECT id, uom_name FROM uom WHERE id = ?");
-        $stmt->execute([$_GET['unit_id']]);
-        echo json_encode(['success' => true, 'data' => $stmt->fetch()]);
+    if ($action === 'product_uom' && isset($_GET['product_id'])) {
+        $productId = $_GET['product_id'];
+        $stmt = $pdo->prepare("SELECT uom_type, default_unit_id, uom_group_id, product_conversion_factor FROM products WHERE id = ? AND tenant_id = ?");
+        $stmt->execute([$productId, $tenant_id]);
+        $product = $stmt->fetch();
+        
+        if (!$product) {
+            echo json_encode(['success' => false, 'message' => 'Product not found']);
+            exit;
+        }
+        
+        $units = [];
+        
+        // Check for 'single' or 'unit' (both mean single unit)
+        if (($product['uom_type'] === 'single' || $product['uom_type'] === 'unit') && $product['default_unit_id']) {
+            $stmt = $pdo->prepare("SELECT id, uom_name, conversion_factor, is_base_unit, unit_scope FROM uom WHERE id = ?");
+            $stmt->execute([$product['default_unit_id']]);
+            $unit = $stmt->fetch();
+            if ($unit) {
+                if ($unit['unit_scope'] === 'per_product' && $product['product_conversion_factor']) {
+                    $unit['conversion_factor'] = $product['product_conversion_factor'];
+                }
+                $units[] = $unit;
+            }
+        } else if ($product['uom_type'] === 'group' && $product['uom_group_id']) {
+            $stmt = $pdo->prepare("
+                SELECT u.id, u.uom_name, u.conversion_factor, u.is_base_unit, u.unit_scope
+                FROM uom_group_units ugu
+                JOIN uom u ON ugu.uom_id = u.id
+                WHERE ugu.uom_group_id = ?
+                ORDER BY u.is_base_unit DESC, u.id ASC
+            ");
+            $stmt->execute([$product['uom_group_id']]);
+            $units = $stmt->fetchAll();
+            
+            foreach ($units as &$unit) {
+                if ($unit['unit_scope'] === 'per_product' && $product['product_conversion_factor']) {
+                    $unit['conversion_factor'] = $product['product_conversion_factor'];
+                }
+            }
+        }
+        
+        echo json_encode(['success' => true, 'uom_type' => $product['uom_type'], 'units' => $units]);
         exit;
     }
     
@@ -92,7 +131,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Insert BOM materials
         $stmt = $pdo->prepare("INSERT INTO bom_materials (bom_id, raw_material_id, quantity, unit_id) VALUES (?, ?, ?, ?)");
         foreach ($materials as $material) {
-            $stmt->execute([$bom_id, $material['raw_material_id'], $material['quantity'], $material['unit_id']]);
+            if ($material['quantity'] > 0) {
+                $stmt->execute([$bom_id, $material['raw_material_id'], $material['quantity'], $material['unit_id']]);
+            }
         }
         
         $pdo->commit();

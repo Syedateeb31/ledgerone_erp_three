@@ -46,11 +46,36 @@ $stmt = $pdo->prepare("
         u.uom_name
     FROM production_order_materials pom
     JOIN products p ON pom.material_id = p.id
-    JOIN uom u ON pom.uom_id = u.id
+    LEFT JOIN uom u ON pom.uom_id = u.id
     WHERE pom.production_order_id = ?
+    ORDER BY p.code, u.id
 ");
 $stmt->execute([$order_id]);
 $materials = $stmt->fetchAll();
+
+// Group materials by product
+$materialsByProduct = [];
+foreach ($materials as $mat) {
+    if (!isset($materialsByProduct[$mat['material_id']])) {
+        $materialsByProduct[$mat['material_id']] = [
+            'code' => $mat['material_code'],
+            'name' => $mat['material_name'],
+            'units' => []
+        ];
+    }
+    $materialsByProduct[$mat['material_id']]['units'][] = [
+        'required_qty' => $mat['required_qty'],
+        'issued_qty' => $mat['issued_qty'],
+        'uom_name' => $mat['uom_name']
+    ];
+}
+
+// Find max units
+$maxUnits = 0;
+foreach ($materialsByProduct as $product) {
+    $unitCount = count($product['units']);
+    if ($unitCount > $maxUnits) $maxUnits = $unitCount;
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -190,21 +215,29 @@ $materials = $stmt->fetchAll();
         <table>
             <thead>
                 <tr>
-                    <th>Material Code</th>
-                    <th>Material Name</th>
-                    <th>Required Qty</th>
-                    <th>UOM</th>
-                    <th>Issued Qty</th>
+                    <th>Material</th>
+                    <?php for ($i = 0; $i < $maxUnits; $i++): ?>
+                        <th>Required Qty</th>
+                        <th>UOM</th>
+                        <th>Issued Qty</th>
+                    <?php endfor; ?>
                 </tr>
             </thead>
             <tbody>
-                <?php foreach ($materials as $mat): ?>
+                <?php foreach ($materialsByProduct as $product): ?>
                 <tr>
-                    <td><?php echo $mat['material_code']; ?></td>
-                    <td><?php echo $mat['material_name']; ?></td>
-                    <td><?php echo $mat['required_qty']; ?></td>
-                    <td><?php echo $mat['uom_name']; ?></td>
-                    <td><?php echo $mat['issued_qty']; ?></td>
+                    <td><?php echo $product['code'] . ' - ' . $product['name']; ?></td>
+                    <?php for ($i = 0; $i < $maxUnits; $i++): ?>
+                        <?php if ($i < count($product['units'])): ?>
+                            <td><?php echo $product['units'][$i]['required_qty']; ?></td>
+                            <td><?php echo $product['units'][$i]['uom_name']; ?></td>
+                            <td><?php echo $product['units'][$i]['issued_qty']; ?></td>
+                        <?php else: ?>
+                            <td style="background:#f0f0f0; color:#999;">-</td>
+                            <td style="background:#f0f0f0; color:#999;">-</td>
+                            <td style="background:#f0f0f0; color:#999;">-</td>
+                        <?php endif; ?>
+                    <?php endfor; ?>
                 </tr>
                 <?php endforeach; ?>
             </tbody>

@@ -5,9 +5,9 @@ ini_set('log_errors', 1);
 session_start();
 
 // Database configuration
-define('DB_HOST', $_ENV['DB_HOST'] ?? 'localhost');
-define('DB_USER', $_ENV['DB_USER'] ?? 'ateeb');
-define('DB_PASS', $_ENV['DB_PASS'] ?? 'root');
+define('DB_HOST', $_ENV['DB_HOST'] ?? '31.97.123.46');
+define('DB_USER', $_ENV['DB_USER'] ?? 'ledgerone_tenant');
+define('DB_PASS', $_ENV['DB_PASS'] ?? 'JAAsqzFU6fujVoQD');
 define('DB_PUBLIC', $_ENV['DB_PUBLIC'] ?? 'ledgerone_public');
 define('DB_TENANT', $_ENV['DB_TENANT'] ?? 'ledgerone_tenant');
 define('SESSION_EXPIRY', $_ENV['SESSION_EXPIRY'] ?? 3600);
@@ -147,7 +147,7 @@ class MultiTenantAuthAPI
                 return ['success' => false, 'message' => 'Database connection failed'];
             }
 
-            $stmt = $publicDb->prepare("SELECT id, business_name, subdomain, base_currency, status FROM tenants WHERE id = ?");
+            $stmt = $publicDb->prepare("SELECT id, business_name, base_currency, status FROM tenants WHERE id = ?");
             $stmt->execute([$user['tenant_id']]);
             $tenant = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -157,7 +157,7 @@ class MultiTenantAuthAPI
 
             // Check subscription status
             $stmt = $publicDb->prepare("
-                SELECT status, end_date, trial_ends_at 
+                SELECT status, end_date, trial_ends_at, billing_type
                 FROM subscriptions 
                 WHERE tenant_id = ?
                 ORDER BY created_at DESC LIMIT 1
@@ -180,14 +180,24 @@ class MultiTenantAuthAPI
             // Check subscription expiry status
             $today = date('Y-m-d');
             $subscriptionStatus = $subscription['status'];
+            $billingType = $subscription['billing_type'];
             
-            if ($subscription['status'] === 'trialing' && $subscription['trial_ends_at'] && $subscription['trial_ends_at'] < $today) {
-                $subscriptionStatus = 'trial_expired';
-            } elseif (($subscription['status'] === 'active' || $subscription['status'] === 'expired') && $subscription['end_date'] && $subscription['end_date'] < $today) {
-                $subscriptionStatus = 'expired';
+            // For one-time and lifetime licenses, keep status as active if it's active
+            if ($billingType === 'one_time' || $billingType === 'lifetime') {
+                // One-time and lifetime licenses don't expire based on dates
+                if ($subscriptionStatus !== 'active' && $subscriptionStatus !== 'lifetime') {
+                    $subscriptionStatus = 'active';
+                }
+            } else {
+                // For recurring subscriptions, check expiry dates
+                if ($subscription['status'] === 'trialing' && $subscription['trial_ends_at'] && $subscription['trial_ends_at'] < $today) {
+                    $subscriptionStatus = 'expired';
+                } elseif (($subscription['status'] === 'active' || $subscription['status'] === 'expired') && $subscription['end_date'] && $subscription['end_date'] < $today) {
+                    $subscriptionStatus = 'expired';
+                }
             }
 
-            error_log('Subscription check - DB status: ' . $subscription['status'] . ', end_date: ' . ($subscription['end_date'] ?? 'null') . ', today: ' . $today . ', final status: ' . $subscriptionStatus);
+            error_log('Subscription check - DB status: ' . $subscription['status'] . ', billing_type: ' . $billingType . ', end_date: ' . ($subscription['end_date'] ?? 'null') . ', today: ' . $today . ', final status: ' . $subscriptionStatus);
 
             // Update last login
             $stmt = $tenantDb->prepare("UPDATE users SET last_login_at = CURRENT_TIMESTAMP WHERE id = ?");
@@ -227,13 +237,13 @@ class MultiTenantAuthAPI
                 'tenant' => [
                     'id' => $tenant['id'],
                     'business_name' => $tenant['business_name'],
-                    'subdomain' => $tenant['subdomain'],
                     'base_currency' => $tenant['base_currency']
                 ],
                 'subscription' => [
                     'status' => $subscriptionStatus,
+                    'billing_type' => $billingType,
                     'end_date' => $subscription['end_date'] ?? $subscription['trial_ends_at'],
-                    'is_expired' => in_array($subscriptionStatus, ['expired', 'trial_expired'])
+                    'is_expired' => in_array($subscriptionStatus, ['expired', 'canceled'])
                 ],
                 'permissions' => $permissions,
                 'companies' => $companies

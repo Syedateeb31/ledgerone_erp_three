@@ -31,6 +31,12 @@ if (!$user_id) {
                 <p class="page-description">Manage your products and services inventory</p>
             </div>
             <div class="header-actions">
+                <button class="btn btn-secondary" id="assignUomBtn" style="display: none;">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M2 8h12M8 2v12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    Assign UOM (<span id="selectedCount">0</span>)
+                </button>
                 <div class="dropdown">
                     <button class="btn btn-secondary dropdown-toggle" id="exportBtn">
                         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -80,6 +86,14 @@ if (!$user_id) {
                     </div>
                 </div>
                 <div class="filter-group">
+                    <label for="uomFilter">UOM Type</label>
+                    <select id="uomFilter">
+                        <option value="">All UOM Types</option>
+                        <option value="unit">Default Unit</option>
+                        <option value="group">UOM Group</option>
+                    </select>
+                </div>
+                <div class="filter-group">
                     <label for="category">Category</label>
                     <select id="category">
                         <option value="">All Categories</option>
@@ -112,11 +126,14 @@ if (!$user_id) {
                 <table id="productsTable">
                     <thead>
                         <tr>
+                            <th style="width: 40px;">
+                                <input type="checkbox" id="selectAll">
+                            </th>
                             <th>Product Code</th>
                             <th>Name</th>
                             <th>Type</th>
+                            <th>UOM</th>
                             <th>Category</th>
-                            <th>Current Stock</th>
                             <th>Price</th>
                             <th>Status</th>
                             <th>Actions</th>
@@ -157,6 +174,7 @@ if (!$user_id) {
 
     <?php include 'delete-modal.php'; ?>
     <?php include 'print-code-modal.php'; ?>
+    <?php include 'bulk-uom-modal.php'; ?>
 
     <script src="https://cdn.jsdelivr.net/npm/qrious@4.0.2/dist/qrious.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.5/JsBarcode.all.min.js"></script>

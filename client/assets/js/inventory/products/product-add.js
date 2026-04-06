@@ -25,6 +25,25 @@ window.addEventListener('load', function () {
     // Load units from database
     loadUnits();
     
+    // Load UOM groups
+    loadUomGroups();
+    
+    // UOM Type change handler
+    const uomTypeRadios = document.querySelectorAll('input[name="uomType"]');
+    console.log('UOM Type radios found:', uomTypeRadios.length);
+    uomTypeRadios.forEach(radio => {
+        radio.addEventListener('change', handleUomTypeChange);
+    });
+    
+    // Initial call to set correct state
+    handleUomTypeChange();
+    
+    // Default Unit change handler
+    document.getElementById('defaultUnit').addEventListener('change', handleDefaultUnitChange);
+    
+    // UOM Group change handler
+    document.getElementById('uomGroup').addEventListener('change', handleUomGroupChange);
+    
     // Load categories and subcategories
     loadCategories();
     
@@ -117,22 +136,14 @@ window.addEventListener('load', function () {
     document.getElementById('cancelUnit').addEventListener('click', closeUnitModal);
     document.getElementById('unitForm').addEventListener('submit', handleUnitSubmit);
     
+    // Unit scope radio handler
+    document.querySelectorAll('input[name="unitScope"]').forEach(radio => {
+        radio.addEventListener('change', handleUnitScopeChange);
+    });
+    
     // Base unit checkbox handler
     document.getElementById('isBaseUnit').addEventListener('change', function() {
-        const baseUnitGroup = document.getElementById('baseUnitGroup');
-        const conversionFactorGroup = document.getElementById('conversionFactorGroup');
-        
-        if (this.checked) {
-            baseUnitGroup.style.display = 'none';
-            conversionFactorGroup.style.display = 'none';
-            document.getElementById('baseUnit').removeAttribute('required');
-            document.getElementById('conversionFactor').removeAttribute('required');
-        } else {
-            baseUnitGroup.style.display = 'block';
-            conversionFactorGroup.style.display = 'block';
-            document.getElementById('baseUnit').setAttribute('required', '');
-            document.getElementById('conversionFactor').setAttribute('required', '');
-        }
+        handleUnitScopeChange();
     });
     
     // Unit type change handler to load base units
@@ -153,6 +164,29 @@ window.addEventListener('load', function () {
             editUnit(unitId, unitName);
         } else {
             alert('Please select a unit to edit');
+        }
+    });
+
+    // UOM Group modal functionality
+    document.getElementById('addUomGroup').addEventListener('click', openUomGroupModal);
+    document.getElementById('removeUomGroup').addEventListener('click', function () {
+        const select = document.getElementById('uomGroup');
+        if (select.selectedIndex > 0) {
+            const groupId = select.value;
+            const groupName = select.options[select.selectedIndex].text;
+            editUomGroup(groupId, groupName);
+        } else {
+            alert('Please select a UOM group to edit');
+        }
+    });
+    
+    document.getElementById('closeUomGroupModal').addEventListener('click', closeUomGroupModal);
+    document.getElementById('cancelUomGroup').addEventListener('click', closeUomGroupModal);
+    document.getElementById('uomGroupForm').addEventListener('submit', handleUomGroupSubmit);
+    
+    document.getElementById('uomGroupModal').addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeUomGroupModal();
         }
     });
 
@@ -349,7 +383,7 @@ window.addEventListener('load', function () {
     
     // Auto-calculate totals when stock values change
     document.addEventListener('input', function(e) {
-        if (e.target.name === 'openingQty[]' || e.target.name === 'openingPrice[]') {
+        if (e.target.name === 'openingQty[]' || e.target.name === 'openingPrice[]' || e.target.name.startsWith('openingQty[')) {
             calculateTotalStock();
         }
     });
@@ -386,6 +420,76 @@ function saveFieldPreferences() {
     localStorage.setItem('fieldPreferences', JSON.stringify(prefs));
     loadFieldPreferences();
     closeCustomizeModal();
+}
+
+function handleUomTypeChange() {
+    console.log('handleUomTypeChange called');
+    const isUnit = document.getElementById('uomTypeUnit').checked;
+    console.log('Is Unit selected:', isUnit);
+    const defaultUnitGroup = document.getElementById('defaultUnitGroup');
+    const uomGroupField = document.getElementById('uomGroupField');
+    const defaultUnitSelect = document.getElementById('defaultUnit');
+    const uomGroupSelect = document.getElementById('uomGroup');
+    
+    if (isUnit) {
+        // Show Default Unit, hide UOM Group
+        console.log('Showing Default Unit');
+        defaultUnitGroup.style.display = '';
+        uomGroupField.style.display = 'none';
+        defaultUnitSelect.setAttribute('required', '');
+        uomGroupSelect.removeAttribute('required');
+        uomGroupSelect.value = '';
+        clearGroupConversionFactors();
+        window.currentGroupUnits = [];
+    } else {
+        // Show UOM Group, hide Default Unit
+        console.log('Showing UOM Group');
+        defaultUnitGroup.style.display = 'none';
+        uomGroupField.style.display = '';
+        defaultUnitSelect.removeAttribute('required');
+        defaultUnitSelect.value = '';
+        uomGroupSelect.setAttribute('required', '');
+        
+        // Hide single product conversion factor when switching to group
+        const conversionFactorGroup = document.getElementById('productConversionFactorGroup');
+        conversionFactorGroup.style.display = 'none';
+        document.getElementById('productConversionFactor').removeAttribute('required');
+    }
+    rebuildStockEntries();
+}
+
+function handleUnitScopeChange() {
+    const isPerProduct = document.getElementById('perProduct').checked;
+    const baseUnitGroup = document.getElementById('baseUnitGroup');
+    const conversionFactorGroup = document.getElementById('conversionFactorGroup');
+    const isBaseUnitCheckbox = document.getElementById('isBaseUnit');
+    
+    if (isPerProduct) {
+        // For Per Product: only hide Conversion Factor
+        conversionFactorGroup.style.display = 'none';
+        document.getElementById('conversionFactor').removeAttribute('required');
+        // Base Unit visibility depends on Is Base Unit checkbox
+        if (isBaseUnitCheckbox.checked) {
+            baseUnitGroup.style.display = 'none';
+            document.getElementById('baseUnit').removeAttribute('required');
+        } else {
+            baseUnitGroup.style.display = 'block';
+            document.getElementById('baseUnit').setAttribute('required', '');
+        }
+    } else {
+        // For Universal: show both, but hide if Is Base Unit is checked
+        if (isBaseUnitCheckbox.checked) {
+            baseUnitGroup.style.display = 'none';
+            conversionFactorGroup.style.display = 'none';
+            document.getElementById('baseUnit').removeAttribute('required');
+            document.getElementById('conversionFactor').removeAttribute('required');
+        } else {
+            baseUnitGroup.style.display = 'block';
+            conversionFactorGroup.style.display = 'block';
+            document.getElementById('baseUnit').setAttribute('required', '');
+            document.getElementById('conversionFactor').setAttribute('required', '');
+        }
+    }
 }
 
 function handleProductTypeChange() {
@@ -443,6 +547,14 @@ function handleFormSubmit(e) {
         formData.append('id', editId);
     }
     
+    // DEBUG: Log ALL form data
+    console.log('=== FORM DATA DEBUG ===');
+    console.log('Edit ID:', editId);
+    for (let [key, value] of formData.entries()) {
+        console.log(key + ':', value);
+    }
+    console.log('======================');
+    
     const endpoint = editId ? 'product-edit.php' : 'product-add.php';
 
     // Submit to API
@@ -454,6 +566,17 @@ function handleFormSubmit(e) {
     .then(data => {
         if (data.success) {
             const message = editId ? 'Product updated successfully!' : 'Product saved successfully!';
+            if (data.debug) {
+                console.log('=== DEBUG INFO ===');
+                console.log('Branch isset:', data.debug.branch_isset);
+                console.log('Branch is array:', data.debug.branch_is_array);
+                console.log('Branch count:', data.debug.branch_count);
+                console.log('UOM Type:', data.debug.uom_type);
+                console.log('UOM Group ID:', data.debug.uom_group_id);
+                console.log('Qty keys:', data.debug.qty_keys);
+                console.log('Stock entries:', data.debug.stock_entries);
+                console.log('==================');
+            }
             alert(message);
             window.location.href = 'product-list.php';
         } else {
@@ -538,29 +661,69 @@ function addStockEntry() {
     const newEntry = document.createElement('div');
     newEntry.className = 'stock-entry';
     
-    newEntry.innerHTML = `
-        <div class="form-row">
-            <div class="form-group">
-                <label>Branch</label>
-                <div class="custom-dropdown">
-                    <input type="text" class="branch-search" placeholder="Search branches..." autocomplete="off">
-                    <input type="hidden" name="branch[]">
-                    <div class="dropdown-list" style="display: none;"></div>
+    const uomType = document.querySelector('input[name="uomType"]:checked').value;
+    const groupId = document.getElementById('uomGroup').value;
+    
+    console.log('Adding stock entry - UOM Type:', uomType, 'Group ID:', groupId, 'Current Units:', window.currentGroupUnits);
+    
+    if (uomType === 'group' && groupId && window.currentGroupUnits && window.currentGroupUnits.length > 0) {
+        // UOM Group mode - show columns for each unit
+        let unitColumns = '';
+        window.currentGroupUnits.forEach(unit => {
+            unitColumns += `
+                <div class="form-group">
+                    <label>${unit.uom_name}</label>
+                    <input type="number" name="openingQty[${unit.id}][]" step="0.01" min="0" placeholder="Qty">
+                </div>
+            `;
+        });
+        
+        newEntry.innerHTML = `
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Branch</label>
+                    <div class="custom-dropdown">
+                        <input type="text" class="branch-search" placeholder="Search branches..." autocomplete="off">
+                        <input type="hidden" name="branch[]">
+                        <div class="dropdown-list" style="display: none;"></div>
+                    </div>
+                </div>
+                ${unitColumns}
+                <div class="form-group">
+                    <label>Opening Price / Unit</label>
+                    <input type="number" name="openingPrice[]" step="0.01" min="0">
+                </div>
+                <div class="form-group">
+                    <button type="button" class="btn btn-danger remove-stock-entry" style="margin-top: 24px;">Remove</button>
                 </div>
             </div>
-            <div class="form-group">
-                <label>Opening Qty</label>
-                <input type="number" name="openingQty[]" step="0.01" min="0">
+        `;
+    } else {
+        // Default Unit mode - single qty column
+        newEntry.innerHTML = `
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Branch</label>
+                    <div class="custom-dropdown">
+                        <input type="text" class="branch-search" placeholder="Search branches..." autocomplete="off">
+                        <input type="hidden" name="branch[]">
+                        <div class="dropdown-list" style="display: none;"></div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Opening Qty</label>
+                    <input type="number" name="openingQty[]" step="0.01" min="0">
+                </div>
+                <div class="form-group">
+                    <label>Opening Price / Unit</label>
+                    <input type="number" name="openingPrice[]" step="0.01" min="0">
+                </div>
+                <div class="form-group">
+                    <button type="button" class="btn btn-danger remove-stock-entry" style="margin-top: 24px;">Remove</button>
+                </div>
             </div>
-            <div class="form-group">
-                <label>Opening Price / Unit</label>
-                <input type="number" name="openingPrice[]" step="0.01" min="0">
-            </div>
-            <div class="form-group">
-                <button type="button" class="btn btn-danger remove-stock-entry" style="margin-top: 24px;">Remove</button>
-            </div>
-        </div>
-    `;
+        `;
+    }
     
     stockEntries.appendChild(newEntry);
     
@@ -582,25 +745,134 @@ function removeStockEntry(button) {
 }
 
 function calculateTotalStock() {
+    const uomType = document.querySelector('input[name="uomType"]:checked').value;
     const qtyInputs = document.querySelectorAll('input[name="openingQty[]"]');
     const priceInputs = document.querySelectorAll('input[name="openingPrice[]"]');
     
-    let totalQty = 0;
+    let totalQtyInBaseUnits = 0;
     let totalValue = 0;
     
-    for (let i = 0; i < qtyInputs.length; i++) {
-        const qty = parseFloat(qtyInputs[i].value) || 0;
-        const price = parseFloat(priceInputs[i].value) || 0;
-        
-        totalQty += qty;
-        totalValue += qty * price;
+    if (uomType === 'group' && window.currentGroupUnits && window.currentGroupUnits.length > 0) {
+        // For UOM Group, convert all quantities to base units
+        for (let i = 0; i < priceInputs.length; i++) {
+            const price = parseFloat(priceInputs[i].value) || 0;
+            let rowQtyInBaseUnits = 0;
+            
+            window.currentGroupUnits.forEach(unit => {
+                const unitQtyInputs = document.querySelectorAll(`input[name="openingQty[${unit.id}][]"]`);
+                if (unitQtyInputs[i]) {
+                    const qty = parseFloat(unitQtyInputs[i].value) || 0;
+                    
+                    // Convert to base units
+                    if (unit.is_base_unit == 1) {
+                        rowQtyInBaseUnits += qty;
+                    } else if (unit.unit_scope === 'per_product') {
+                        // Get conversion factor from the form
+                        const conversionInput = document.querySelector(`input[name="groupConversionFactor[${unit.id}]"]`);
+                        const conversionFactor = conversionInput ? parseFloat(conversionInput.value) || 1 : 1;
+                        rowQtyInBaseUnits += qty * conversionFactor;
+                    } else if (unit.unit_scope === 'universal' && unit.conversion_factor) {
+                        // Use universal conversion factor
+                        rowQtyInBaseUnits += qty * parseFloat(unit.conversion_factor);
+                    } else {
+                        rowQtyInBaseUnits += qty;
+                    }
+                }
+            });
+            
+            totalQtyInBaseUnits += rowQtyInBaseUnits;
+            totalValue += rowQtyInBaseUnits * price;
+        }
+    } else {
+        // For Default Unit, use single qty column
+        for (let i = 0; i < qtyInputs.length; i++) {
+            const qty = parseFloat(qtyInputs[i].value) || 0;
+            const price = parseFloat(priceInputs[i].value) || 0;
+            
+            totalQtyInBaseUnits += qty;
+            totalValue += qty * price;
+        }
     }
     
-    const avgPrice = totalQty > 0 ? totalValue / totalQty : 0;
+    const avgPrice = totalQtyInBaseUnits > 0 ? totalValue / totalQtyInBaseUnits : 0;
     
-    document.getElementById('totalQty').textContent = totalQty.toFixed(2);
+    document.getElementById('totalQty').textContent = totalQtyInBaseUnits.toFixed(2);
     document.getElementById('avgPrice').textContent = avgPrice.toFixed(2);
     document.getElementById('totalValue').textContent = totalValue.toFixed(2);
+}
+
+function rebuildStockEntries() {
+    const stockEntries = document.getElementById('stockEntries');
+    if (!stockEntries || stockEntries.children.length === 0) return;
+    
+    // Save existing data
+    const existingData = [];
+    Array.from(stockEntries.children).forEach(entry => {
+        const branchSearch = entry.querySelector('.branch-search');
+        const branchHidden = entry.querySelector('input[name="branch[]"]');
+        const priceInput = entry.querySelector('input[name="openingPrice[]"]');
+        
+        const data = {
+            branchName: branchSearch ? branchSearch.value : '',
+            branchId: branchHidden ? branchHidden.value : '',
+            price: priceInput ? priceInput.value : ''
+        };
+        
+        // Save qty data based on current mode
+        const uomType = document.querySelector('input[name="uomType"]:checked').value;
+        if (uomType === 'group' && window.currentGroupUnits) {
+            data.unitQtys = {};
+            window.currentGroupUnits.forEach(unit => {
+                const qtyInput = entry.querySelector(`input[name="openingQty[${unit.id}][]"]`);
+                if (qtyInput) {
+                    data.unitQtys[unit.id] = qtyInput.value;
+                }
+            });
+        } else {
+            const qtyInput = entry.querySelector('input[name="openingQty[]"]');
+            data.qty = qtyInput ? qtyInput.value : '';
+        }
+        
+        existingData.push(data);
+    });
+    
+    // Clear and rebuild
+    stockEntries.innerHTML = '';
+    
+    if (existingData.length === 0) {
+        addStockEntry();
+    } else {
+        existingData.forEach(data => {
+            addStockEntry();
+            const entry = stockEntries.lastElementChild;
+            
+            // Restore branch data
+            const branchSearch = entry.querySelector('.branch-search');
+            const branchHidden = entry.querySelector('input[name="branch[]"]');
+            if (branchSearch) branchSearch.value = data.branchName;
+            if (branchHidden) branchHidden.value = data.branchId;
+            
+            // Restore price
+            const priceInput = entry.querySelector('input[name="openingPrice[]"]');
+            if (priceInput) priceInput.value = data.price;
+            
+            // Restore qty data (won't work across mode changes, but preserves within same mode)
+            const uomType = document.querySelector('input[name="uomType"]:checked').value;
+            if (uomType === 'group' && data.unitQtys && window.currentGroupUnits) {
+                window.currentGroupUnits.forEach(unit => {
+                    const qtyInput = entry.querySelector(`input[name="openingQty[${unit.id}][]"]`);
+                    if (qtyInput && data.unitQtys[unit.id]) {
+                        qtyInput.value = data.unitQtys[unit.id];
+                    }
+                });
+            } else if (data.qty) {
+                const qtyInput = entry.querySelector('input[name="openingQty[]"]');
+                if (qtyInput) qtyInput.value = data.qty;
+            }
+        });
+    }
+    
+    calculateTotalStock();
 }
 
 function generateQRCode(value) {
@@ -661,6 +933,8 @@ function openUnitModal() {
     document.getElementById('saveUnit').textContent = 'Save Unit';
     document.getElementById('unitModal').style.display = 'flex';
     document.getElementById('unitName').focus();
+    document.getElementById('universal').checked = true;
+    handleUnitScopeChange();
     loadBaseUnits();
 }
 
@@ -923,16 +1197,103 @@ function loadUnits() {
     .then(response => response.json())
     .then(data => {
         if (data.success && data.units) {
+            window.unitsData = data.units; // Store for later use
             const select = document.getElementById('defaultUnit');
             data.units.forEach(unit => {
                 const option = document.createElement('option');
                 option.value = unit.id;
                 option.textContent = unit.uom_name;
+                option.dataset.unitScope = unit.unit_scope || 'universal';
+                option.dataset.isBaseUnit = unit.is_base_unit || 0;
                 select.appendChild(option);
             });
         }
     })
     .catch(error => console.error('Error loading units:', error));
+}
+
+function handleDefaultUnitChange() {
+    const select = document.getElementById('defaultUnit');
+    const selectedOption = select.options[select.selectedIndex];
+    const conversionFactorGroup = document.getElementById('productConversionFactorGroup');
+    const conversionFactorInput = document.getElementById('productConversionFactor');
+    const uomGroupSelect = document.getElementById('uomGroup');
+    
+    if (selectedOption && selectedOption.value) {
+        const unitScope = selectedOption.dataset.unitScope;
+        const isBaseUnit = selectedOption.dataset.isBaseUnit;
+        const selectedUnitId = selectedOption.value;
+        
+        // Show conversion factor if unit_scope is per_product AND is_base_unit is 0
+        if (unitScope === 'per_product' && isBaseUnit == 0) {
+            conversionFactorGroup.style.display = 'block';
+            conversionFactorInput.setAttribute('required', '');
+        } else {
+            conversionFactorGroup.style.display = 'none';
+            conversionFactorInput.removeAttribute('required');
+            conversionFactorInput.value = '';
+        }
+        
+        // Filter UOM Groups based on selected unit
+        filterUomGroupsByUnit(selectedUnitId);
+    } else {
+        conversionFactorGroup.style.display = 'none';
+        conversionFactorInput.removeAttribute('required');
+        conversionFactorInput.value = '';
+        
+        // Show all UOM groups when no unit selected
+        showAllUomGroups();
+    }
+}
+
+function filterUomGroupsByUnit(unitId) {
+    const uomGroupSelect = document.getElementById('uomGroup');
+    const currentValue = uomGroupSelect.value;
+    
+    uomGroupSelect.innerHTML = '<option value="">Select UOM Group</option>';
+    
+    if (window.uomGroupsData && window.uomGroupsData.length > 0) {
+        window.uomGroupsData.forEach(group => {
+            // Check if this group contains the selected unit
+            if (group.unit_ids && group.unit_ids.includes(unitId)) {
+                const option = document.createElement('option');
+                option.value = group.id;
+                option.textContent = group.group_name;
+                option.dataset.unitIds = JSON.stringify(group.unit_ids);
+                uomGroupSelect.appendChild(option);
+            }
+        });
+    }
+    
+    // Restore previous selection if still valid
+    if (currentValue) {
+        const optionExists = Array.from(uomGroupSelect.options).some(opt => opt.value === currentValue);
+        if (optionExists) {
+            uomGroupSelect.value = currentValue;
+        }
+    }
+}
+
+function showAllUomGroups() {
+    const uomGroupSelect = document.getElementById('uomGroup');
+    const currentValue = uomGroupSelect.value;
+    
+    uomGroupSelect.innerHTML = '<option value="">Select UOM Group</option>';
+    
+    if (window.uomGroupsData && window.uomGroupsData.length > 0) {
+        window.uomGroupsData.forEach(group => {
+            const option = document.createElement('option');
+            option.value = group.id;
+            option.textContent = group.group_name;
+            option.dataset.unitIds = JSON.stringify(group.unit_ids);
+            uomGroupSelect.appendChild(option);
+        });
+    }
+    
+    // Restore previous selection if exists
+    if (currentValue) {
+        uomGroupSelect.value = currentValue;
+    }
 }
 
 function loadCategories() {
@@ -1008,6 +1369,299 @@ function loadVendors() {
         }
     })
     .catch(error => console.error('Error loading vendors:', error));
+}
+
+function loadUomGroups() {
+    fetch('../../../../server/api/inventory/products/uom-group-by-unit.php')
+    .then(response => response.json())
+    .then(data => {
+        if (data.success && data.groups) {
+            window.uomGroupsData = data.groups;
+            const select = document.getElementById('uomGroup');
+            select.innerHTML = '<option value="">Select UOM Group</option>';
+            data.groups.forEach(group => {
+                const option = document.createElement('option');
+                option.value = group.id;
+                option.textContent = group.group_name;
+                option.dataset.unitIds = JSON.stringify(group.unit_ids);
+                select.appendChild(option);
+            });
+        }
+    })
+    .catch(error => console.error('Error loading UOM groups:', error));
+}
+
+function openUomGroupModal() {
+    document.getElementById('uomGroupModalTitle').textContent = 'Manage UOM Groups';
+    document.getElementById('saveUomGroup').textContent = 'Save UOM Group';
+    document.getElementById('uomGroupModal').style.display = 'flex';
+    document.getElementById('uomGroupName').focus();
+    
+    // Initialize with one dropdown
+    const container = document.getElementById('unitDropdownContainer');
+    container.innerHTML = '';
+    addUnitDropdownRow();
+    
+    // Load existing groups list
+    loadUomGroupsList();
+}
+
+function addUnitDropdownRow() {
+    const container = document.getElementById('unitDropdownContainer');
+    const row = document.createElement('div');
+    row.className = 'unit-dropdown-row';
+    row.style.cssText = 'display: flex; gap: 8px; margin-bottom: 8px;';
+    
+    const select = document.createElement('select');
+    select.className = 'unit-select';
+    select.style.cssText = 'flex: 1; height: 40px; padding: 0 12px; border: 1.5px solid var(--border-default); border-radius: 6px;';
+    select.required = true;
+    
+    const defaultOption = document.createElement('option');
+    defaultOption.value = '';
+    defaultOption.textContent = 'Select Unit';
+    select.appendChild(defaultOption);
+    
+    if (window.unitsData && window.unitsData.length > 0) {
+        window.unitsData.forEach(unit => {
+            const option = document.createElement('option');
+            option.value = unit.id;
+            option.textContent = `${unit.uom_name} (${unit.uom_type})`;
+            select.appendChild(option);
+        });
+    }
+    
+    const addBtn = document.createElement('button');
+    addBtn.type = 'button';
+    addBtn.className = 'btn btn-secondary';
+    addBtn.textContent = '+';
+    addBtn.style.cssText = 'width: 40px; height: 40px; padding: 0;';
+    addBtn.onclick = addUnitDropdownRow;
+    
+    const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.className = 'btn btn-danger';
+    removeBtn.textContent = '-';
+    removeBtn.style.cssText = 'width: 40px; height: 40px; padding: 0;';
+    removeBtn.onclick = function() { removeUnitDropdownRow(this); };
+    
+    row.appendChild(select);
+    row.appendChild(addBtn);
+    row.appendChild(removeBtn);
+    container.appendChild(row);
+}
+
+function removeUnitDropdownRow(btn) {
+    const container = document.getElementById('unitDropdownContainer');
+    if (container.children.length > 1) {
+        btn.parentElement.remove();
+    } else {
+        alert('At least one unit is required');
+    }
+}
+
+function closeUomGroupModal() {
+    document.getElementById('uomGroupModal').style.display = 'none';
+    document.getElementById('uomGroupForm').reset();
+    delete document.getElementById('uomGroupForm').dataset.editId;
+}
+
+function handleUomGroupSubmit(e) {
+    e.preventDefault();
+    
+    const groupName = document.getElementById('uomGroupName').value;
+    const selectedUnits = Array.from(document.querySelectorAll('.unit-select'))
+        .map(select => select.value)
+        .filter(value => value !== '');
+    
+    if (selectedUnits.length === 0) {
+        alert('Please select at least one unit');
+        return;
+    }
+    
+    // Check for duplicates
+    const uniqueUnits = [...new Set(selectedUnits)];
+    if (uniqueUnits.length !== selectedUnits.length) {
+        alert('Please select different units. Duplicates are not allowed.');
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('groupName', groupName);
+    uniqueUnits.forEach(unitId => {
+        formData.append('unitIds[]', unitId);
+    });
+    
+    fetch('../../../../server/api/inventory/products/uom-group-add.php', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            const select = document.getElementById('uomGroup');
+            const option = document.createElement('option');
+            option.value = data.group.id;
+            option.textContent = data.group.name;
+            select.appendChild(option);
+            select.value = option.value;
+            
+            // Reload UOM groups to update the filter data
+            loadUomGroups();
+            
+            // Reload the list
+            loadUomGroupsList();
+            
+            // Clear form
+            document.getElementById('uomGroupForm').reset();
+            const container = document.getElementById('unitDropdownContainer');
+            container.innerHTML = '';
+            addUnitDropdownRow();
+            
+            alert('UOM Group added successfully!');
+        } else {
+            alert('Error: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('An error occurred while saving the UOM group');
+    });
+}
+
+function loadUomGroupsList() {
+    const listContainer = document.getElementById('uomGroupList');
+    listContainer.innerHTML = '<p style="color: var(--subtext); text-align: center; padding: 20px;">Loading...</p>';
+    
+    fetch('../../../../server/api/inventory/products/uom-group-list.php')
+    .then(response => response.json())
+    .then(data => {
+        if (data.success && data.groups && data.groups.length > 0) {
+            listContainer.innerHTML = '';
+            
+            data.groups.forEach(group => {
+                const groupItem = document.createElement('div');
+                groupItem.style.cssText = 'display: flex; justify-content: space-between; align-items: center; padding: 12px; border: 1px solid var(--border-default); border-radius: 6px; margin-bottom: 8px; background: var(--surface-1);';
+                
+                const groupInfo = document.createElement('div');
+                groupInfo.style.cssText = 'flex: 1;';
+                
+                const groupName = document.createElement('div');
+                groupName.style.cssText = 'font-weight: 500; color: var(--heading); margin-bottom: 4px;';
+                groupName.textContent = group.group_name + (group.tenant_id == 0 ? ' 🔒' : '');
+                
+                const unitNames = document.createElement('div');
+                unitNames.style.cssText = 'font-size: 12px; color: var(--subtext);';
+                unitNames.textContent = group.unit_names || 'No units';
+                
+                groupInfo.appendChild(groupName);
+                groupInfo.appendChild(unitNames);
+                
+                groupItem.appendChild(groupInfo);
+                
+                // Only show delete button for tenant-owned groups
+                if (group.tenant_id != 0) {
+                    const deleteBtn = document.createElement('button');
+                    deleteBtn.type = 'button';
+                    deleteBtn.className = 'btn btn-danger';
+                    deleteBtn.textContent = 'Delete';
+                    deleteBtn.style.cssText = 'height: 32px; padding: 0 12px; font-size: 13px;';
+                    deleteBtn.onclick = () => confirmDeleteUomGroup(group.id, group.group_name);
+                    groupItem.appendChild(deleteBtn);
+                }
+                
+                listContainer.appendChild(groupItem);
+            });
+        } else {
+            listContainer.innerHTML = '<p style="color: var(--subtext); text-align: center; padding: 20px;">No UOM groups found</p>';
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        listContainer.innerHTML = '<p style="color: var(--error); text-align: center; padding: 20px;">Error loading groups</p>';
+    });
+}
+
+function confirmDeleteUomGroup(groupId, groupName) {
+    if (confirm(`Are you sure you want to delete "${groupName}"? This action cannot be undone.`)) {
+        deleteUomGroupFromList(groupId);
+    }
+}
+
+function deleteUomGroupFromList(groupId) {
+    fetch('../../../../server/api/inventory/products/uom-group-delete.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `id=${groupId}`
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            loadUomGroupsList();
+            const select = document.getElementById('uomGroup');
+            const option = select.querySelector(`option[value="${groupId}"]`);
+            if (option) {
+                option.remove();
+                select.selectedIndex = 0;
+            }
+            loadUomGroups();
+            alert('UOM Group deleted successfully!');
+        } else {
+            alert('Error: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('An error occurred while deleting the UOM group');
+    });
+}
+
+function editUomGroup(groupId, groupName) {
+    showConfirmModal(
+        'UOM Group Action',
+        `What would you like to do with "${groupName}"?`,
+        'Edit',
+        'Delete',
+        () => {
+            alert('Edit functionality will be implemented');
+        },
+        () => {
+            showConfirmModal(
+                'Delete UOM Group',
+                `Are you sure you want to delete "${groupName}"? This action cannot be undone.`,
+                'Cancel',
+                'Delete',
+                () => {},
+                () => deleteUomGroup(groupId)
+            );
+        }
+    );
+}
+
+function deleteUomGroup(groupId) {
+    fetch('../../../../server/api/inventory/products/uom-group-delete.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `id=${groupId}`
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            const select = document.getElementById('uomGroup');
+            const option = select.querySelector(`option[value="${groupId}"]`);
+            if (option) {
+                option.remove();
+                select.selectedIndex = 0;
+            }
+            alert('UOM Group deleted successfully!');
+        } else {
+            alert('Error: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('An error occurred while deleting the UOM group');
+    });
 }
 
 function loadCompanies() {
@@ -1156,8 +1810,34 @@ function loadProductForEdit(productId) {
                 if (product.company_id) {
                     document.getElementById('company').value = product.company_id;
                 }
-                if (product.default_unit_id) {
-                    document.getElementById('defaultUnit').value = product.default_unit_id;
+                
+                // Handle UOM Type selection based on what's saved
+                if (product.uom_type === 'group' && product.uom_group_id) {
+                    // UOM Group is selected
+                    document.getElementById('uomTypeGroup').checked = true;
+                    handleUomTypeChange();
+                    document.getElementById('uomGroup').value = product.uom_group_id;
+                    handleUomGroupChange().then(() => {
+                        loadGroupConversionFactorsForEdit(productId);
+                    });
+                } else {
+                    // Default Unit is selected (default case)
+                    document.getElementById('uomTypeUnit').checked = true;
+                    handleUomTypeChange();
+                    if (product.default_unit_id) {
+                        document.getElementById('defaultUnit').value = product.default_unit_id;
+                        // Store unit data in option for handleDefaultUnitChange
+                        const selectedOption = document.getElementById('defaultUnit').options[document.getElementById('defaultUnit').selectedIndex];
+                        if (selectedOption && product.unit_scope) {
+                            selectedOption.dataset.unitScope = product.unit_scope;
+                            selectedOption.dataset.isBaseUnit = product.is_base_unit || 0;
+                        }
+                        handleDefaultUnitChange();
+                    }
+                }
+                
+                if (product.product_conversion_factor) {
+                    document.getElementById('productConversionFactor').value = product.product_conversion_factor;
                 }
                 if (product.category_id) {
                     document.getElementById('category').value = product.category_id;
@@ -1219,32 +1899,44 @@ function loadProductForEdit(productId) {
 }
 
 function loadStockOpeningData(productId) {
-    fetch(`../../../../server/api/inventory/products/stock-opening-get.php?product_id=${productId}`)
-    .then(response => response.json())
-    .then(data => {
-        if (data.success && data.stock_entries.length > 0) {
-            const stockEntries = document.getElementById('stockEntries');
-            stockEntries.innerHTML = ''; // Clear existing entries
-            
-            data.stock_entries.forEach((entry) => {
-                addStockEntry();
-                const entryDiv = stockEntries.lastElementChild;
-                
-                const branchInput = entryDiv.querySelector('.branch-search');
-                const branchHidden = entryDiv.querySelector('input[name="branch[]"]');
-                const qtyInput = entryDiv.querySelector('input[name="openingQty[]"]');
-                const priceInput = entryDiv.querySelector('input[name="openingPrice[]"]');
-                
-                if (branchInput) branchInput.value = entry.branch_display;
-                if (branchHidden) branchHidden.value = entry.branch_id;
-                if (qtyInput) qtyInput.value = entry.opening_qty;
-                if (priceInput) priceInput.value = entry.opening_price;
-            });
-            
-            calculateTotalStock();
+    setTimeout(() => {
+        const uomType = document.querySelector('input[name="uomType"]:checked').value;
+        
+        // For UOM Group mode, we can't reconstruct individual unit quantities from total
+        // So we skip loading and let user re-enter
+        if (uomType === 'group') {
+            console.log('UOM Group mode: Stock entries must be re-entered');
+            return;
         }
-    })
-    .catch(error => console.error('Error loading stock opening data:', error));
+        
+        fetch(`../../../../server/api/inventory/products/stock-opening-get.php?product_id=${productId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.stock_entries.length > 0) {
+                const stockEntries = document.getElementById('stockEntries');
+                stockEntries.innerHTML = '';
+                
+                data.stock_entries.forEach((entry) => {
+                    addStockEntry();
+                    const entryDiv = stockEntries.lastElementChild;
+                    
+                    const branchInput = entryDiv.querySelector('.branch-search');
+                    const branchHidden = entryDiv.querySelector('input[name="branch[]"]');
+                    const priceInput = entryDiv.querySelector('input[name="openingPrice[]"]');
+                    
+                    if (branchInput) branchInput.value = entry.branch_display;
+                    if (branchHidden) branchHidden.value = entry.branch_id;
+                    if (priceInput) priceInput.value = entry.opening_price;
+                    
+                    const qtyInput = entryDiv.querySelector('input[name="openingQty[]"]');
+                    if (qtyInput) qtyInput.value = entry.opening_qty;
+                });
+                
+                calculateTotalStock();
+            }
+        })
+        .catch(error => console.error('Error loading stock opening data:', error));
+    }, 1500);
 }
 
 function loadParentProductForEdit(parentProductId) {
@@ -1355,6 +2047,8 @@ function closeUnitModal() {
     document.getElementById('unitModal').style.display = 'none';
     document.getElementById('unitForm').reset();
     delete document.getElementById('unitForm').dataset.editId;
+    document.getElementById('universal').checked = true;
+    handleUnitScopeChange();
 }
 
 function handleUnitSubmit(e) {
@@ -1409,4 +2103,72 @@ function handleUnitSubmit(e) {
         console.error('Error:', error);
         alert('An error occurred while saving the unit');
     });
+}
+
+
+function handleUomGroupChange() {
+    const groupSelect = document.getElementById('uomGroup');
+    const groupId = groupSelect.value;
+    
+    if (!groupId) {
+        clearGroupConversionFactors();
+        window.currentGroupUnits = [];
+        rebuildStockEntries();
+        return Promise.resolve();
+    }
+    
+    return fetch(`../../../../server/api/inventory/products/uom-group-units.php?group_id=${groupId}`)
+    .then(response => response.json())
+    .then(data => {
+        if (data.success && data.units) {
+            window.currentGroupUnits = data.units;
+            console.log('Loaded group units:', data.units);
+            displayGroupConversionFactors(data.units);
+            rebuildStockEntries();
+        }
+    })
+    .catch(error => console.error('Error loading group units:', error));
+}
+
+function displayGroupConversionFactors(units) {
+    clearGroupConversionFactors();
+    
+    const perProductUnits = units.filter(u => u.unit_scope === 'per_product' && u.is_base_unit == 0);
+    
+    if (perProductUnits.length === 0) return;
+    
+    const conversionFactorGroup = document.getElementById('productConversionFactorGroup');
+    const formRow = conversionFactorGroup.closest('.form-row');
+    
+    perProductUnits.forEach(unit => {
+        const fieldGroup = document.createElement('div');
+        fieldGroup.className = 'form-group group-conversion-factor';
+        fieldGroup.innerHTML = `
+            <label class="required">${unit.uom_name} Conversion Factor</label>
+            <input type="number" name="groupConversionFactor[${unit.id}]" step="0.000001" min="0" placeholder="e.g., 1000" required>
+            <div class="helper-text">Conversion factor for ${unit.uom_name}</div>
+        `;
+        formRow.insertBefore(fieldGroup, conversionFactorGroup.nextSibling);
+    });
+}
+
+function clearGroupConversionFactors() {
+    document.querySelectorAll('.group-conversion-factor').forEach(el => el.remove());
+}
+
+
+function loadGroupConversionFactorsForEdit(productId) {
+    fetch(`../../../../server/api/inventory/products/product-uom-conversions.php?product_id=${productId}`)
+    .then(response => response.json())
+    .then(data => {
+        if (data.success && data.conversions) {
+            data.conversions.forEach(conv => {
+                const input = document.querySelector(`input[name="groupConversionFactor[${conv.uom_id}]"]`);
+                if (input) {
+                    input.value = conv.conversion_factor;
+                }
+            });
+        }
+    })
+    .catch(error => console.error('Error loading conversion factors:', error));
 }

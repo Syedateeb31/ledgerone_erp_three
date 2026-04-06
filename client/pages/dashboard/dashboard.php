@@ -181,6 +181,424 @@ $hasDateFilter = $dateFrom && $dateTo;
             font-size: 0.875rem;
             font-weight: 500;
         }
+
+        .ledger-search-box {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 0.75rem;
+            border: 2px solid #e2e8f0;
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .ledger-input {
+            flex: 1;
+            min-width: 250px;
+            height: 44px;
+            padding: 0 1rem;
+            border: 1.5px solid #d6dbe4;
+            border-radius: 0.5rem;
+            font-size: 14px;
+        }
+
+        .ledger-radio-group {
+            display: flex;
+            gap: 1.5rem;
+        }
+
+        .ledger-radio-group label {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        .date-buckets {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .date-bucket-btn {
+            padding: 0.5rem 0.75rem;
+            background: white;
+            border: 1.5px solid #d6dbe4;
+            border-radius: 0.5rem;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: #334155;
+            font-weight: 500;
+        }
+
+        .date-bucket-btn:hover {
+            border-color: var(--primary);
+            background: #f0f9ff;
+            color: var(--primary);
+        }
+
+        .date-bucket-btn.active {
+            background: var(--primary);
+            border-color: var(--primary);
+            color: white;
+        }
+
+        .ledger-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            z-index: 10000;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(4px);
+        }
+
+        .ledger-modal.show {
+            display: flex;
+            animation: fadeIn 0.2s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .ledger-modal-content {
+            background: white;
+            width: 95%;
+            max-width: 1400px;
+            height: 90vh;
+            border-radius: 12px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            animation: slideUp 0.3s ease;
+        }
+
+        @keyframes slideUp {
+            from {
+                transform: translateY(20px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .ledger-modal-header {
+            padding: 1.5rem 2rem;
+            background: linear-gradient(135deg, #1f7bff 0%, #1559b8 100%);
+            color: white;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: none;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .ledger-modal-header h3 {
+            margin: 0;
+            font-size: 1.375rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            color: white !important;
+        }
+
+        .ledger-modal-header h3::before {
+            content: '📊';
+            font-size: 1.5rem;
+        }
+
+        #ledgerModalTitle {
+            color: white !important;
+            margin: 0;
+            font-size: 1.375rem;
+            font-weight: 600;
+        }
+
+        .ledger-modal-close {
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            color: white;
+            font-size: 1.5rem;
+            cursor: pointer;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            transition: all 0.2s;
+            line-height: 1;
+        }
+
+        .ledger-modal-close:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: scale(1.05);
+        }
+
+        .ledger-modal-close:active {
+            transform: scale(0.95);
+        }
+
+        .ledger-modal-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 2rem;
+            background: #f8fafc;
+        }
+
+        .ledger-modal-body::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .ledger-modal-body::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+
+        .ledger-modal-body::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+
+        .ledger-modal-body::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
+        .ledger-summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1.25rem;
+            margin-bottom: 2rem;
+        }
+
+        .ledger-summary-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 10px;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+            transition: all 0.2s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .ledger-summary-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+            background: linear-gradient(180deg, #3b82f6, #1d4ed8);
+        }
+
+        .ledger-summary-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .ledger-summary-label {
+            font-size: 11px;
+            color: #64748b;
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            font-weight: 600;
+        }
+
+        .ledger-summary-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #0f172a;
+            line-height: 1.2;
+        }
+
+        .ledger-summary-value.positive {
+            color: #16a34a;
+        }
+
+        .ledger-summary-value.negative {
+            color: #dc2626;
+        }
+
+        .ledger-table-container {
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+
+        .ledger-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .ledger-table thead {
+            background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+            border-bottom: 2px solid #e2e8f0;
+        }
+
+        .ledger-table th {
+            padding: 1rem 1.25rem;
+            text-align: left;
+            font-weight: 700;
+            font-size: 12px;
+            color: #475569;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            white-space: nowrap;
+        }
+
+        .ledger-table td {
+            padding: 1rem 1.25rem;
+            border-bottom: 1px solid #f1f5f9;
+            font-size: 14px;
+            color: #334155;
+            vertical-align: middle;
+        }
+
+        .ledger-table tbody tr {
+            transition: background 0.15s;
+        }
+
+        .ledger-table tbody tr:hover {
+            background: #f8fafc;
+        }
+
+        .ledger-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        .ledger-table tbody tr.opening-row {
+            background: linear-gradient(90deg, #eff6ff 0%, #dbeafe 100%);
+            font-weight: 600;
+        }
+
+        .ledger-table tbody tr.sub-header {
+            background: linear-gradient(90deg, #f1f5f9 0%, #e2e8f0 100%);
+            font-weight: 600;
+        }
+
+        .ledger-table tbody tr.sub-total {
+            background: linear-gradient(90deg, #fef3c7 0%, #fde68a 100%);
+            font-weight: 600;
+        }
+
+        .ledger-loading {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 5rem 2rem;
+            color: #64748b;
+        }
+
+        .ledger-loading i {
+            font-size: 3rem;
+            margin-bottom: 1.5rem;
+            animation: spin 1s linear infinite;
+            color: #3b82f6;
+        }
+
+        .ledger-loading p {
+            font-size: 1rem;
+            font-weight: 500;
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .ledger-error {
+            padding: 4rem 2rem;
+            text-align: center;
+            color: #dc2626;
+        }
+
+        .ledger-error i {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        .ledger-error p {
+            font-size: 1rem;
+            font-weight: 500;
+        }
+
+        .text-right {
+            text-align: right;
+        }
+
+        .text-center {
+            text-align: center;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .badge-dr {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .badge-cr {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        @media (max-width: 768px) {
+            .ledger-search-box {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .ledger-input {
+                width: 100%;
+            }
+
+            .ledger-radio-group {
+                justify-content: center;
+            }
+
+            .ledger-modal-content {
+                width: 100%;
+                height: 100vh;
+                border-radius: 0;
+            }
+
+            .ledger-summary {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .ledger-table-container {
+                overflow-x: auto;
+            }
+
+            .ledger-table {
+                min-width: 600px;
+            }
+        }
     </style>
 </head>
 
@@ -253,6 +671,30 @@ $hasDateFilter = $dateFrom && $dateTo;
                     <div class="kpi-change">
                         <span>Total outstanding to suppliers</span>
                     </div>
+                </div>
+            </div>
+
+            <!-- Quick Ledger Access -->
+            <div class="quick-actions">
+                <h2 class="section-title">Quick Ledger Access</h2>
+                <div class="ledger-search-box">
+                    <input type="text" id="ledgerSearch" placeholder="Enter Customer/Supplier/Account Name or Code..." class="ledger-input">
+                    <div class="ledger-radio-group">
+                        <label><input type="radio" name="ledgerType" value="customer" checked> Customer</label>
+                        <label><input type="radio" name="ledgerType" value="supplier"> Supplier</label>
+                        <label><input type="radio" name="ledgerType" value="account"> Account (GL)</label>
+                    </div>
+                    <div class="date-buckets">
+                        <button class="date-bucket-btn" onclick="setDateRange(7)">7D</button>
+                        <button class="date-bucket-btn" onclick="setDateRange(14)">14D</button>
+                        <button class="date-bucket-btn" onclick="setDateRange(30)">30D</button>
+                        <button class="date-bucket-btn" onclick="setDateRange(90)">Quarter</button>
+                        <button class="date-bucket-btn" onclick="setDateRange(365)">Year</button>
+                        <button class="date-bucket-btn active" onclick="setDateRange(0)">All</button>
+                    </div>
+                    <input type="date" id="ledgerDateFrom" class="ledger-input" style="flex: 0 0 auto; min-width: 150px;" placeholder="From Date">
+                    <input type="date" id="ledgerDateTo" class="ledger-input" style="flex: 0 0 auto; min-width: 150px;" placeholder="To Date">
+                    <button class="btn btn-primary" onclick="openLedger()">Open Ledger</button>
                 </div>
             </div>
 
@@ -683,10 +1125,30 @@ $hasDateFilter = $dateFrom && $dateTo;
             for ($i = 6; $i >= 0; $i--) {
                 $date = date('Y-m-d', strtotime("-$i days"));
                 $cashFlowLabels[] = date('M j', strtotime("-$i days"));
-                $stmt = $pdo->prepare("SELECT COALESCE(SUM(amount), 0) FROM receive_voucher WHERE tenant_id = ? AND DATE(voucher_date) = ?");
+                
+                // Cash In = All debits to Cash/Bank accounts from accounting_ledger
+                $stmt = $pdo->prepare("
+                    SELECT COALESCE(SUM(al.debit), 0) 
+                    FROM accounting_ledger al
+                    JOIN accounts a ON al.account_id = a.id
+                    WHERE al.tenant_id = ? 
+                      AND DATE(al.date) = ?
+                      AND (a.id = 1 OR a.sub_account_id = '75')
+                      AND al.debit > 0
+                ");
                 $stmt->execute([$tenant_id, $date]);
                 $cashInData[] = (float) $stmt->fetchColumn();
-                $stmt = $pdo->prepare("SELECT COALESCE(SUM(amount), 0) FROM payment_voucher WHERE tenant_id = ? AND DATE(voucher_date) = ?");
+                
+                // Cash Out = All credits to Cash/Bank accounts from accounting_ledger
+                $stmt = $pdo->prepare("
+                    SELECT COALESCE(SUM(al.credit), 0)
+                    FROM accounting_ledger al
+                    JOIN accounts a ON al.account_id = a.id
+                    WHERE al.tenant_id = ? 
+                      AND DATE(al.date) = ?
+                      AND (a.id = 1 OR a.sub_account_id = '75')
+                      AND al.credit > 0
+                ");
                 $stmt->execute([$tenant_id, $date]);
                 $cashOutData[] = (float) $stmt->fetchColumn();
             }
@@ -711,6 +1173,405 @@ $hasDateFilter = $dateFrom && $dateTo;
             function clearFilters() {
                 window.location.href = 'dashboard.php';
             }
+
+            async function openLedger() {
+                const search = document.getElementById('ledgerSearch').value.trim();
+                const type = document.querySelector('input[name="ledgerType"]:checked').value;
+
+                if (!search) {
+                    alert('Please enter a ' + (type === 'account' ? 'account' : type) + ' name or code');
+                    return;
+                }
+
+                try {
+                    let apiUrl, searchField;
+                    
+                    if (type === 'customer') {
+                        apiUrl = '../../../server/api/financial_reports/customer_ledger/customer-ledger.php?type=customers';
+                        searchField = 'customer';
+                    } else if (type === 'supplier') {
+                        apiUrl = '../../../server/api/financial_reports/supplier_ledger/supplier-ledger.php?type=distributions';
+                        searchField = 'supplier';
+                    } else if (type === 'account') {
+                        apiUrl = '../../../server/api/vouchers/journal_voucher/get-accounts.php';
+                        searchField = 'account';
+                    }
+
+                    const response = await fetch(apiUrl);
+                    const data = await response.json();
+
+                    if (data.success) {
+                        let dataArray = type === 'account' ? data.accounts : data.data;
+                        
+                        if (dataArray && dataArray.length > 0) {
+                            const searchLower = search.toLowerCase();
+                            let found;
+                            
+                            if (type === 'account') {
+                                found = dataArray.find(item => {
+                                    const name = (item.name || '').toLowerCase();
+                                    return name.includes(searchLower);
+                                });
+                            } else {
+                                found = dataArray.find(item => {
+                                    const name = (item.customer_name || item.supplier_name || '').toLowerCase();
+                                    const code = (item.customer_code || item.supplier_code || '').toLowerCase();
+                                    return name.includes(searchLower) || code.includes(searchLower);
+                                });
+                            }
+
+                            if (found) {
+                                let id, name;
+                                
+                                if (type === 'account') {
+                                    id = found.sub_account_id || found.id;
+                                    name = found.name;
+                                    console.log('Account found:', found);
+                                    console.log('Using sub_account_id:', id);
+                                } else {
+                                    id = found.id;
+                                    name = found.customer_name || found.supplier_name;
+                                }
+                                
+                                loadLedgerModal(id, name, type);
+                            } else {
+                                alert('No ' + searchField + ' found with that name or code');
+                            }
+                        } else {
+                            alert('No ' + searchField + 's found');
+                        }
+                    } else {
+                        alert('Error loading data');
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                    alert('Error loading ledger');
+                }
+            }
+
+            async function loadLedgerModal(id, name, type) {
+                const modal = document.getElementById('ledgerModal');
+                const modalTitle = document.getElementById('ledgerModalTitle');
+                const modalBody = document.getElementById('ledgerModalBody');
+                const dateFrom = document.getElementById('ledgerDateFrom').value;
+                const dateTo = document.getElementById('ledgerDateTo').value;
+
+                let titleText;
+                if (type === 'customer') {
+                    titleText = 'Customer Ledger - ' + name;
+                } else if (type === 'supplier') {
+                    titleText = 'Supplier Ledger - ' + name;
+                } else if (type === 'account') {
+                    titleText = 'General Ledger - ' + name;
+                }
+                
+                if (dateFrom && dateTo) {
+                    titleText += ` (${dateFrom} to ${dateTo})`;
+                }
+                modalTitle.textContent = titleText;
+                
+                modalBody.innerHTML = '<div class="ledger-loading"><i class="fas fa-spinner fa-spin"></i><p>Loading ledger data...</p></div>';
+                modal.classList.add('show');
+
+                try {
+                    let apiUrl;
+                    
+                    if (type === 'customer') {
+                        apiUrl = `../../../server/api/financial_reports/customer_ledger/customer-ledger.php?type=detailed&customer_id=${id}`;
+                    } else if (type === 'supplier') {
+                        apiUrl = `../../../server/api/financial_reports/supplier_ledger/supplier-ledger.php?type=detailed&supplier_id=${id}`;
+                    } else if (type === 'account') {
+                        apiUrl = `../../../server/api/financial_reports/general_ledger/general-ledger.php?accountNumber=${id}`;
+                    }
+                    
+                    if (dateFrom && dateTo) {
+                        if (type === 'account') {
+                            apiUrl += `&startDate=${dateFrom}&endDate=${dateTo}`;
+                        } else {
+                            apiUrl += `&from_date=${dateFrom}&to_date=${dateTo}`;
+                        }
+                    }
+
+                    console.log('Fetching from:', apiUrl);
+                    const response = await fetch(apiUrl);
+                    const result = await response.json();
+                    console.log('API Response:', result);
+
+                    if (result.success) {
+                        if (type === 'account') {
+                            // GL API returns different structure
+                            renderGLData(result.entries, result.summary, name);
+                        } else {
+                            console.log('Rendering data:', result.data.length, 'transactions');
+                            console.log('Opening balance:', result.opening_balance);
+                            renderLedgerData(result.data, result.opening_balance || 0, type);
+                        }
+                    } else {
+                        console.error('API returned error:', result);
+                        modalBody.innerHTML = '<div class="ledger-error"><i class="fas fa-exclamation-circle"></i><p>' + (result.message || 'Failed to load ledger data') + '</p></div>';
+                    }
+                } catch (error) {
+                    console.error('Error loading ledger:', error);
+                    modalBody.innerHTML = '<div class="ledger-error"><i class="fas fa-exclamation-circle"></i><p>Error loading ledger data: ' + error.message + '</p></div>';
+                }
+            }
+
+            function renderLedgerData(transactions, openingBalance, type) {
+                const modalBody = document.getElementById('ledgerModalBody');
+
+                if (!transactions || transactions.length === 0) {
+                    modalBody.innerHTML = '<div class="ledger-error"><i class="fas fa-info-circle"></i><p>No transactions found for this period</p></div>';
+                    return;
+                }
+
+                let totalDebit = 0;
+                let totalCredit = 0;
+
+                transactions.forEach(txn => {
+                    if (txn.type !== 'opening_balance' && txn.type !== 'sub_account_header' && txn.type !== 'sub_account_total') {
+                        totalDebit += parseFloat(txn.debit || 0);
+                        totalCredit += parseFloat(txn.credit || 0);
+                    }
+                });
+
+                const closingBalance = (openingBalance || 0) + totalDebit - totalCredit;
+
+                let html = `
+                    <div class="ledger-summary">
+                        <div class="ledger-summary-card">
+                            <div class="ledger-summary-label">Opening Balance</div>
+                            <div class="ledger-summary-value ${openingBalance >= 0 ? 'positive' : 'negative'}">
+                                Rs ${Math.abs(openingBalance).toLocaleString('en-PK', {maximumFractionDigits: 2})}
+                                <span class="badge ${openingBalance >= 0 ? 'badge-dr' : 'badge-cr'}" style="margin-left: 0.5rem; font-size: 0.75rem;">
+                                    ${openingBalance >= 0 ? 'Dr' : 'Cr'}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="ledger-summary-card">
+                            <div class="ledger-summary-label">Total Debit</div>
+                            <div class="ledger-summary-value">Rs ${totalDebit.toLocaleString('en-PK', {maximumFractionDigits: 2})}</div>
+                        </div>
+                        <div class="ledger-summary-card">
+                            <div class="ledger-summary-label">Total Credit</div>
+                            <div class="ledger-summary-value">Rs ${totalCredit.toLocaleString('en-PK', {maximumFractionDigits: 2})}</div>
+                        </div>
+                        <div class="ledger-summary-card">
+                            <div class="ledger-summary-label">Closing Balance</div>
+                            <div class="ledger-summary-value ${closingBalance >= 0 ? 'positive' : 'negative'}">
+                                Rs ${Math.abs(closingBalance).toLocaleString('en-PK', {maximumFractionDigits: 2})}
+                                <span class="badge ${closingBalance >= 0 ? 'badge-dr' : 'badge-cr'}" style="margin-left: 0.5rem; font-size: 0.75rem;">
+                                    ${closingBalance >= 0 ? 'Dr' : 'Cr'}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="ledger-table-container">
+                        <table class="ledger-table">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Description</th>
+                                    <th>Reference</th>
+                                    <th class="text-right">Debit</th>
+                                    <th class="text-right">Credit</th>
+                                    <th class="text-right">Balance</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                `;
+
+                transactions.forEach(txn => {
+                    if (txn.type === 'sub_account_header') {
+                        html += `
+                            <tr class="sub-header">
+                                <td colspan="6" style="padding: 0.875rem 1.25rem;">
+                                    <i class="fas fa-folder-open" style="margin-right: 0.5rem; color: #3b82f6;"></i>
+                                    ${txn.sub_account_name}
+                                </td>
+                            </tr>
+                        `;
+                    } else if (txn.type === 'sub_account_total') {
+                        html += `
+                            <tr class="sub-total">
+                                <td colspan="3" style="font-weight: 700;">Sub Account Total</td>
+                                <td class="text-right" style="font-weight: 700;">Rs ${parseFloat(txn.total_debit || 0).toLocaleString('en-PK', {maximumFractionDigits: 2})}</td>
+                                <td class="text-right" style="font-weight: 700;">Rs ${parseFloat(txn.total_credit || 0).toLocaleString('en-PK', {maximumFractionDigits: 2})}</td>
+                                <td class="text-right" style="font-weight: 700;">Rs ${parseFloat(txn.running_balance || 0).toLocaleString('en-PK', {maximumFractionDigits: 2})}</td>
+                            </tr>
+                        `;
+                    } else {
+                        const debit = parseFloat(txn.debit || 0);
+                        const credit = parseFloat(txn.credit || 0);
+                        const balance = parseFloat(txn.running_balance || 0);
+                        const isOpening = txn.type === 'opening_balance';
+                        const rowClass = isOpening ? ' class="opening-row"' : '';
+
+                        html += `
+                            <tr${rowClass}>
+                                <td>${txn.date || '-'}</td>
+                                <td>${txn.description || '-'}</td>
+                                <td>${txn.reference || '-'}</td>
+                                <td class="text-right">${debit > 0 ? 'Rs ' + debit.toLocaleString('en-PK', {maximumFractionDigits: 2}) : '-'}</td>
+                                <td class="text-right">${credit > 0 ? 'Rs ' + credit.toLocaleString('en-PK', {maximumFractionDigits: 2}) : '-'}</td>
+                                <td class="text-right" style="font-weight: 600;">
+                                    Rs ${Math.abs(balance).toLocaleString('en-PK', {maximumFractionDigits: 2})}
+                                    <span class="badge ${balance >= 0 ? 'badge-dr' : 'badge-cr'}" style="margin-left: 0.5rem;">
+                                        ${balance >= 0 ? 'Dr' : 'Cr'}
+                                    </span>
+                                </td>
+                            </tr>
+                        `;
+                    }
+                });
+
+                html += `
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+
+                modalBody.innerHTML = html;
+            }
+
+            function renderGLData(entries, summary, accountName) {
+                const modalBody = document.getElementById('ledgerModalBody');
+
+                if (!entries || entries.length === 0) {
+                    modalBody.innerHTML = '<div class="ledger-error"><i class="fas fa-info-circle"></i><p>No transactions found for this account</p></div>';
+                    return;
+                }
+
+                let html = `
+                    <div class="ledger-summary">
+                        <div class="ledger-summary-card">
+                            <div class="ledger-summary-label">Total Debit</div>
+                            <div class="ledger-summary-value">Rs ${parseFloat(summary.totalDebits || 0).toLocaleString('en-PK', {maximumFractionDigits: 2})}</div>
+                        </div>
+                        <div class="ledger-summary-card">
+                            <div class="ledger-summary-label">Total Credit</div>
+                            <div class="ledger-summary-value">Rs ${parseFloat(summary.totalCredits || 0).toLocaleString('en-PK', {maximumFractionDigits: 2})}</div>
+                        </div>
+                        <div class="ledger-summary-card">
+                            <div class="ledger-summary-label">Transaction Count</div>
+                            <div class="ledger-summary-value">${summary.transactionCount || 0}</div>
+                        </div>
+                        <div class="ledger-summary-card">
+                            <div class="ledger-summary-label">Balance Status</div>
+                            <div class="ledger-summary-value ${summary.isBalanced ? 'positive' : 'negative'}">
+                                ${summary.isBalanced ? 'Balanced ✓' : 'Unbalanced'}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="ledger-table-container">
+                        <table class="ledger-table">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Description</th>
+                                    <th>Reference</th>
+                                    <th class="text-right">Debit</th>
+                                    <th class="text-right">Credit</th>
+                                    <th class="text-right">Balance</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                `;
+
+                entries.forEach(entry => {
+                    const debit = parseFloat(entry.debit || 0);
+                    const credit = parseFloat(entry.credit || 0);
+                    const balance = parseFloat(entry.balance || 0);
+
+                    html += `
+                        <tr>
+                            <td>${entry.date || '-'}</td>
+                            <td>${entry.description || '-'}</td>
+                            <td>${entry.reference || '-'}</td>
+                            <td class="text-right">${debit > 0 ? 'Rs ' + debit.toLocaleString('en-PK', {maximumFractionDigits: 2}) : '-'}</td>
+                            <td class="text-right">${credit > 0 ? 'Rs ' + credit.toLocaleString('en-PK', {maximumFractionDigits: 2}) : '-'}</td>
+                            <td class="text-right" style="font-weight: 600;">
+                                Rs ${Math.abs(balance).toLocaleString('en-PK', {maximumFractionDigits: 2})}
+                                <span class="badge ${balance >= 0 ? 'badge-dr' : 'badge-cr'}" style="margin-left: 0.5rem;">
+                                    ${balance >= 0 ? 'Dr' : 'Cr'}
+                                </span>
+                            </td>
+                        </tr>
+                    `;
+                });
+
+                html += `
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+
+                modalBody.innerHTML = html;
+            }
+
+            function closeLedgerModal() {
+                const modal = document.getElementById('ledgerModal');
+                modal.classList.remove('show');
+            }
+
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') {
+                    closeLedgerModal();
+                }
+            });
+
+            document.getElementById('ledgerModal')?.addEventListener('click', function(e) {
+                if (e.target === this) {
+                    closeLedgerModal();
+                }
+            });
+
+            document.getElementById('ledgerSearch')?.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    openLedger();
+                }
+            });
+
+            function setDateRange(days) {
+                const dateFrom = document.getElementById('ledgerDateFrom');
+                const dateTo = document.getElementById('ledgerDateTo');
+                const today = new Date();
+                
+                // Remove active class from all buttons
+                document.querySelectorAll('.date-bucket-btn').forEach(btn => {
+                    btn.classList.remove('active');
+                });
+                
+                // Add active class to clicked button
+                event.target.classList.add('active');
+                
+                if (days === 0) {
+                    // All time
+                    dateFrom.value = '';
+                    dateTo.value = '';
+                } else {
+                    // Calculate date range
+                    const fromDate = new Date();
+                    fromDate.setDate(today.getDate() - days);
+                    
+                    dateFrom.value = fromDate.toISOString().split('T')[0];
+                    dateTo.value = today.toISOString().split('T')[0];
+                }
+            }
+
+            // Clear bucket selection when manually changing dates
+            document.getElementById('ledgerDateFrom')?.addEventListener('change', function() {
+                document.querySelectorAll('.date-bucket-btn').forEach(btn => {
+                    btn.classList.remove('active');
+                });
+            });
+
+            document.getElementById('ledgerDateTo')?.addEventListener('change', function() {
+                document.querySelectorAll('.date-bucket-btn').forEach(btn => {
+                    btn.classList.remove('active');
+                });
+            });
 
             // Load Balance Sheet
             fetch('../../../server/api/financial_reports/balance_sheet/balance-sheet.php')
@@ -816,6 +1677,22 @@ $hasDateFilter = $dateFrom && $dateTo;
         </script>
         <script src="../../assets/js/dashboard/dashboard-main.js"></script>
     <?php endif; ?>
+
+    <!-- Ledger Modal -->
+    <div class="ledger-modal" id="ledgerModal">
+        <div class="ledger-modal-content">
+            <div class="ledger-modal-header">
+                <h3 id="ledgerModalTitle">Ledger</h3>
+                <button class="ledger-modal-close" onclick="closeLedgerModal()">&times;</button>
+            </div>
+            <div class="ledger-modal-body" id="ledgerModalBody">
+                <div class="ledger-loading">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <p>Loading...</p>
+                </div>
+            </div>
+        </div>
+    </div>
 </body>
 
 </html>

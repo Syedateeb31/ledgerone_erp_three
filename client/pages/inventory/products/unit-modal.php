@@ -18,6 +18,19 @@
                     <input type="text" id="unitName" name="unitName" required>
                 </div>
                 <div class="form-group">
+                    <label class="required">Unit Scope</label>
+                    <div class="radio-group" style="margin-top: 6px;">
+                        <div class="radio-option">
+                            <input type="radio" id="perProduct" name="unitScope" value="per_product" required>
+                            <label for="perProduct">Per Product</label>
+                        </div>
+                        <div class="radio-option">
+                            <input type="radio" id="universal" name="unitScope" value="universal" checked required>
+                            <label for="universal">Universal</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
                     <label class="required">Unit Type</label>
                     <select id="unitType" name="unitType" required>
                         <option value="count">Count</option>

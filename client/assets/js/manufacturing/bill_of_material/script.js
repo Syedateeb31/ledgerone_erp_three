@@ -2,7 +2,8 @@
     const API_URL = '../../../../server/api/manufacturing/bill_of_material/index.php';
     let finishedGoods = [];
     let rawMaterials = [];
-    let units = {};
+    let productUOMCache = {};
+    let maxUnits = 0;
 
     const materialListEl = document.getElementById('materialList');
     const addBtn = document.getElementById('addMaterialBtn');
@@ -34,21 +35,32 @@
         }
     }
 
-    async function getUnit(unitId) {
-        if (units[unitId]) return units[unitId];
-        const res = await fetch(`${API_URL}?action=unit&unit_id=${unitId}`);
+    async function getProductUOM(productId) {
+        if (productUOMCache[productId]) return productUOMCache[productId];
+        const res = await fetch(`${API_URL}?action=product_uom&product_id=${productId}`);
         const data = await res.json();
-        if (data.success && data.data) {
-            units[unitId] = data.data;
-            return data.data;
+        if (data.success) {
+            productUOMCache[productId] = data;
+            return data;
         }
         return null;
     }
 
-    function createMaterialRow() {
+    function recalculateMaxUnits() {
+        const rows = materialListEl.querySelectorAll('.material-row');
+        let max = 0;
+        rows.forEach(row => {
+            const unitCount = parseInt(row.dataset.unitCount || 0);
+            if (unitCount > max) max = unitCount;
+        });
+        maxUnits = max;
+    }
+
+    async function createMaterialRow() {
         const uid = Date.now() + Math.floor(Math.random() * 1000);
         const rowDiv = document.createElement('div');
         rowDiv.className = 'material-row';
+        rowDiv.dataset.unitCount = 0;
 
         const rawGroup = document.createElement('div');
         rawGroup.className = 'field-group';
@@ -69,65 +81,53 @@
             const opt = document.createElement('option');
             opt.value = `${mat.code} - ${mat.name}`;
             opt.dataset.id = mat.id;
-            opt.dataset.unitId = mat.default_unit_id;
             rawDatalist.appendChild(opt);
         });
         rawGroup.appendChild(rawLabel);
         rawGroup.appendChild(rawInput);
         rawGroup.appendChild(rawDatalist);
 
+        const unitsContainer = document.createElement('div');
+        unitsContainer.className = 'units-container';
+        unitsContainer.style.display = 'flex';
+        unitsContainer.style.gap = '16px';
+        unitsContainer.style.flex = '1';
+
         rawInput.addEventListener('change', async function() {
             const selected = rawMaterials.find(m => `${m.code} - ${m.name}` === this.value);
-            if (selected && selected.default_unit_id) {
-                const unit = await getUnit(selected.default_unit_id);
-                if (unit) {
-                    const unitSelect = rowDiv.querySelector('select');
-                    let opt = unitSelect.querySelector(`option[value="${unit.id}"]`);
-                    if (!opt) {
-                        opt = document.createElement('option');
-                        opt.value = unit.id;
-                        opt.textContent = unit.uom_name;
-                        unitSelect.appendChild(opt);
-                    }
-                    unitSelect.value = unit.id;
+            if (selected) {
+                const uomData = await getProductUOM(selected.id);
+                if (uomData && uomData.units && uomData.units.length > 0) {
+                    rowDiv.dataset.productId = selected.id;
+                    rowDiv.dataset.unitCount = uomData.units.length;
+                    unitsContainer.innerHTML = '';
+                    
+                    uomData.units.forEach((unit) => {
+                        const unitGroup = document.createElement('div');
+                        unitGroup.className = 'field-group';
+                        const unitLabel = document.createElement('label');
+                        unitLabel.className = 'form-label';
+                        unitLabel.textContent = unit.uom_name;
+                        const unitInput = document.createElement('input');
+                        unitInput.type = 'number';
+                        unitInput.className = 'form-control';
+                        unitInput.placeholder = '0';
+                        unitInput.step = 'any';
+                        unitInput.min = '0';
+                        unitInput.dataset.unitId = unit.id;
+                        unitInput.dataset.unitName = unit.uom_name;
+                        unitInput.dataset.conversionFactor = unit.conversion_factor || 1;
+                        unitInput.dataset.isBaseUnit = unit.is_base_unit || 0;
+                        unitGroup.appendChild(unitLabel);
+                        unitGroup.appendChild(unitInput);
+                        unitsContainer.appendChild(unitGroup);
+                    });
+                    
+                    recalculateMaxUnits();
+                    updateAllRowsStructure();
                 }
             }
         });
-
-        const qtyGroup = document.createElement('div');
-        qtyGroup.className = 'field-group';
-        const qtyLabel = document.createElement('label');
-        qtyLabel.className = 'form-label';
-        qtyLabel.textContent = 'Quantity';
-        qtyLabel.htmlFor = `qty_${uid}`;
-        const qtyInput = document.createElement('input');
-        qtyInput.type = 'number';
-        qtyInput.id = `qty_${uid}`;
-        qtyInput.className = 'form-control';
-        qtyInput.placeholder = '0.0';
-        qtyInput.step = 'any';
-        qtyInput.required = true;
-        qtyGroup.appendChild(qtyLabel);
-        qtyGroup.appendChild(qtyInput);
-
-        const unitGroup = document.createElement('div');
-        unitGroup.className = 'field-group unit-field';
-        const unitLabel = document.createElement('label');
-        unitLabel.className = 'form-label';
-        unitLabel.textContent = 'Unit';
-        unitLabel.htmlFor = `unit_${uid}`;
-        const unitSelect = document.createElement('select');
-        unitSelect.id = `unit_${uid}`;
-        unitSelect.className = 'form-control';
-        unitSelect.required = true;
-        const placeholderOption = document.createElement('option');
-        placeholderOption.value = '';
-        placeholderOption.textContent = 'Auto';
-        placeholderOption.disabled = true;
-        placeholderOption.selected = true;
-        unitSelect.appendChild(placeholderOption);
-        unitGroup.appendChild(unitLabel);
-        unitGroup.appendChild(unitSelect);
 
         const actionGroup = document.createElement('div');
         actionGroup.className = 'action-group';
@@ -135,9 +135,10 @@
         addBtnIcon.type = 'button';
         addBtnIcon.className = 'btn btn-icon';
         addBtnIcon.innerHTML = '<i class="las la-plus"></i>';
-        addBtnIcon.addEventListener('click', (e) => {
+        addBtnIcon.addEventListener('click', async (e) => {
             e.preventDefault();
-            materialListEl.appendChild(createMaterialRow());
+            const newRow = await createMaterialRow();
+            materialListEl.appendChild(newRow);
         });
 
         const removeBtnIcon = document.createElement('button');
@@ -148,6 +149,8 @@
             e.preventDefault();
             if (materialListEl.children.length > 1) {
                 rowDiv.remove();
+                recalculateMaxUnits();
+                updateAllRowsStructure();
             }
         });
 
@@ -155,16 +158,47 @@
         actionGroup.appendChild(removeBtnIcon);
 
         rowDiv.appendChild(rawGroup);
-        rowDiv.appendChild(qtyGroup);
-        rowDiv.appendChild(unitGroup);
+        rowDiv.appendChild(unitsContainer);
         rowDiv.appendChild(actionGroup);
 
         return rowDiv;
     }
 
-    function initRows() {
+    function updateAllRowsStructure() {
+        const rows = materialListEl.querySelectorAll('.material-row');
+        rows.forEach(row => {
+            const unitsContainer = row.querySelector('.units-container');
+            if (!unitsContainer) return;
+            
+            const currentUnits = unitsContainer.querySelectorAll('.field-group');
+            const currentCount = currentUnits.length;
+            
+            if (currentCount < maxUnits) {
+                for (let i = currentCount; i < maxUnits; i++) {
+                    const unitGroup = document.createElement('div');
+                    unitGroup.className = 'field-group';
+                    const unitLabel = document.createElement('label');
+                    unitLabel.className = 'form-label';
+                    unitLabel.textContent = '-';
+                    const unitInput = document.createElement('input');
+                    unitInput.type = 'text';
+                    unitInput.className = 'form-control';
+                    unitInput.value = '-';
+                    unitInput.readOnly = true;
+                    unitInput.style.background = '#F2F4F8';
+                    unitInput.style.color = '#9AA1AE';
+                    unitGroup.appendChild(unitLabel);
+                    unitGroup.appendChild(unitInput);
+                    unitsContainer.appendChild(unitGroup);
+                }
+            }
+        });
+    }
+
+    async function initRows() {
         materialListEl.innerHTML = '';
-        materialListEl.appendChild(createMaterialRow());
+        const row = await createMaterialRow();
+        materialListEl.appendChild(row);
     }
 
     async function saveBOM() {
@@ -181,22 +215,39 @@
         
         for (const row of rows) {
             const rawInput = row.querySelector('input[list]');
-            const qtyInput = row.querySelector('input[type="number"]');
-            const unitSelect = row.querySelector('select');
-            
             const rawValue = rawInput.value;
             const selectedRM = rawMaterials.find(m => `${m.code} - ${m.name}` === rawValue);
             
-            if (!selectedRM || !qtyInput.value || !unitSelect.value) {
-                alert('Please fill all material fields');
+            if (!selectedRM) {
+                alert('Please select valid raw materials');
                 return;
             }
             
-            materials.push({
-                raw_material_id: selectedRM.id,
-                quantity: parseFloat(qtyInput.value),
-                unit_id: parseInt(unitSelect.value)
+            const unitsContainer = row.querySelector('.units-container');
+            const unitInputs = unitsContainer.querySelectorAll('input[type="number"]');
+            
+            let hasQuantity = false;
+            unitInputs.forEach(input => {
+                const qty = parseFloat(input.value) || 0;
+                if (qty > 0) {
+                    hasQuantity = true;
+                    materials.push({
+                        raw_material_id: selectedRM.id,
+                        quantity: qty,
+                        unit_id: parseInt(input.dataset.unitId)
+                    });
+                }
             });
+            
+            if (!hasQuantity) {
+                alert('Please enter at least one quantity for each material');
+                return;
+            }
+        }
+
+        if (materials.length === 0) {
+            alert('Please enter at least one material quantity');
+            return;
         }
 
         const payload = {
@@ -226,9 +277,10 @@
         }
     }
 
-    addBtn.addEventListener('click', (e) => {
+    addBtn.addEventListener('click', async (e) => {
         e.preventDefault();
-        materialListEl.appendChild(createMaterialRow());
+        const row = await createMaterialRow();
+        materialListEl.appendChild(row);
     });
 
     saveBtn.addEventListener('click', (e) => {
@@ -245,7 +297,7 @@
         await loadFinishedGoods();
         await loadRawMaterials();
         await generateBOMCode();
-        initRows();
+        await initRows();
     }
 
     async function generateBOMCode() {

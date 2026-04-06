@@ -13,7 +13,7 @@
 // Cache busting for development
 const dashboardVersion = new Date().getTime();
 const dashboardScript = document.createElement('script');
-dashboardScript.src = '/ledgerone_erp/client/assets/js/dashboard/dashboard-core.js?v=' + dashboardVersion;
+dashboardScript.src = '/client/assets/js/dashboard/dashboard-core.js?v=' + dashboardVersion;
 dashboardScript.async = false;
 document.head.appendChild(dashboardScript);
 </script>

@@ -69,10 +69,10 @@ try {
     $stmt = $pdo->prepare("
         INSERT INTO sale_invoice (
             tenant_id, currency_id, bill_no, sale_date, customer_id, sub_account_id, company_id, branch_id,
-            previous_balance, sale_officer_id, sale_order_id, bilty_no, transport_name, total_bill, total_discount_percent, 
-            total_discount_amount, net_amount, amount_returned, withholding_tax_percent, withholding_tax_amount, remarks, status,
+            previous_balance, sale_officer_id, supplier_man_id, sale_order_id, bilty_no, transport_name, total_bill, total_discount_percent, 
+            total_discount_amount, net_amount, amount_returned, withholding_tax_percent, withholding_tax_amount, amount_paid_auto_fill, remarks, status,
             created_by, updated_by
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ");
 
     $stmt->execute([
@@ -86,6 +86,7 @@ try {
         $input['branchId'],
         extractBalanceAmount($input['previousBalance'] ?? '0.00'),
         $input['salesOfficerId'] ?? null,
+        $input['supplierManId'] ?? null,
         $input['saleOrderId'] ?? null,
         $input['biltyNo'] ?? null,
         $input['transportName'] ?? null,
@@ -96,6 +97,7 @@ try {
         $input['amountReturned'] ?? 0.00,
         $withholdingTaxPercent,
         $withholdingTaxAmount,
+        $input['amountPaidAutoFill'] ?? 'yes',
         $input['remarks'] ?? null,
         $input['status'] ?? 'Posted',
         $user_id,

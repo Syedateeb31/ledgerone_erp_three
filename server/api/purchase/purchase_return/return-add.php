@@ -105,31 +105,42 @@ try {
     ");
     
     foreach ($input['items'] as $item) {
-        $item_stmt->execute([
-            $tenant_id,
-            $invoice_id,
-            $item['productId'],
-            $item['uomId'],
-            $item['quantity'],
-            $item['purchasePrice'],
-            $item['grossAmount'],
-            $item['discountPercent'] ?? 0.00,
-            $item['discountAmount'] ?? 0.00,
-            $item['netAmount'],
-            $item['vehicleNo'] ?? null,
-            $item['tradeOfferPercent'] ?? 0.00,
-            $item['tradeOfferAmount'] ?? 0.00,
-            $item['gstPercent'] ?? 0.00,
-            $item['gstAmount'] ?? 0.00,
-            $item['focQty'] ?? 0,
-            $user_id,
-            $user_id
-        ]);
+        // Each item can have multiple unit entries
+        $isFirstEntry = true;
+        foreach ($item['unitEntries'] as $unitEntry) {
+            $item_stmt->execute([
+                $tenant_id,
+                $invoice_id,
+                $item['productId'],
+                $unitEntry['uomId'],
+                $unitEntry['quantity'],
+                $item['purchasePrice'],
+                $isFirstEntry ? $item['grossAmount'] : 0,
+                $item['discountPercent'] ?? 0.00,
+                $isFirstEntry ? $item['discountAmount'] : 0,
+                $isFirstEntry ? $item['netAmount'] : 0,
+                $item['vehicleNo'] ?? null,
+                $item['tradeOfferPercent'] ?? 0.00,
+                $isFirstEntry ? $item['tradeOfferAmount'] : 0,
+                $item['gstPercent'] ?? 0.00,
+                $isFirstEntry ? $item['gstAmount'] : 0,
+                $item['focQty'] ?? 0,
+                $user_id,
+                $user_id
+            ]);
+            $isFirstEntry = false;
+        }
         
         // Get product's inventory_account_id
         $product_stmt = $pdo->prepare("SELECT inventory_account_id FROM products WHERE id = ?");
         $product_stmt->execute([$item['productId']]);
         $account_id = $product_stmt->fetchColumn();
+        
+        // Calculate total quantity from all unit entries
+        $totalQty = 0;
+        foreach ($item['unitEntries'] as $unitEntry) {
+            $totalQty += $unitEntry['quantity'];
+        }
         
         // Insert into stock_ledger - qty_out for returns (reducing inventory)
         $stock_stmt = $pdo->prepare("
@@ -144,9 +155,9 @@ try {
             $input['branchId'],
             $item['productId'],
             $invoice_id,
-            $item['quantity'],
+            $totalQty,
             $item['purchasePrice'],
-            $item['uomId'],
+            $item['unitEntries'][0]['uomId'],
             $input['purchaseDate']
         ]);
     }

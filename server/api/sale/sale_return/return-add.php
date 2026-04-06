@@ -62,8 +62,8 @@ try {
             tenant_id, company_id, currency_id, bill_no, sale_date, customer_id, branch_id,
             previous_balance, total_bill, total_discount_percent, 
             total_discount_amount, net_amount, sale_invoice_no, amount_refunded, 
-            payment_method, bank_account_id, sale_officer_id, sub_account_id, remarks, status, created_by, updated_by
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            payment_method, bank_account_id, sale_officer_id, supplier_man_id, sub_account_id, remarks, status, created_by, updated_by
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ");
 
     // Debug log
@@ -87,6 +87,7 @@ try {
         !empty($input['paymentMethod']) ? ucwords(str_replace('_', ' ', $input['paymentMethod'])) : null,
         $input['bankAccountId'] ?? null,
         $input['salesOfficerId'] ?? null,
+        $input['supplierManId'] ?? null,
         $input['subAccountId'] ?? null,
         $input['remarks'] ?? null,
         $input['status'] ?? 'Posted',

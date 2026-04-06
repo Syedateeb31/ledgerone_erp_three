@@ -68,6 +68,16 @@ if (!$user_id) {
                             </div>
                         </div>
 
+                        <div class="form-group col-4">
+                            <label for="salesman">
+                                <i class="fas fa-user-tie"></i>
+                                Salesman
+                            </label>
+                            <select id="salesman">
+                                <option value="">Select Salesman</option>
+                            </select>
+                        </div>
+
                         <div class="form-group col-8">
                             <label for="supplierName" class="required">
                                 <i class="fas fa-user"></i>

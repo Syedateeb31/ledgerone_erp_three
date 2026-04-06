@@ -578,3 +578,40 @@ label input[type="checkbox"] {
   height: auto;
   margin-right: 8px;
 }
+
+.unit-cell {
+  padding: 4px 2px;
+  vertical-align: middle;
+  text-align: center;
+}
+
+.unit-input {
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  padding: 4px 6px;
+  background: var(--surface-0);
+  color: var(--body);
+  font-size: 11px;
+  width: 60px;
+  text-align: center;
+}
+
+.unit-input:focus {
+  border-color: var(--primary);
+  outline: none;
+}
+
+.unit-header {
+  background: var(--surface-2);
+  color: var(--heading);
+  font-weight: 600;
+  font-size: 11px;
+  padding: 10px 6px;
+  text-align: left;
+  border-bottom: 1px solid var(--border-default);
+}
+
+.unit-total {
+  text-align: right;
+  font-weight: 600;
+}

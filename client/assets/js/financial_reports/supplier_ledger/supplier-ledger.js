@@ -30,12 +30,15 @@ document.addEventListener('DOMContentLoaded', function () {
     const subAccountFilter = document.getElementById('sub-account-filter');
     const subAccount = document.getElementById('sub-account');
     const companyFilter = document.getElementById('company-filter');
+    const currencyFilter = document.getElementById('currency-filter');
 
     let currentPage = 1;
     let totalPages = 1;
     let allData = [];
     const itemsPerPage = 10;
     let expandedInvoices = new Set();
+    let allSuppliers = [];
+    let currentCurrencySymbol = window.currencySymbol;
 
     // Set default dates
     const today = new Date();
@@ -45,9 +48,9 @@ document.addEventListener('DOMContentLoaded', function () {
     fromDate.value = '';
     toDate.value = '';
 
-    // Load suppliers on page load
-    let allSuppliers = [];
+    // Load companies on page load
     loadCompanies();
+    loadCurrencies();
     loadSuppliers();
 
     // Searchable dropdown functionality
@@ -260,6 +263,39 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
+    // Load currencies
+    async function loadCurrencies() {
+        try {
+            const response = await fetch('../../../../server/api/financial_reports/supplier_ledger/supplier-ledger.php?type=currencies');
+            const result = await response.json();
+            
+            if (result.success) {
+                currencyFilter.innerHTML = '';
+                result.data.forEach(currency => {
+                    const isBase = currency.is_base_currency == 1;
+                    currencyFilter.innerHTML += `<option value="${currency.id}" ${isBase ? 'selected' : ''}>${currency.name} (${currency.symbol})${isBase ? ' - Base' : ''}</option>`;
+                    if (isBase) {
+                        currentCurrencySymbol = currency.symbol;
+                    }
+                });
+            }
+        } catch (error) {
+            console.error('Error loading currencies:', error);
+        }
+    }
+
+    // Update currency symbol when currency changes
+    currencyFilter.addEventListener('change', async function() {
+        const selectedOption = currencyFilter.options[currencyFilter.selectedIndex];
+        const symbolMatch = selectedOption.text.match(/\((.+?)\)/);
+        if (symbolMatch) {
+            currentCurrencySymbol = symbolMatch[1];
+        }
+        if (summaryLedgerBtn.classList.contains('active') || (detailedLedgerBtn.classList.contains('active') && supplierCode.value)) {
+            await loadLedgerData();
+        }
+    });
+
     // Load suppliers
     async function loadSuppliers() {
         try {
@@ -322,6 +358,10 @@ document.addEventListener('DOMContentLoaded', function () {
         if (companyFilter.value) {
             params.append('company_id', companyFilter.value);
         }
+        
+        if (currencyFilter.value) {
+            params.append('currency_id', currencyFilter.value);
+        }
 
         console.log('API URL:', `../../../../server/api/financial_reports/supplier_ledger/supplier-ledger.php?${params}`);
         console.log('Is Detailed:', isDetailed, 'Supplier ID:', supplierCode.value);
@@ -380,10 +420,10 @@ document.addEventListener('DOMContentLoaded', function () {
             tbody.innerHTML += `
                 <tr>
                     <td>${row.supplier_name}</td>
-                    <td class="${opening >= 0 ? 'balance-positive' : 'balance-negative'}">${window.currencySymbol}${Math.abs(opening).toFixed(2)} ${opening >= 0 ? 'Dr' : 'Cr'}</td>
-                    <td>${window.currencySymbol}${debit.toFixed(2)}</td>
-                    <td>${window.currencySymbol}${credit.toFixed(2)}</td>
-                    <td class="${closing >= 0 ? 'balance-positive' : 'balance-negative'}">${window.currencySymbol}${Math.abs(closing).toFixed(2)} ${closing >= 0 ? 'Dr' : 'Cr'}</td>
+                    <td class="${opening >= 0 ? 'balance-positive' : 'balance-negative'}">${currentCurrencySymbol}${Math.abs(opening).toFixed(2)} ${opening >= 0 ? 'Dr' : 'Cr'}</td>
+                    <td>${currentCurrencySymbol}${debit.toFixed(2)}</td>
+                    <td>${currentCurrencySymbol}${credit.toFixed(2)}</td>
+                    <td class="${closing >= 0 ? 'balance-positive' : 'balance-negative'}">${currentCurrencySymbol}${Math.abs(closing).toFixed(2)} ${closing >= 0 ? 'Dr' : 'Cr'}</td>
                 </tr>
             `;
         });
@@ -400,10 +440,10 @@ document.addEventListener('DOMContentLoaded', function () {
         tbody.innerHTML += `
             <tr class="totals-row">
                 <td><strong>Totals</strong></td>
-                <td><strong class="${grandTotalOpening >= 0 ? 'balance-positive' : 'balance-negative'}">${window.currencySymbol}${Math.abs(grandTotalOpening).toFixed(2)} ${grandTotalOpening >= 0 ? 'Dr' : 'Cr'}</strong></td>
-                <td><strong>${window.currencySymbol}${grandTotalDebit.toFixed(2)}</strong></td>
-                <td><strong>${window.currencySymbol}${grandTotalCredit.toFixed(2)}</strong></td>
-                <td><strong class="${grandTotalClosing >= 0 ? 'balance-positive' : 'balance-negative'}">${window.currencySymbol}${Math.abs(grandTotalClosing).toFixed(2)} ${grandTotalClosing >= 0 ? 'Dr' : 'Cr'}</strong></td>
+                <td><strong class="${grandTotalOpening >= 0 ? 'balance-positive' : 'balance-negative'}">${currentCurrencySymbol}${Math.abs(grandTotalOpening).toFixed(2)} ${grandTotalOpening >= 0 ? 'Dr' : 'Cr'}</strong></td>
+                <td><strong>${currentCurrencySymbol}${grandTotalDebit.toFixed(2)}</strong></td>
+                <td><strong>${currentCurrencySymbol}${grandTotalCredit.toFixed(2)}</strong></td>
+                <td><strong class="${grandTotalClosing >= 0 ? 'balance-positive' : 'balance-negative'}">${currentCurrencySymbol}${Math.abs(grandTotalClosing).toFixed(2)} ${grandTotalClosing >= 0 ? 'Dr' : 'Cr'}</strong></td>
             </tr>
         `;
     }
@@ -430,7 +470,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 <td>OB001</td>
                 <td></td>
                 <td></td>
-                <td class="${openingBalance >= 0 ? 'balance-positive' : 'balance-negative'}">${window.currencySymbol}${Math.abs(openingBalance).toFixed(2)} ${openingBalance >= 0 ? 'Dr' : 'Cr'}</td>
+                <td class="${openingBalance >= 0 ? 'balance-positive' : 'balance-negative'}">${currentCurrencySymbol}${Math.abs(openingBalance).toFixed(2)} ${openingBalance >= 0 ? 'Dr' : 'Cr'}</td>
             </tr>
         `;
         
@@ -462,9 +502,9 @@ document.addEventListener('DOMContentLoaded', function () {
                             ${row.invoice_id || row.return_id ? `<button class="btn-expand" data-type="${row.invoice_id ? 'invoice' : 'return'}" data-id="${row.invoice_id || row.return_id}" style="margin-left: 8px; padding: 2px 8px; font-size: 11px; background: var(--primary); color: white; border: none; border-radius: 4px; cursor: pointer;">Expand</button>` : ''}
                         </td>
                         <td>${row.reference}</td>
-                        <td>${debit > 0 ? window.currencySymbol + debit.toFixed(2) : ''}</td>
-                        <td>${credit > 0 ? window.currencySymbol + credit.toFixed(2) : ''}</td>
-                        <td class="${balance >= 0 ? 'balance-positive' : 'balance-negative'}">${window.currencySymbol}${Math.abs(balance).toFixed(2)} ${balance >= 0 ? 'Dr' : 'Cr'}</td>
+                        <td>${debit > 0 ? currentCurrencySymbol + debit.toFixed(2) : ''}</td>
+                        <td>${credit > 0 ? currentCurrencySymbol + credit.toFixed(2) : ''}</td>
+                        <td class="${balance >= 0 ? 'balance-positive' : 'balance-negative'}">${currentCurrencySymbol}${Math.abs(balance).toFixed(2)} ${balance >= 0 ? 'Dr' : 'Cr'}</td>
                     </tr>
                 `;
             });
@@ -490,7 +530,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         <td>OB-SUB</td>
                         <td></td>
                         <td></td>
-                        <td class="${subAccountOpening >= 0 ? 'balance-positive' : 'balance-negative'}">${window.currencySymbol}${Math.abs(subAccountOpening).toFixed(2)} ${subAccountOpening >= 0 ? 'Dr' : 'Cr'}</td>
+                        <td class="${subAccountOpening >= 0 ? 'balance-positive' : 'balance-negative'}">${currentCurrencySymbol}${Math.abs(subAccountOpening).toFixed(2)} ${subAccountOpening >= 0 ? 'Dr' : 'Cr'}</td>
                     </tr>
                 `;
             }
@@ -517,9 +557,9 @@ document.addEventListener('DOMContentLoaded', function () {
                                 ${row.invoice_id || row.return_id ? `<button class="btn-expand" data-type="${row.invoice_id ? 'invoice' : 'return'}" data-id="${row.invoice_id || row.return_id}" style="margin-left: 8px; padding: 2px 8px; font-size: 11px; background: var(--primary); color: white; border: none; border-radius: 4px; cursor: pointer;">Expand</button>` : ''}
                             </td>
                             <td>${row.reference}</td>
-                            <td>${debit > 0 ? window.currencySymbol + debit.toFixed(2) : ''}</td>
-                            <td>${credit > 0 ? window.currencySymbol + credit.toFixed(2) : ''}</td>
-                            <td class="${balance >= 0 ? 'balance-positive' : 'balance-negative'}">${window.currencySymbol}${Math.abs(balance).toFixed(2)} ${balance >= 0 ? 'Dr' : 'Cr'}</td>
+                            <td>${debit > 0 ? currentCurrencySymbol + debit.toFixed(2) : ''}</td>
+                            <td>${credit > 0 ? currentCurrencySymbol + credit.toFixed(2) : ''}</td>
+                            <td class="${balance >= 0 ? 'balance-positive' : 'balance-negative'}">${currentCurrencySymbol}${Math.abs(balance).toFixed(2)} ${balance >= 0 ? 'Dr' : 'Cr'}</td>
                         </tr>
                     `;
                 });
@@ -557,9 +597,9 @@ document.addEventListener('DOMContentLoaded', function () {
                                 ${row.invoice_id || row.return_id ? `<button class="btn-expand" data-type="${row.invoice_id ? 'invoice' : 'return'}" data-id="${row.invoice_id || row.return_id}" style="margin-left: 8px; padding: 2px 8px; font-size: 11px; background: var(--primary); color: white; border: none; border-radius: 4px; cursor: pointer;">Expand</button>` : ''}
                             </td>
                             <td>${row.reference}</td>
-                            <td>${debit > 0 ? window.currencySymbol + debit.toFixed(2) : ''}</td>
-                            <td>${credit > 0 ? window.currencySymbol + credit.toFixed(2) : ''}</td>
-                            <td class="${balance >= 0 ? 'balance-positive' : 'balance-negative'}">${window.currencySymbol}${Math.abs(balance).toFixed(2)} ${balance >= 0 ? 'Dr' : 'Cr'}</td>
+                            <td>${debit > 0 ? currentCurrencySymbol + debit.toFixed(2) : ''}</td>
+                            <td>${credit > 0 ? currentCurrencySymbol + credit.toFixed(2) : ''}</td>
+                            <td class="${balance >= 0 ? 'balance-positive' : 'balance-negative'}">${currentCurrencySymbol}${Math.abs(balance).toFixed(2)} ${balance >= 0 ? 'Dr' : 'Cr'}</td>
                         </tr>
                     `;
                 });
@@ -572,9 +612,9 @@ document.addEventListener('DOMContentLoaded', function () {
                 <td><strong>Totals</strong></td>
                 <td></td>
                 <td></td>
-                <td><strong>${window.currencySymbol}${totalDebit.toFixed(2)}</strong></td>
-                <td><strong>${window.currencySymbol}${totalCredit.toFixed(2)}</strong></td>
-                <td><strong class="${finalBalance >= 0 ? 'balance-positive' : 'balance-negative'}">${window.currencySymbol}${Math.abs(finalBalance).toFixed(2)} ${finalBalance >= 0 ? 'Dr' : 'Cr'}</strong></td>
+                <td><strong>${currentCurrencySymbol}${totalDebit.toFixed(2)}</strong></td>
+                <td><strong>${currentCurrencySymbol}${totalCredit.toFixed(2)}</strong></td>
+                <td><strong class="${finalBalance >= 0 ? 'balance-positive' : 'balance-negative'}">${currentCurrencySymbol}${Math.abs(finalBalance).toFixed(2)} ${finalBalance >= 0 ? 'Dr' : 'Cr'}</strong></td>
             </tr>
         `;
     }
@@ -631,6 +671,10 @@ document.addEventListener('DOMContentLoaded', function () {
         
         if (companyFilter.value) {
             params.append('company_id', companyFilter.value);
+        }
+        
+        if (currencyFilter.value) {
+            params.append('currency_id', currencyFilter.value);
         }
         
         if (expandedInvoices.size > 0) {

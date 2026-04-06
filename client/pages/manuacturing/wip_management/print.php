@@ -49,9 +49,38 @@ $itemsStmt = $pdo->prepare("
     JOIN products p ON wi.material_id = p.id
     LEFT JOIN uom u ON wi.uom_id = u.id
     WHERE wi.work_in_progress_id = ?
+    ORDER BY p.code, u.id
 ");
 $itemsStmt->execute([$wip_id]);
 $items = $itemsStmt->fetchAll(PDO::FETCH_ASSOC);
+
+// Group materials by product
+$materialsByProduct = [];
+foreach ($items as $item) {
+    if (!isset($materialsByProduct[$item['material_id']])) {
+        $materialsByProduct[$item['material_id']] = [
+            'code' => $item['material_code'],
+            'name' => $item['material_name'],
+            'units' => []
+        ];
+    }
+    $materialsByProduct[$item['material_id']]['units'][] = [
+        'required_qty' => $item['required_qty'],
+        'issued_qty' => $item['issued_qty'],
+        'available_qty' => $item['available_qty'],
+        'issue_qty' => $item['issue_qty'],
+        'uom_name' => $item['uom_name'],
+        'unit_cost' => $item['unit_cost'],
+        'total_cost' => $item['total_cost']
+    ];
+}
+
+// Find max units
+$maxUnits = 0;
+foreach ($materialsByProduct as $product) {
+    $unitCount = count($product['units']);
+    if ($unitCount > $maxUnits) $maxUnits = $unitCount;
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -169,8 +198,8 @@ $items = $itemsStmt->fetchAll(PDO::FETCH_ASSOC);
         <thead>
             <tr>
                 <th>Material</th>
-                <th>Required</th>
-                <th>Issued</th>
+                <th>Required Qty</th>
+                <th>Issued Qty</th>
                 <th>Available</th>
                 <th>Issue Qty</th>
                 <th>UOM</th>
@@ -179,17 +208,21 @@ $items = $itemsStmt->fetchAll(PDO::FETCH_ASSOC);
             </tr>
         </thead>
         <tbody>
-            <?php foreach ($items as $item): ?>
-            <tr>
-                <td><?php echo $item['material_code'] . ' - ' . $item['material_name']; ?></td>
-                <td><?php echo $item['required_qty']; ?></td>
-                <td><?php echo $item['issued_qty']; ?></td>
-                <td><?php echo $item['available_qty']; ?></td>
-                <td><?php echo $item['issue_qty']; ?></td>
-                <td><?php echo $item['uom_name']; ?></td>
-                <td><?php echo number_format($item['unit_cost'], 2); ?></td>
-                <td><?php echo number_format($item['total_cost'], 2); ?></td>
-            </tr>
+            <?php foreach ($materialsByProduct as $product): ?>
+                <?php foreach ($product['units'] as $idx => $unit): ?>
+                <tr>
+                    <?php if ($idx === 0): ?>
+                        <td rowspan="<?php echo count($product['units']); ?>" style="font-weight:bold; vertical-align:middle; border-right:2px solid #000;"><?php echo $product['code'] . '<br>' . $product['name']; ?></td>
+                    <?php endif; ?>
+                    <td><?php echo $unit['required_qty']; ?></td>
+                    <td><?php echo $unit['issued_qty']; ?></td>
+                    <td><?php echo $unit['available_qty']; ?></td>
+                    <td><?php echo $unit['issue_qty']; ?></td>
+                    <td><?php echo $unit['uom_name']; ?></td>
+                    <td><?php echo number_format($unit['unit_cost'], 2); ?></td>
+                    <td><?php echo number_format($unit['total_cost'], 2); ?></td>
+                </tr>
+                <?php endforeach; ?>
             <?php endforeach; ?>
             <tr class="total-row">
                 <td colspan="7" style="text-align: right;">Grand Total:</td>

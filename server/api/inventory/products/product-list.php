@@ -27,14 +27,16 @@ try {
     $category = $_GET['category'] ?? '';
     $type = $_GET['type'] ?? '';
     $status = $_GET['status'] ?? '';
+    $uom_filter = $_GET['uom_filter'] ?? '';
     $page = max(1, (int)($_GET['page'] ?? 1));
     $limit = 10;
     $offset = ($page - 1) * $limit;
     
     $sql = "
         SELECT p.id, p.code, p.name, p.product_type, p.mrp, p.trade_price, p.is_active,
-               p.parent_product_id, p.qr_code, p.barcode, p.company_id,
+               p.parent_product_id, p.qr_code, p.barcode, p.company_id, p.uom_type,
                c.category_name, sc.subcategory_name, comp.company_name,
+               u.uom_name as default_unit_name, ug.group_name as uom_group_name,
                COALESCE(SUM(sl.qty_in) - SUM(sl.qty_out), 0) as current_stock,
                CASE WHEN COUNT(sl.id) = 0 THEN 1 ELSE 0 END as no_stock_records,
                curr.symbol as currency_symbol
@@ -42,6 +44,8 @@ try {
         LEFT JOIN categories c ON p.category_id = c.id
         LEFT JOIN subcategories sc ON p.subcategory_id = sc.id
         LEFT JOIN companies comp ON p.company_id = comp.id
+        LEFT JOIN uom u ON p.default_unit_id = u.id
+        LEFT JOIN uom_groups ug ON p.uom_group_id = ug.id
         LEFT JOIN stock_ledger sl ON p.id = sl.product_id AND sl.tenant_id = p.tenant_id
         LEFT JOIN tenant_currencies tc ON p.tenant_id = tc.tenant_id AND tc.is_base_currency = 1
         LEFT JOIN ledgerone_public.currencies curr ON tc.currency_id = curr.id
@@ -72,6 +76,11 @@ try {
         $params[] = $active;
     }
     
+    if ($uom_filter) {
+        $sql .= " AND p.uom_type = ?";
+        $params[] = $uom_filter;
+    }
+    
     $sql .= " GROUP BY p.id ORDER BY COALESCE(p.parent_product_id, p.id), p.parent_product_id IS NOT NULL, p.created_at DESC";
     
     // Get total count
@@ -98,6 +107,10 @@ try {
         $active = ($status === 'active') ? 1 : 0;
         $countSql .= " AND p.is_active = ?";
         $countParams[] = $active;
+    }
+    if ($uom_filter) {
+        $countSql .= " AND p.uom_type = ?";
+        $countParams[] = $uom_filter;
     }
     
     $countStmt = $pdo->prepare($countSql);

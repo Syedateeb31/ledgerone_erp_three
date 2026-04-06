@@ -4,6 +4,9 @@ document.addEventListener('DOMContentLoaded', function () {
     // Set customer code field to show Auto Generated
     document.getElementById('customerCode').value = 'Auto Generated';
     
+    // Load customer types
+    loadCustomerTypes();
+    
     // Theme Toggle
     const themeToggle = document.getElementById('themeToggle');
     const body = document.body;
@@ -49,6 +52,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const cityZoneSelect = document.getElementById('cityZone');
     const areaSelect = document.getElementById('area');
     const salesOfficerSelect = document.getElementById('salesOfficer');
+    const supplierManSelect = document.getElementById('supplierMan');
     const companySelect = document.getElementById('company');
 
     // Taxation fields
@@ -192,17 +196,20 @@ document.addEventListener('DOMContentLoaded', function () {
     // Load territory data
     loadCountries();
     loadSalesOfficers();
+    loadSupplierMen();
     loadCompanies();
 
     // Initialize Select2 on territory dropdowns
     $(document).ready(function() {
         $('#company').select2({ placeholder: 'Select Company', allowClear: false });
+        $('#customerType').select2({ placeholder: 'Select Customer Type', allowClear: true });
         $('#country').select2({ placeholder: 'Select Country', allowClear: true });
         $('#region').select2({ placeholder: 'Select Region', allowClear: true }).prop('disabled', true);
         $('#city').select2({ placeholder: 'Select City', allowClear: true }).prop('disabled', true);
         $('#cityZone').select2({ placeholder: 'Select City Zone', allowClear: true }).prop('disabled', true);
         $('#area').select2({ placeholder: 'Select Area', allowClear: true }).prop('disabled', true);
         $('#salesOfficer').select2({ placeholder: 'Select Sales Officer', allowClear: true });
+        $('#supplierMan').select2({ placeholder: 'Select Supplier Man', allowClear: true });
     });
 
     $('#country').on('change', function() {
@@ -315,6 +322,20 @@ document.addEventListener('DOMContentLoaded', function () {
                         $('#salesOfficer').append(option);
                     });
                     $('#salesOfficer').trigger('change');
+                }
+            });
+    }
+
+    function loadSupplierMen() {
+        fetch('../../../../server/api/customer_supplier/customers/get-employees.php')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    data.employees.forEach(employee => {
+                        const option = new Option(employee.full_name, employee.id);
+                        $('#supplierMan').append(option);
+                    });
+                    $('#supplierMan').trigger('change');
                 }
             });
     }
@@ -610,6 +631,7 @@ document.addEventListener('DOMContentLoaded', function () {
         // Prepare form data
         const formData = {
             companyId: companySelect.value,
+            customerTypeId: document.getElementById('customerType').value || null,
             customerName: customerName.value.trim(),
             address: document.getElementById('address').value.trim(),
             primaryPhone: primaryPhone.value.trim(),
@@ -622,6 +644,7 @@ document.addEventListener('DOMContentLoaded', function () {
             cityZoneId: cityZoneSelect.value || null,
             areaId: areaSelect.value || null,
             salesOfficerId: salesOfficerSelect.value || null,
+            supplierManId: supplierManSelect.value || null,
             isSalesTaxRegistered: isSalesTaxRegistered.checked ? 1 : 0,
             strn: isSalesTaxRegistered.checked && strn.value.trim() ? strn.value.trim() : null,
             isFiler: isFiler.checked ? 1 : 0,
@@ -663,6 +686,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     $('#area').empty().append('<option value="">Select Area</option>').trigger('change').prop('disabled', true);
                     $('#country').val('').trigger('change');
                     $('#salesOfficer').val('').trigger('change');
+                    $('#supplierMan').val('').trigger('change');
                     // Reset company if multiple companies exist
                     if ($('#company option').length > 2) {
                         $('#company').val('').trigger('change');
@@ -714,6 +738,7 @@ document.addEventListener('DOMContentLoaded', function () {
             $('#area').empty().append('<option value="">Select Area</option>').trigger('change').prop('disabled', true);
             $('#country').val('').trigger('change');
             $('#salesOfficer').val('').trigger('change');
+            $('#supplierMan').val('').trigger('change');
             // Reset company if multiple companies exist
             if ($('#company option').length > 2) {
                 $('#company').val('').trigger('change');
@@ -773,5 +798,197 @@ document.addEventListener('DOMContentLoaded', function () {
                     }
                 }
             });
+    }
+    
+    // Customer Types Management
+    const typesModal = document.getElementById('typesModal');
+    const typesModalClose = document.getElementById('typesModalClose');
+    const typesCloseBtn = document.getElementById('typesCloseBtn');
+    const manageTypesBtn = document.getElementById('manageTypesBtn');
+    const addTypeBtn = document.getElementById('addTypeBtn');
+    const typesTableBody = document.getElementById('typesTableBody');
+    
+    const typeFormModal = document.getElementById('typeFormModal');
+    const typeFormModalClose = document.getElementById('typeFormModalClose');
+    const typeFormCancelBtn = document.getElementById('typeFormCancelBtn');
+    const typeForm = document.getElementById('typeForm');
+    const typeFormTitle = document.getElementById('typeFormTitle');
+    const typeName = document.getElementById('typeName');
+    const typeFormSaveBtn = document.getElementById('typeFormSaveBtn');
+    
+    let currentEditingTypeId = null;
+    let customerTypes = [];
+    
+    function loadCustomerTypes() {
+        fetch('../../../../server/api/customer_supplier/customers/customer-types.php')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    customerTypes = data.types;
+                    const select = document.getElementById('customerType');
+                    select.innerHTML = '<option value="">Select Customer Type</option>';
+                    data.types.forEach(type => {
+                        const option = new Option(type.type_name, type.id);
+                        select.appendChild(option);
+                    });
+                    $('#customerType').trigger('change');
+                }
+            });
+    }
+    
+    function loadTypesTable() {
+        fetch('../../../../server/api/customer_supplier/customers/customer-types.php')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    customerTypes = data.types;
+                    renderTypesTable(data.types);
+                }
+            });
+    }
+    
+    function renderTypesTable(types) {
+        typesTableBody.innerHTML = '';
+        types.forEach(type => {
+            const isSystem = type.tenant_id == 0;
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td style="padding: 12px; border-bottom: 1px solid var(--border-default);">
+                    ${type.type_name}
+                    ${isSystem ? '<span class="system-badge"><i class="fas fa-lock"></i> System</span>' : ''}
+                </td>
+                <td style="padding: 12px; border-bottom: 1px solid var(--border-default); text-align: center;">
+                    <button class="action-btn edit" data-id="${type.id}" ${isSystem ? 'disabled' : ''}>
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="action-btn delete" data-id="${type.id}" ${isSystem ? 'disabled' : ''}>
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </td>
+            `;
+            typesTableBody.appendChild(row);
+        });
+    }
+    
+    manageTypesBtn.addEventListener('click', function() {
+        loadTypesTable();
+        typesModal.classList.add('show');
+    });
+    
+    function closeTypesModal() {
+        typesModal.classList.remove('show');
+    }
+    
+    typesModalClose.addEventListener('click', closeTypesModal);
+    typesCloseBtn.addEventListener('click', closeTypesModal);
+    typesModal.addEventListener('click', function(e) {
+        if (e.target === typesModal) closeTypesModal();
+    });
+    
+    addTypeBtn.addEventListener('click', function() {
+        currentEditingTypeId = null;
+        typeFormTitle.innerHTML = '<i class="fas fa-plus"></i> Add Customer Type';
+        typeName.value = '';
+        typeFormModal.classList.add('show');
+    });
+    
+    typesTableBody.addEventListener('click', function(e) {
+        const target = e.target.closest('button');
+        if (!target) return;
+        
+        const typeId = target.dataset.id;
+        
+        if (target.classList.contains('edit')) {
+            const type = customerTypes.find(t => t.id == typeId);
+            if (type) {
+                currentEditingTypeId = typeId;
+                typeFormTitle.innerHTML = '<i class="fas fa-edit"></i> Edit Customer Type';
+                typeName.value = type.type_name;
+                typeFormModal.classList.add('show');
+            }
+        } else if (target.classList.contains('delete')) {
+            if (confirm('Are you sure you want to delete this customer type?')) {
+                deleteType(typeId);
+            }
+        }
+    });
+    
+    function closeTypeFormModal() {
+        typeFormModal.classList.remove('show');
+        currentEditingTypeId = null;
+        typeName.value = '';
+    }
+    
+    typeFormModalClose.addEventListener('click', closeTypeFormModal);
+    typeFormCancelBtn.addEventListener('click', closeTypeFormModal);
+    typeFormModal.addEventListener('click', function(e) {
+        if (e.target === typeFormModal) closeTypeFormModal();
+    });
+    
+    typeForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        if (!typeName.value.trim()) {
+            showNotification('Error', 'Type name is required', 'error');
+            return;
+        }
+        
+        typeFormSaveBtn.disabled = true;
+        typeFormSaveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+        
+        const url = '../../../../server/api/customer_supplier/customers/customer-types.php';
+        const method = currentEditingTypeId ? 'PUT' : 'POST';
+        const data = {
+            type_name: typeName.value.trim()
+        };
+        
+        if (currentEditingTypeId) {
+            data.id = currentEditingTypeId;
+        }
+        
+        fetch(url, {
+            method: method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showNotification('Success', data.message, 'success');
+                closeTypeFormModal();
+                loadTypesTable();
+                loadCustomerTypes();
+            } else {
+                showNotification('Error', data.message, 'error');
+            }
+        })
+        .catch(error => {
+            showNotification('Error', 'Failed to save customer type', 'error');
+        })
+        .finally(() => {
+            typeFormSaveBtn.disabled = false;
+            typeFormSaveBtn.innerHTML = '<i class="fas fa-save"></i> Save';
+        });
+    });
+    
+    function deleteType(typeId) {
+        fetch('../../../../server/api/customer_supplier/customers/customer-types.php', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: typeId })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showNotification('Success', data.message, 'success');
+                loadTypesTable();
+                loadCustomerTypes();
+            } else {
+                showNotification('Error', data.message, 'error');
+            }
+        })
+        .catch(error => {
+            showNotification('Error', 'Failed to delete customer type', 'error');
+        });
     }
 });
