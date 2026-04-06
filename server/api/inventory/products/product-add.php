@@ -132,8 +132,8 @@ try {
     // Insert stock opening entries
     if (isset($_POST['branch']) && is_array($_POST['branch'])) {
         $stockOpeningStmt = $pdo->prepare("
-            INSERT INTO stock_opening (product_id, tenant_id, branch_id, opening_qty, opening_price)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO stock_opening (product_id, tenant_id, branch_id, opening_qty, opening_price, unit_id)
+            VALUES (?, ?, ?, ?, ?, ?)
         ");
         
         $stockLedgerStmt = $pdo->prepare("
@@ -148,7 +148,8 @@ try {
                 
                 // Calculate total quantity in base units for stock_opening
                 $totalQtyInBaseUnits = 0;
-                $unitIdForLedger = null;
+                $originalQty = 0;
+                $unitIdForStock = null;
                 
                 if ($uom_type === 'group' && $uom_group_id) {
                     // Get base unit
@@ -163,7 +164,7 @@ try {
                     $baseUnitRow = $baseUnitStmt->fetch(PDO::FETCH_ASSOC);
                     
                     if ($baseUnitRow) {
-                        $unitIdForLedger = $baseUnitRow['id'];
+                        $unitIdForStock = $baseUnitRow['id'];
                     } else {
                         $nonBaseStmt = $pdo->prepare("
                             SELECT u.base_unit_id
@@ -176,29 +177,31 @@ try {
                         $nonBaseRow = $nonBaseStmt->fetch(PDO::FETCH_ASSOC);
                         
                         if ($nonBaseRow && $nonBaseRow['base_unit_id']) {
-                            $unitIdForLedger = $nonBaseRow['base_unit_id'];
+                            $unitIdForStock = $nonBaseRow['base_unit_id'];
                         }
                     }
                     
                     // UOM Group mode - insert separate entries for each unit
                     $totalQtyInBaseUnits = convertGroupUnitsToBaseUnits($_POST, $i, $product_id, $pdo);
+                    $originalQty = $totalQtyInBaseUnits; // For groups, store converted total
                 } else {
                     // Default Unit mode - single quantity
                     if (!empty($_POST['openingQty'][$i])) {
-                        $qty = $_POST['openingQty'][$i];
-                        $totalQtyInBaseUnits = convertSingleUnitToBaseUnits($qty, $default_unit, $product_conversion_factor, $pdo);
+                        $originalQty = floatval($_POST['openingQty'][$i]); // Store ORIGINAL qty
+                        $totalQtyInBaseUnits = convertSingleUnitToBaseUnits($originalQty, $default_unit, $product_conversion_factor, $pdo);
                     }
-                    $unitIdForLedger = $default_unit;
+                    $unitIdForStock = $default_unit;
                 }
                 
                 if ($totalQtyInBaseUnits > 0) {
-                    // Insert into stock_opening
+                    // Insert into stock_opening with ORIGINAL quantity
                     $stockOpeningStmt->execute([
                         $product_id,
                         $tenant_id,
                         $branchId,
-                        $totalQtyInBaseUnits,
-                        $openingPrice
+                        $originalQty,  // Store ORIGINAL quantity (e.g., 150 for Grams)
+                        $openingPrice,
+                        $unitIdForStock  // Store the unit used
                     ]);
                     
                     $stockOpeningId = $pdo->lastInsertId();
