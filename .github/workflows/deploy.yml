@@ -20,5 +20,7 @@ jobs:
           port: 22
           script: |
             cd /var/www/ledgerone_erp
-            git pull origin main
+            git fetch origin
+            git reset --hard origin/main
+            git clean -fd
             sudo systemctl restart php-fpm

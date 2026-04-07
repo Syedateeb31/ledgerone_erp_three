@@ -281,20 +281,38 @@ $currency_symbol = $currency['symbol'] ?? '$';
             loadCustomersForPrint();
         });
 
-        function loadCustomersForPrint() {
-            fetch('../../../../server/api/customer_supplier/customers/customer-list.php?limit=10000&page=1')
-                .then(response => response.json())
-                .then(data => {
+        async function loadCustomersForPrint() {
+            try {
+                let allCustomers = [];
+                let page = 1;
+                let totalPages = 1;
+                
+                // Fetch first page to get total pages
+                const firstResponse = await fetch(`../../../../server/api/customer_supplier/customers/customer-list.php?limit=100&page=1`);
+                const firstData = await firstResponse.json();
+                
+                if (!firstData.success) {
+                    console.error('Failed to load customers:', firstData.message);
+                    return;
+                }
+                
+                allCustomers = firstData.customers;
+                totalPages = firstData.pagination.pages;
+                updatePrintStats(firstData.stats);
+                
+                // Fetch remaining pages
+                for (page = 2; page <= totalPages; page++) {
+                    const response = await fetch(`../../../../server/api/customer_supplier/customers/customer-list.php?limit=100&page=${page}`);
+                    const data = await response.json();
                     if (data.success) {
-                        renderCustomersForPrint(data.customers);
-                        updatePrintStats(data.stats);
-                    } else {
-                        console.error('Failed to load customers:', data.message);
+                        allCustomers = allCustomers.concat(data.customers);
                     }
-                })
-                .catch(error => {
-                    console.error('Error loading customers:', error);
-                });
+                }
+                
+                renderCustomersForPrint(allCustomers);
+            } catch (error) {
+                console.error('Error loading customers:', error);
+            }
         }
 
         function renderCustomersForPrint(customers) {
