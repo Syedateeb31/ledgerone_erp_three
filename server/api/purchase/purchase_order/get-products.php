@@ -30,19 +30,21 @@ try {
     $stmt->execute([$tenant_id]);
     $products = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
-    // For products with uom_group, fetch group units
+    // For products with uom_group, fetch group units with conversion factors
     foreach ($products as &$product) {
         if ($product['uom_type'] === 'group' && $product['uom_group_id']) {
             $unitsStmt = $pdo->prepare("
                 SELECT 
                     u.id, u.uom_name, u.unit_scope, u.is_base_unit, u.conversion_factor,
-                    u.base_unit_id
+                    u.base_unit_id,
+                    puc.conversion_factor as product_conversion_factor
                 FROM uom_group_units ugu
                 JOIN uom u ON ugu.uom_id = u.id
+                LEFT JOIN product_uom_conversions puc ON puc.product_id = ? AND puc.uom_id = u.id
                 WHERE ugu.uom_group_id = ?
                 ORDER BY ugu.id
             ");
-            $unitsStmt->execute([$product['uom_group_id']]);
+            $unitsStmt->execute([$product['id'], $product['uom_group_id']]);
             $product['group_units'] = $unitsStmt->fetchAll(PDO::FETCH_ASSOC);
         } else {
             $product['group_units'] = [];

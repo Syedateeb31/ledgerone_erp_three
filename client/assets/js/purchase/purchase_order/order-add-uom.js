@@ -38,10 +38,10 @@ function getUnitConversionFactor(unit, product) {
         return 1;
     }
 
-    if (unit.unit_scope === 'universal') {
+    if (unit.unit_scope === 'per_product') {
+        return parseFloat(unit.product_conversion_factor) || 1;
+    } else if (unit.unit_scope === 'universal') {
         return parseFloat(unit.conversion_factor) || 1;
-    } else if (unit.unit_scope === 'per_product') {
-        return parseFloat(product.product_conversion_factor) || 1;
     }
 
     return 1;
