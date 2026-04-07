@@ -255,6 +255,8 @@
             finished_good_id: selectedFG.id,
             version: document.getElementById('version').value,
             is_active: document.getElementById('active').checked ? 1 : 0,
+            bom_base_qty: parseFloat(document.getElementById('bomBaseQty').value) || 1,
+            batch_locked: document.getElementById('batchLocked').checked ? 1 : 0,
             remarks: document.getElementById('remarks').value,
             materials
         };

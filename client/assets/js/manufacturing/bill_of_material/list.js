@@ -210,8 +210,10 @@
                 document.getElementById('editBomId').value = bom.id;
                 document.getElementById('editBomCode').value = bom.bom_code;
                 document.getElementById('editFinishedGood').value = `${bom.fg_code} - ${bom.fg_name}`;
+                document.getElementById('editBomBaseQty').value = bom.bom_base_qty || 1;
                 document.getElementById('editVersion').value = bom.version;
                 document.getElementById('editActive').checked = bom.is_active == 1;
+                document.getElementById('editBatchLocked').checked = bom.batch_locked == 1;
                 document.getElementById('editRemarks').value = bom.remarks || '';
                 
                 const editMaterialList = document.getElementById('editMaterialList');
@@ -377,8 +379,10 @@
 
     window.updateBOM = async function() {
         const bomId = document.getElementById('editBomId').value;
+        const bomBaseQty = parseFloat(document.getElementById('editBomBaseQty').value) || 1;
         const version = document.getElementById('editVersion').value;
         const isActive = document.getElementById('editActive').checked ? 1 : 0;
+        const batchLocked = document.getElementById('editBatchLocked').checked ? 1 : 0;
         const remarks = document.getElementById('editRemarks').value;
         
         const materials = [];
@@ -419,8 +423,10 @@
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({
                     id: bomId,
+                    bom_base_qty: bomBaseQty,
                     version,
                     is_active: isActive,
+                    batch_locked: batchLocked,
                     remarks,
                     materials
                 })

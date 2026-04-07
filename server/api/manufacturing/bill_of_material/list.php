@@ -29,6 +29,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 bom.bom_code,
                 bom.version,
                 bom.is_active,
+                bom.bom_base_qty,
+                bom.batch_locked,
                 bom.remarks,
                 bom.updated_at,
                 p.code as fg_code,
@@ -53,6 +55,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 bom.bom_code,
                 bom.version,
                 bom.is_active,
+                bom.bom_base_qty,
+                bom.batch_locked,
                 bom.remarks,
                 bom.created_at,
                 bom.updated_at,
@@ -108,6 +112,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
     $bom_id = $data['id'] ?? null;
     $version = $data['version'] ?? null;
     $is_active = $data['is_active'] ?? 0;
+    $bom_base_qty = $data['bom_base_qty'] ?? 1;
+    $batch_locked = $data['batch_locked'] ?? 0;
     $materials = $data['materials'] ?? [];
     
     if (!$bom_id) {
@@ -119,8 +125,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
     try {
         $pdo->beginTransaction();
         
-        $stmt = $pdo->prepare("UPDATE bill_of_materials SET version = ?, is_active = ?, remarks = ?, updated_at = NOW() WHERE id = ? AND tenant_id = ?");
-        $stmt->execute([$version, $is_active, $data['remarks'] ?? null, $bom_id, $tenant_id]);
+        $stmt = $pdo->prepare("UPDATE bill_of_materials SET version = ?, is_active = ?, bom_base_qty = ?, batch_locked = ?, remarks = ?, updated_at = NOW() WHERE id = ? AND tenant_id = ?");
+        $stmt->execute([$version, $is_active, $bom_base_qty, $batch_locked, $data['remarks'] ?? null, $bom_id, $tenant_id]);
         
         $stmt = $pdo->prepare("DELETE FROM bom_materials WHERE bom_id = ?");
         $stmt->execute([$bom_id]);
