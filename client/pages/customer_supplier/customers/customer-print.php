@@ -282,7 +282,7 @@ $currency_symbol = $currency['symbol'] ?? '$';
         });
 
         function loadCustomersForPrint() {
-            fetch('../../../../server/api/customer_supplier/customers/customer-list.php?limit=1000')
+            fetch('../../../../server/api/customer_supplier/customers/customer-list.php?limit=10000&page=1')
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
