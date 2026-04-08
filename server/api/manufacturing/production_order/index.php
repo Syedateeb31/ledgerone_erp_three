@@ -85,6 +85,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $orderQty = $_GET['order_qty'];
         $branchId = $_GET['branch_id'];
         
+        // Get BOM base quantity
+        $bomStmt = $pdo->prepare("SELECT bom_base_qty FROM bill_of_materials WHERE id = ?");
+        $bomStmt->execute([$bomId]);
+        $bomData = $bomStmt->fetch();
+        $bomBaseQty = $bomData['bom_base_qty'] ?? 1;
+        
         // Get BOM materials with product UOM info
         $stmt = $pdo->prepare("
             SELECT 
@@ -124,7 +130,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 ];
             }
             
-            $requiredQty = $mat['bom_qty'] * $orderQty;
+            $requiredQty = $mat['bom_qty'] * ($orderQty / $bomBaseQty);
             
             // Get available stock from stock_ledger for this specific unit
             $stockStmt = $pdo->prepare("

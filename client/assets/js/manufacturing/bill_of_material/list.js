@@ -378,7 +378,7 @@
     };
 
     window.updateBOM = async function() {
-        const bomId = document.getElementById('editBomId').value;
+        const bomId = parseInt(document.getElementById('editBomId').value);
         const bomBaseQty = parseFloat(document.getElementById('editBomBaseQty').value) || 1;
         const version = document.getElementById('editVersion').value;
         const isActive = document.getElementById('editActive').checked ? 1 : 0;
