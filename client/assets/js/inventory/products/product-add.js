@@ -543,6 +543,23 @@ function handleFormSubmit(e) {
     const formData = new FormData(document.getElementById('productForm'));
     const editId = document.getElementById('productForm').dataset.editId;
     
+    // Collect schemes from modal
+    const schemes = collectAllSchemes();
+    console.log('Schemes collected in handleFormSubmit:', schemes);
+    if (schemes.length > 0) {
+        schemes.forEach((scheme, index) => {
+            const schemeJson = JSON.stringify(scheme);
+            console.log(`Adding scheme ${index}:`, schemeJson);
+            formData.append('schemes[]', schemeJson);
+        });
+    }
+    console.log('FormData entries:');
+    for (let [key, value] of formData.entries()) {
+        if (key.includes('scheme')) {
+            console.log(key + ':', value);
+        }
+    }
+    
     if (editId) {
         formData.append('id', editId);
     }
@@ -1772,6 +1789,21 @@ function initParentProductDropdown() {
     });
 }
 
+// Helper function to safely set element values
+function safeSetValue(elementId, value) {
+    const element = document.getElementById(elementId);
+    if (element) {
+        element.value = value || '';
+    }
+}
+
+// Helper function to safely set element checked state
+function safeSetChecked(elementId, checked) {
+    const element = document.getElementById(elementId);
+    if (element) {
+        element.checked = checked;
+    }
+}
 
 function loadProductForEdit(productId) {
     fetch(`../../../../server/api/inventory/products/product-get.php?id=${productId}`)
@@ -1780,80 +1812,95 @@ function loadProductForEdit(productId) {
         if (data.success) {
             const product = data.product;
             
-            // Populate form fields
-            document.getElementById('code').value = product.code;
-            document.getElementById('name').value = product.name;
-            document.getElementById('company').value = product.company_id || '';
-            document.querySelector(`input[name="productType"][value="${product.product_type}"]`).checked = true;
-            document.getElementById('description').value = product.description || '';
-            document.getElementById('purchasePrice').value = product.purchase_price || '';
-            document.getElementById('tradePrice').value = product.trade_price || '';
-            document.getElementById('wholesalePrice').value = product.wholesale_price || '';
-            document.getElementById('mrp').value = product.mrp || '';
-            document.getElementById('defaultDiscount').value = product.default_discount || '';
-            document.getElementById('tradeOfferDiscount').value = product.trade_offer_discount || '';
-            document.getElementById('defaultFoc').value = product.default_foc || '';
-            document.getElementById('cartonConversion').value = product.carton_conversion || '';
-            document.getElementById('salesTaxType').value = product.sales_tax_type || '';
-            document.getElementById('salesTax').value = product.sales_tax || '';
-            document.getElementById('furtherTax').value = product.further_tax || '';
-            document.getElementById('minStock').value = product.min_stock_level || '';
-            document.getElementById('maxStock').value = product.max_stock_level || '';
-            document.getElementById('manufacturingDate').value = (product.manufacturing_date && product.manufacturing_date !== '0000-00-00') ? product.manufacturing_date : '';
-            document.getElementById('expiryDate').value = (product.expiry_date && product.expiry_date !== '0000-00-00') ? product.expiry_date : '';
-            document.getElementById('active').checked = product.is_active == 1;
-            document.getElementById('stockAffects').checked = product.stock_affects == 1;
-            document.getElementById('invoiceAffects').checked = product.invoice_affects == 1;
+            // Populate form fields using safe helpers to avoid null errors
+            safeSetValue('code', product.code);
+            safeSetValue('name', product.name);
+            safeSetValue('company', product.company_id || '');
+            safeSetValue('description', product.description || '');
+            safeSetValue('purchasePrice', product.purchase_price || '');
+            safeSetValue('tradePrice', product.trade_price || '');
+            safeSetValue('wholesalePrice', product.wholesale_price || '');
+            safeSetValue('mrp', product.mrp || '');
+            safeSetValue('defaultDiscount', product.default_discount || '');
+            safeSetValue('tradeOfferDiscount', product.trade_offer_discount || '');
+            safeSetValue('defaultFoc', product.default_foc || '');
+            safeSetValue('cartonConversion', product.carton_conversion || '');
+            safeSetValue('salesTaxType', product.sales_tax_type || '');
+            safeSetValue('salesTax', product.sales_tax || '');
+            safeSetValue('furtherTax', product.further_tax || '');
+            safeSetValue('minStock', product.min_stock_level || '');
+            safeSetValue('maxStock', product.max_stock_level || '');
+            safeSetValue('manufacturingDate', (product.manufacturing_date && product.manufacturing_date !== '0000-00-00') ? product.manufacturing_date : '');
+            safeSetValue('expiryDate', (product.expiry_date && product.expiry_date !== '0000-00-00') ? product.expiry_date : '');
+            safeSetChecked('active', product.is_active == 1);
+            safeSetChecked('stockAffects', product.stock_affects == 1);
+            safeSetChecked('invoiceAffects', product.invoice_affects == 1);
+            
+            // Handle product_type with null check - default to 'physical' if null or invalid
+            const productTypeValue = (product.product_type || 'physical').toLowerCase();
+            const productTypeElement = document.querySelector(`input[name="productType"][value="${productTypeValue}"]`);
+            if (productTypeElement) {
+                productTypeElement.checked = true;
+            } else {
+                // Fallback to physical if value not found
+                const fallbackElement = document.querySelector(`input[name="productType"][value="physical"]`);
+                if (fallbackElement) {
+                    fallbackElement.checked = true;
+                }
+            }
             
             // Set dropdown values after they are loaded
             setTimeout(() => {
                 if (product.company_id) {
-                    document.getElementById('company').value = product.company_id;
+                    safeSetValue('company', product.company_id);
                 }
                 
                 // Handle UOM Type selection based on what's saved
                 if (product.uom_type === 'group' && product.uom_group_id) {
                     // UOM Group is selected
-                    document.getElementById('uomTypeGroup').checked = true;
+                    safeSetChecked('uomTypeGroup', true);
                     handleUomTypeChange();
-                    document.getElementById('uomGroup').value = product.uom_group_id;
+                    safeSetValue('uomGroup', product.uom_group_id);
                     handleUomGroupChange().then(() => {
                         loadGroupConversionFactorsForEdit(productId);
                     });
                 } else {
                     // Default Unit is selected (default case)
-                    document.getElementById('uomTypeUnit').checked = true;
+                    safeSetChecked('uomTypeUnit', true);
                     handleUomTypeChange();
                     if (product.default_unit_id) {
-                        document.getElementById('defaultUnit').value = product.default_unit_id;
+                        safeSetValue('defaultUnit', product.default_unit_id);
                         // Store unit data in option for handleDefaultUnitChange
-                        const selectedOption = document.getElementById('defaultUnit').options[document.getElementById('defaultUnit').selectedIndex];
-                        if (selectedOption && product.unit_scope) {
-                            selectedOption.dataset.unitScope = product.unit_scope;
-                            selectedOption.dataset.isBaseUnit = product.is_base_unit || 0;
+                        const defaultUnitElement = document.getElementById('defaultUnit');
+                        if (defaultUnitElement) {
+                            const selectedOption = defaultUnitElement.options[defaultUnitElement.selectedIndex];
+                            if (selectedOption && product.unit_scope) {
+                                selectedOption.dataset.unitScope = product.unit_scope;
+                                selectedOption.dataset.isBaseUnit = product.is_base_unit || 0;
+                            }
                         }
                         handleDefaultUnitChange();
                     }
                 }
                 
                 if (product.product_conversion_factor) {
-                    document.getElementById('productConversionFactor').value = product.product_conversion_factor;
+                    safeSetValue('productConversionFactor', product.product_conversion_factor);
                 }
                 if (product.category_id) {
-                    document.getElementById('category').value = product.category_id;
+                    safeSetValue('category', product.category_id);
                     // Load subcategories for selected category
                     loadSubcategories(product.category_id);
                     setTimeout(() => {
                         if (product.subcategory_id) {
-                            document.getElementById('subcategory').value = product.subcategory_id;
+                            safeSetValue('subcategory', product.subcategory_id);
                         }
                     }, 500);
                 }
                 if (product.inventory_account_id) {
-                    document.getElementById('inventoryAccount').value = product.inventory_account_id;
+                    safeSetValue('inventoryAccount', product.inventory_account_id);
                 }
                 if (product.vendor_id) {
-                    document.getElementById('vendor').value = product.vendor_id;
+                    safeSetValue('vendor', product.vendor_id);
                 }
                 if (product.parent_product_id) {
                     loadParentProductForEdit(product.parent_product_id);
@@ -1861,31 +1908,47 @@ function loadProductForEdit(productId) {
             }, 1000);
             
             // Set form to edit mode
-            document.getElementById('productForm').dataset.editId = productId;
+            const productForm = document.getElementById('productForm');
+            if (productForm) {
+                productForm.dataset.editId = productId;
+            }
             
             // Load existing photo if available
             if (product.photo) {
                 const preview = document.getElementById('photoPreview');
                 const removeBtn = document.getElementById('removePhoto');
-                preview.src = `../../../assets/uploads/products/${product.photo}`;
-                preview.style.display = 'block';
-                removeBtn.style.display = 'block';
+                if (preview) {
+                    preview.src = `../../../assets/uploads/products/${product.photo}`;
+                    preview.style.display = 'block';
+                }
+                if (removeBtn) {
+                    removeBtn.style.display = 'block';
+                }
             }
             
             // Load existing QR code if available
             if (product.qr_code) {
-                document.getElementById('qrInput').value = product.qr_code;
-                generateQRCode(product.qr_code);
+                const qrInput = document.getElementById('qrInput');
+                if (qrInput) {
+                    qrInput.value = product.qr_code;
+                    generateQRCode(product.qr_code);
+                }
             }
             
             // Load existing barcode if available
             if (product.barcode) {
-                document.getElementById('barcodeInput').value = product.barcode;
-                generateBarcode(product.barcode);
+                const barcodeInput = document.getElementById('barcodeInput');
+                if (barcodeInput) {
+                    barcodeInput.value = product.barcode;
+                    generateBarcode(product.barcode);
+                }
             }
             
             // Load existing stock opening data
             loadStockOpeningData(productId);
+            
+            // Load existing schemes
+            loadExistingSchemesForEdit(productId);
             
             handleProductTypeChange();
         } else {
@@ -2114,6 +2177,7 @@ function handleUomGroupChange() {
         clearGroupConversionFactors();
         window.currentGroupUnits = [];
         rebuildStockEntries();
+        handleUomGroupChangeWithScheme();
         return Promise.resolve();
     }
     
@@ -2125,6 +2189,7 @@ function handleUomGroupChange() {
             console.log('Loaded group units:', data.units);
             displayGroupConversionFactors(data.units);
             rebuildStockEntries();
+            handleUomGroupChangeWithScheme();
         }
     })
     .catch(error => console.error('Error loading group units:', error));
@@ -2171,4 +2236,49 @@ function loadGroupConversionFactorsForEdit(productId) {
         }
     })
     .catch(error => console.error('Error loading conversion factors:', error));
+}
+
+
+// Scheme Modal Handlers
+document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(() => {
+        const closeSchemeBtn = document.getElementById('closeSchemeModal');
+        const cancelSchemeBtn = document.getElementById('cancelScheme');
+        const addSchemeRowBtn = document.getElementById('addSchemeRow');
+        const saveSchemeBtn = document.getElementById('saveScheme');
+        const schemeModal = document.getElementById('schemeModal');
+        
+        if (closeSchemeBtn) closeSchemeBtn.addEventListener('click', closeSchemeModal);
+        if (cancelSchemeBtn) cancelSchemeBtn.addEventListener('click', closeSchemeModal);
+        if (addSchemeRowBtn) addSchemeRowBtn.addEventListener('click', addSchemeRow);
+        if (saveSchemeBtn) saveSchemeBtn.addEventListener('click', saveSchemes);
+        if (schemeModal) {
+            schemeModal.addEventListener('click', function(e) {
+                if (e.target === this) closeSchemeModal();
+            });
+        }
+    }, 1000);
+});
+
+// Update Default Unit change handler to include scheme button
+const originalHandleDefaultUnitChange = handleDefaultUnitChange;
+handleDefaultUnitChange = function() {
+    originalHandleDefaultUnitChange.call(this);
+    handleDefaultUnitChangeWithScheme();
+};
+
+// Remove old scheme handlers - they're now in scheme-functions.js
+
+function loadExistingSchemesForEdit(productId) {
+    console.log('Loading existing schemes for edit mode, product:', productId);
+    
+    fetch(`../../../../server/api/inventory/products/scheme-get.php?product_id=${productId}`)
+    .then(response => response.json())
+    .then(data => {
+        if (data.success && data.schemes && data.schemes.length > 0) {
+            console.log('Schemes loaded for edit:', data.schemes);
+            window.existingSchemesData = data.schemes;
+        }
+    })
+    .catch(error => console.error('Error loading schemes:', error));
 }

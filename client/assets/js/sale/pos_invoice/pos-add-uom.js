@@ -115,8 +115,8 @@ function updateTableHeaders() {
     const headerRow = thead.rows[0];
     
     let safetyCounter = 0;
-    while (headerRow.cells.length > 2 && safetyCounter < 20) {
-        const cell = headerRow.cells[2];
+    while (headerRow.cells.length > 3 && safetyCounter < 20) {
+        const cell = headerRow.cells[3];
         const cellText = cell.textContent.trim();
         // Stop if we reach Price or any of the fixed columns
         if (cellText.includes('Sale Price') || cellText.includes('Gross Amount') || 
@@ -125,13 +125,13 @@ function updateTableHeaders() {
             cellText.includes('Net Amount') || cellText.includes('Actions')) {
             break;
         }
-        headerRow.deleteCell(2);
+        headerRow.deleteCell(3);
         safetyCounter++;
     }
     
-    // Insert generic unit headers (Unit 1, Unit 2, Unit 3, etc.)
+    // Insert generic unit headers (Unit 1, Unit 2, Unit 3, etc.) starting at index 3
     for (let i = 0; i < maxUnitColumns; i++) {
-        const th = headerRow.insertCell(2 + i);
+        const th = headerRow.insertCell(3 + i);
         th.width = '8%';
         th.style.fontWeight = '600';
         th.style.fontSize = '12px';
@@ -155,14 +155,15 @@ function updateRowUnitCells(row) {
         }
     });
     
-    // Remove old unit cells (between Product and Price)
-    while (row.cells.length > 2 && !row.cells[2].classList.contains('price-cell')) {
-        row.deleteCell(2);
+    // Remove old unit cells (between Scheme and Price)
+    // Keep removing cells at index 3 until we find a cell with price-cell or scheme-cell class
+    while (row.cells.length > 3 && !row.cells[3].classList.contains('price-cell')) {
+        row.deleteCell(3);
     }
     
-    // Insert unit cells based on maxUnitColumns
+    // Insert unit cells starting at index 3 (after Scheme cell at index 2)
     for (let i = 0; i < maxUnitColumns; i++) {
-        const cell = row.insertCell(2 + i);
+        const cell = row.insertCell(3 + i);
         
         // Check if this product has a unit at this position
         if (i < productUomDetails.length) {
@@ -211,6 +212,28 @@ function updateRowUnitCells(row) {
                 
                 const priceInput = row.querySelector('.price-cell input');
                 const price = priceInput ? (Number(priceInput.value) || 0) : 0;
+                
+                // Check active scheme and recalculate accordingly
+                if (typeof SCHEME_TYPES !== 'undefined') {
+                    const schemeSelect = row.querySelector('.scheme-select');
+                    const activeScheme = schemeSelect ? schemeSelect.value : SCHEME_TYPES.SALE_ON_TP;
+                    
+                    if ((activeScheme === SCHEME_TYPES.LESS || activeScheme === SCHEME_TYPES.LESS_SPECIAL) && typeof calculateLessSchemeAmounts === 'function') {
+                        // For both Less and Less Special: use appropriate calculation
+                        if (activeScheme === SCHEME_TYPES.LESS) {
+                            calculateLessSchemeAmounts(row, {});
+                        } else {
+                            calculateLessSpecialSchemeAmounts(row, {});
+                        }
+                        return;
+                    } else if (activeScheme === SCHEME_TYPES.GIVEN && typeof calculateGivenSchemeAmounts === 'function') {
+                        // For Given scheme: FOC Qty works
+                        calculateGivenSchemeAmounts(row, {});
+                        return;
+                    }
+                }
+                
+                // For Sale On TP and others: use standard calculation
                 calculateRowAmounts(row, Number(totalQty), Number(price));
             });
             
@@ -234,7 +257,6 @@ function calculateRowAmounts(row, totalQty, price) {
     price = Number(price) || 0;
     
     const discountPercent = parseFloat(row.querySelector('.disc-percent-cell input')?.value) || 0;
-    const tradeOfferPercent = parseFloat(row.querySelector('.to-percent-cell input')?.value) || 0;
     const gstPercent = parseFloat(row.querySelector('.gst-percent-cell input')?.value) || 0;
     
     const gross = Number(totalQty) * Number(price);
@@ -250,9 +272,12 @@ function calculateRowAmounts(row, totalQty, price) {
     // After discount
     const afterDiscount = gross - discountAmt;
     
-    // Trade offer amount
-    const tradeOfferAmt = afterDiscount * (tradeOfferPercent / 100);
-    row.querySelector('.to-amount-cell input').value = tradeOfferAmt.toFixed(2);
+    // Trade offer amount - read from input (NOT percentage-based)
+    const toAmountInput = row.querySelector('.to-amount-cell input');
+    let tradeOfferAmt = 0;
+    if (toAmountInput) {
+        tradeOfferAmt = parseFloat(toAmountInput.value) || 0;
+    }
     
     // After trade offer
     const afterTradeOffer = afterDiscount - tradeOfferAmt;
@@ -278,10 +303,10 @@ function updateFooterTotals() {
     const footerRow = tfoot.rows[0];
     
     // The first cell should be "Totals" with colspan
-    // We need to update its colspan to account for S# + Product + dynamic units
+    // We need to update its colspan to account for S# + Product + Scheme + dynamic units
     const totalsCell = footerRow.cells[0];
     if (totalsCell) {
-        totalsCell.colSpan = 2 + maxUnitColumns; // S# + Product + all unit columns
+        totalsCell.colSpan = 3 + maxUnitColumns; // S# + Product + Scheme + all unit columns
     }
     
     // Remove old unit total cells (they would be after the Totals cell)

@@ -2,7 +2,7 @@ const API_BASE = '../../../../server/api/inventory/stock_position/stock-position
 
 // Pagination variables
 let currentPage = 1;
-const itemsPerPage = 10;
+const itemsPerPage = 20;  // Increased from 10 to show more rows per page (fixes FOC pagination issue)
 let totalItems = 0;
 let allPositions = [];
 let currentCurrency = '$';
@@ -403,10 +403,20 @@ async function loadDetailedLedger() {
         let url = `${API_BASE}?action=detailed-ledger`;
         if (company) url += `&company_id=${company}`;
         
+        console.log('Fetching Detailed Ledger from URL:', url);
         const response = await fetch(url);
         const data = await response.json();
         
+        console.log('API Response Status:', data.success);
+        console.log('Total Rows Returned:', data.data?.length);
+        console.log('All Transaction Types:', data.data?.map(t => t.transaction_type) ?? []);
+        console.log('FOC Transactions:', data.data?.filter(t => t.transaction_type.includes('FOC')) ?? []);
+        
         if (data.success) {
+            console.log('DEBUG - Detailed Ledger API Response:', {
+                totalRows: data.data.length,
+                transactions: data.data.map(t => ({ id: t.id, type: t.transaction_type, qty_in: t.qty_in, qty_out: t.qty_out, product: t.product_name }))
+            });
             updateDetailedLedgerTable(data.data, data.currency);
         }
     } catch (error) {

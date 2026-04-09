@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Stock Position API Debug - FOC Test</title>
+    <style>
+        body { font-family: Arial; margin: 20px; }
+        pre { background: #f0f0f0; padding: 10px; border: 1px solid #ccc; overflow-x: auto; }
+        .success { color: green; }
+        .error { color: red; }
+    </style>
+</head>
+<body>
+    <h1>Stock Position API Debug - Detailed Ledger Test</h1>
+    
+    <h2>Testing API Response</h2>
+    <button onclick="testAPI()">Click to Test API</button>
+    
+    <h2>Results:</h2>
+    <div id="results"></div>
+    
+    <script>
+        async function testAPI() {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '<p>Loading...</p>';
+            
+            try {
+                const url = 'server/api/inventory/stock_position/stock-position.php?action=detailed-ledger';
+                console.log('Testing URL:', url);
+                
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                let html = `<h3>API Response Status: ${data.success ? '<span class="success">✓ SUCCESS</span>' : '<span class="error">✗ ERROR</span>'}</h3>`;
+                html += `<p><strong>Total Rows Returned:</strong> ${data.data?.length || 0}</p>`;
+                
+                if (data.debug) {
+                    html += `<h3>Debug Info from API:</h3>`;
+                    html += `<p><strong>Total Rows:</strong> ${data.debug.total_rows}</p>`;
+                    html += `<p><strong>FOC Count:</strong> ${data.debug.foc_count}</p>`;
+                    html += `<p><strong>SQL Used:</strong></p>`;
+                    html += `<pre style="font-size: 11px;">${data.debug.sql_used}</pre>`;
+                    html += `<p><strong>Params Used:</strong></p>`;
+                    html += `<pre>${JSON.stringify(data.debug.params_used, null, 2)}</pre>`;
+                    
+                    if (data.debug.foc_count > 0) {
+                        html += `<p class="success">✓ API IS RETURNING FOC TRANSACTIONS (${data.debug.foc_count} found)</p>`;
+                    } else {
+                        html += `<p class="error">✗ API IS NOT RETURNING FOC TRANSACTIONS (Problem is in SQL or API)</p>`;
+                    }
+                }
+                
+                html += `<h3>Transaction Summary:</h3>`;
+                if (data.data && data.data.length > 0) {
+                    const typeMap = {};
+                    data.data.forEach(t => {
+                        if (!typeMap[t.transaction_type]) typeMap[t.transaction_type] = 0;
+                        typeMap[t.transaction_type]++;
+                    });
+                    
+                    Object.keys(typeMap).sort().forEach(type => {
+                        const style = type.includes('FOC') ? 'font-weight: bold; color: red;' : '';
+                        html += `<p style="${style}"><strong>${type}:</strong> ${typeMap[type]} transaction(s)</p>`;
+                    });
+                }
+                
+                html += `<h3>Raw JSON Response:</h3>`;
+                html += `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+                
+                resultsDiv.innerHTML = html;
+                console.log('Full response:', data);
+                
+            } catch (error) {
+                resultsDiv.innerHTML = `<p class="error">Error: ${error.message}</p><pre>${error.stack}</pre>`;
+                console.error('Error:', error);
+            }
+        }
+    </script>
+</body>
+</html>

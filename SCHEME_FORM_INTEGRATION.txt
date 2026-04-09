@@ -1,0 +1,15 @@
+// Add this code to product-add.js - Insert after the line: if (editId) { formData.append('id', editId); }
+
+// Collect and add schemes if modal exists
+if (typeof collectAllSchemes === 'function') {
+    const schemes = collectAllSchemes();
+    if (schemes.length > 0) {
+        schemes.forEach((scheme, index) => {
+            formData.append(`schemes[${index}][unit_id]`, scheme.unit_id);
+            formData.append(`schemes[${index}][promo_qty]`, scheme.promo_qty);
+            formData.append(`schemes[${index}][bonus_qty]`, scheme.bonus_qty);
+            formData.append(`schemes[${index}][to_qty]`, scheme.to_qty);
+            formData.append(`schemes[${index}][to_rs]`, scheme.to_rs);
+        });
+    }
+}

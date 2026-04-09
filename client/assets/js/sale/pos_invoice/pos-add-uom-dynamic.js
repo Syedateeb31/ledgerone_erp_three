@@ -160,9 +160,40 @@ function calculateTotalQuantityDynamic(row) {
         totalQty += qty * conversionFactor;
     });
     
+    const priceInput = row.querySelector('.price-cell input');
+    const price = priceInput ? (Number(priceInput.value) || 0) : 0;
+    
+    // Check active scheme and recalculate accordingly
+    if (typeof SCHEME_TYPES !== 'undefined') {
+        const schemeSelect = row.querySelector('.scheme-select');
+        const activeScheme = schemeSelect ? schemeSelect.value : SCHEME_TYPES.SALE_ON_TP;
+        
+        if (activeScheme === SCHEME_TYPES.LESS && typeof calculateLessSchemeAmounts === 'function') {
+            // For Less scheme (Original): FOC and T.O both work
+            calculateLessSchemeAmounts(row, {});
+            updateFooterTotalsDynamic();
+            updateInvoiceSummaryDynamic();
+            return;
+        } else if (activeScheme === SCHEME_TYPES.LESS_SPECIAL && typeof calculateLessSpecialSchemeAmounts === 'function') {
+            // For Less Special scheme: T.O formula-based
+            calculateLessSpecialSchemeAmounts(row, {});
+            updateFooterTotalsDynamic();
+            updateInvoiceSummaryDynamic();
+            return;
+        } else if (activeScheme === SCHEME_TYPES.GIVEN && typeof calculateGivenSchemeAmounts === 'function') {
+            // For Given scheme: FOC Qty works
+            calculateGivenSchemeAmounts(row, {});
+            updateFooterTotalsDynamic();
+            updateInvoiceSummaryDynamic();
+            return;
+        }
+    }
+    
+    // For Sale On TP and others: use standard calculation
     calculateRowAmountsDynamic(row, totalQty);
     updateFooterTotalsDynamic();
     updateInvoiceSummaryDynamic();
+}
 }
 
 // Calculate row amounts
@@ -171,7 +202,6 @@ function calculateRowAmountsDynamic(row, totalQty) {
     const grossInput = row.querySelector('.gross-cell input');
     const discPercentInput = row.querySelector('.disc-percent-cell input');
     const discAmountInput = row.querySelector('.disc-amount-cell input');
-    const toPercentInput = row.querySelector('.to-percent-cell input');
     const toAmountInput = row.querySelector('.to-amount-cell input');
     const gstPercentInput = row.querySelector('.gst-percent-cell input');
     const gstAmountInput = row.querySelector('.gst-amount-cell input');
@@ -179,13 +209,12 @@ function calculateRowAmountsDynamic(row, totalQty) {
     
     const price = parseFloat(priceInput?.value) || 0;
     const discPercent = parseFloat(discPercentInput?.value) || 0;
-    const toPercent = parseFloat(toPercentInput?.value) || 0;
     const gstPercent = parseFloat(gstPercentInput?.value) || 0;
     
     const grossAmount = totalQty * price;
     const discountAmount = grossAmount * (discPercent / 100);
     const afterDiscount = grossAmount - discountAmount;
-    const tradeOfferAmount = afterDiscount * (toPercent / 100);
+    const tradeOfferAmount = parseFloat(toAmountInput?.value) || 0;
     const afterTO = afterDiscount - tradeOfferAmount;
     const gstAmount = afterTO * (gstPercent / 100);
     const netAmount = afterTO + gstAmount;
@@ -372,7 +401,6 @@ function collectItemsDataDynamic() {
                 const priceInput = row.querySelector('.price-cell input');
                 const discPercentInput = row.querySelector('.disc-percent-cell input');
                 const discAmountInput = row.querySelector('.disc-amount-cell input');
-                const toPercentInput = row.querySelector('.to-percent-cell input');
                 const toAmountInput = row.querySelector('.to-amount-cell input');
                 const gstPercentInput = row.querySelector('.gst-percent-cell input');
                 const gstAmountInput = row.querySelector('.gst-amount-cell input');
@@ -388,7 +416,6 @@ function collectItemsDataDynamic() {
                     grossAmount: parseFloat(grossInput?.value) || 0,
                     discountPercent: parseFloat(discPercentInput?.value) || 0,
                     discountAmount: parseFloat(discAmountInput?.value) || 0,
-                    tradeOfferPercent: parseFloat(toPercentInput?.value) || 0,
                     tradeOfferAmount: parseFloat(toAmountInput?.value) || 0,
                     gstPercent: parseFloat(gstPercentInput?.value) || 0,
                     gstAmount: parseFloat(gstAmountInput?.value) || 0,

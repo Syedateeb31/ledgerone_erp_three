@@ -289,20 +289,8 @@ if (!$user_id) {
                         <input type="number" id="defaultDiscount" name="defaultDiscount" step="0.01" min="0" max="100">
                     </div>
                     
-                    <div class="form-group optional-field" data-field="tradeOfferDiscount">
-                        <label>Default Trade Offer Discount (%)</label>
-                        <input type="number" id="tradeOfferDiscount" name="tradeOfferDiscount" step="0.01" min="0" max="100">
-                    </div>
-                    
-                    <div class="form-group optional-field" data-field="defaultFoc">
-                        <label>Default Free Of Charge (FOC)</label>
-                        <input type="number" id="defaultFoc" name="defaultFoc" step="1" min="0">
-                    </div>
-                    
-                    <div class="form-group optional-field" data-field="cartonConversion">
-                        <label>Carton Conversion Factor (Pcs/Ctn)</label>
-                        <input type="number" id="cartonConversion" name="cartonConversion" step="1" min="0">
-                    </div>
+
+
                 </div>
             </div>
             
@@ -430,7 +418,9 @@ if (!$user_id) {
     <?php include 'category-modal.php'; ?>
     <?php include 'confirm-modal.php'; ?>
     <?php include 'customize-fields-modal.php'; ?>
+    <?php include 'scheme-modal.php'; ?>
 
+    <script src="../../../assets/js/inventory/products/scheme-functions.js"></script>
     <script src="../../../assets/js/inventory/products/product-add.js"></script>
 </body>
 </html>

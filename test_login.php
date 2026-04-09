@@ -1,9 +1,9 @@
 <?php
 // Quick password verification test
-$email = 'sunshinebakers@gmail.com'; // CHANGE THIS to your actual email
+$email = 'support@unisensystems.com'; // CHANGE THIS to your actual email
 $password = 'admin'; // CHANGE THIS to your actual password
 
-$pdo = new PDO("mysql:host=31.97.123.46;dbname=ledgerone_tenant", "ledgerone_tenant", "JAAsqzFU6fujVoQD");
+$pdo = new PDO("mysql:host=localhost;dbname=ledgerone_tenant", "admin", "root");
 $stmt = $pdo->prepare("SELECT id, email, password_hash, is_active FROM users WHERE email = ?");
 $stmt->execute([$email]);
 $user = $stmt->fetch(PDO::FETCH_ASSOC);

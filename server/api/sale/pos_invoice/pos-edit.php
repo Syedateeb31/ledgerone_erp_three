@@ -80,6 +80,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $itemStmt = $pdo->prepare("
             SELECT 
                 sii.*,
+                COALESCE(sii.scheme, 'sale_on_tp') as scheme,
                 p.name as product_name,
                 p.code as product_code,
                 p.stock_affects,
@@ -191,8 +192,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
                 quantity, sale_price, gross_amount, discount_percent,
                 discount_amount, trade_offer_percent, trade_offer_amount,
                 gst_percent, gst_amount, foc_quantity, net_amount, parent_row_id,
-                piece, carton, dozen, created_by, updated_by
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                piece, carton, dozen, scheme, created_by, updated_by
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ");
 
         $itemIdMap = [];
@@ -222,6 +223,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
                 $item['piece'] ?? null,
                 $item['carton'] ?? null,
                 $item['dozen'] ?? null,
+                $item['scheme'] ?? 'sale_on_tp',
                 $user_id,
                 $user_id
             ]);

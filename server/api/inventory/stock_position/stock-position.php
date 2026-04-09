@@ -516,6 +516,7 @@ try {
             $company_id = $_GET['company_id'] ?? null;
             
             $sql = "SELECT 
+                        sl.id,
                         sl.transaction_date,
                         p.name as product_name,
                         b.branch_name,
@@ -546,7 +547,32 @@ try {
             $stmt->execute($params);
             $ledger = $stmt->fetchAll(PDO::FETCH_ASSOC);
             
-            echo json_encode(['success' => true, 'data' => $ledger, 'currency' => $currency_symbol]);
+            // Debug tracking
+            $focCount = count(array_filter($ledger, function($row) { return strpos($row['transaction_type'], 'FOC') !== false; }));
+            $focTransactions = array_filter($ledger, function($row) { return strpos($row['transaction_type'], 'FOC') !== false; });
+            
+            // Error log for debugging
+            error_log('=== Detailed Ledger Query Debug ===');
+            error_log('Tenant: ' . $tenant_id . ', Company Filter: ' . ($company_id ?? 'NONE'));
+            error_log('SQL: ' . $sql);
+            error_log('Params: ' . json_encode($params));
+            error_log('Total Rows Returned: ' . count($ledger));
+            error_log('FOC Rows Found: ' . $focCount);
+            if (!empty($focTransactions)) {
+                error_log('FOC Details: ' . json_encode(array_values($focTransactions)));
+            }
+            
+            echo json_encode([
+                'success' => true, 
+                'data' => $ledger, 
+                'currency' => $currency_symbol,
+                'debug' => [
+                    'total_rows' => count($ledger),
+                    'foc_count' => $focCount,
+                    'sql_used' => $sql,
+                    'params_used' => $params
+                ]
+            ]);
             break;
             
         default:

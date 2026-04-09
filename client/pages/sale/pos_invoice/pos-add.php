@@ -163,12 +163,12 @@ if (!$user_id) {
                             <tr>
                                 <th width="3%">S#</th>
                                 <th width="15%">Product Code / Name</th>
+                                <th width="10%">Scheme</th>
                                 <!-- Dynamic unit columns will be inserted here -->
                                 <th width="8%"><span id="salePriceLabel">Sale Price</span></th>
                                 <th width="8%"><span id="grossAmountLabel">Gross Amount</span></th>
                                 <th width="5%">Disc %</th>
                                 <th width="8%"><span id="discountAmountLabel">Disc Amt</span></th>
-                                <th width="5%">T.O Disc %</th>
                                 <th width="8%">T.O Amt</th>
                                 <th width="5%">GST %</th>
                                 <th width="8%">GST Amt</th>
@@ -376,18 +376,26 @@ if (!$user_id) {
         <div class="modal-content">
             <h3 class="modal-title">Invoice Settings</h3>
             <div style="margin: 20px 0;">
-                <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; cursor: pointer;">
-                    <input type="checkbox" id="enableCarton" style="width: auto;">
-                    <span>Enable Carton (Ctn)</span>
-                </label>
-                <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; cursor: pointer;">
-                    <input type="checkbox" id="enableDozen" style="width: auto;">
-                    <span>Enable Dozen (Dz)</span>
-                </label>
-                <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; cursor: pointer;">
-                    <input type="checkbox" id="enableTradeOfferDiscount" style="width: auto;">
-                    <span>Enable Inline Trade Offer Discount %</span>
-                </label>
+                <div style="margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid var(--border-default);">
+                    <p style="margin-bottom: 12px; font-weight: 600; font-size: 14px;">Default Scheme:</p>
+                    <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px; cursor: pointer;">
+                        <input type="radio" name="defaultScheme" value="sale_on_tp" id="schemeDefault" style="width: auto;">
+                        <span>Sale On TP</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px; cursor: pointer;">
+                        <input type="radio" name="defaultScheme" value="less" id="schemeLess" style="width: auto;">
+                        <span>Less</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px; cursor: pointer;">
+                        <input type="radio" name="defaultScheme" value="less_special" id="schemeLessSpecial" style="width: auto;">
+                        <span>Less Special</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                        <input type="radio" name="defaultScheme" value="given" id="schemeGiven" style="width: auto;">
+                        <span>Given</span>
+                    </label>
+                </div>
+                
                 <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; cursor: pointer;">
                     <input type="checkbox" id="enableTradeOfferAmount" style="width: auto;">
                     <span>Enable Inline Trade Offer Amount</span>
@@ -790,6 +798,7 @@ if (!$user_id) {
     </div>
 
     <script src="../../../assets/js/sale/pos_invoice/pos-add-uom.js?v=<?php echo time(); ?>&debug=1"></script>
+    <script src="../../../assets/js/sale/pos_invoice/pos-add-scheme.js?v=<?php echo time(); ?>"></script>
     <script src="../../../assets/js/sale/pos_invoice/withholding-tax.js?v=<?php echo time(); ?>"></script>
     <script src="../../../assets/js/sale/pos_invoice/pos-add.js?v=<?php echo time(); ?>"></script>
 </body>

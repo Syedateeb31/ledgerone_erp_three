@@ -229,6 +229,45 @@ try {
         }
     }
     
+    // Save schemes if provided
+    error_log('=== SCHEME SAVE DEBUG ===');
+    error_log('Schemes isset: ' . (isset($_POST['schemes']) ? 'YES' : 'NO'));
+    error_log('Schemes is array: ' . (is_array($_POST['schemes'] ?? null) ? 'YES' : 'NO'));
+    error_log('Schemes count: ' . count($_POST['schemes'] ?? []));
+    error_log('Schemes data: ' . print_r($_POST['schemes'] ?? [], true));
+    
+    if (isset($_POST['schemes']) && is_array($_POST['schemes']) && !empty($_POST['schemes'])) {
+        $schemeStmt = $pdo->prepare("
+            INSERT INTO product_schemes (tenant_id, product_id, unit_id, promo_qty, bonus_qty, to_qty, to_rs)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ");
+        
+        $inserted = 0;
+        foreach ($_POST['schemes'] as $schemeJson) {
+            error_log('Processing scheme JSON: ' . $schemeJson);
+            $scheme = json_decode($schemeJson, true);
+            error_log('Decoded scheme: ' . print_r($scheme, true));
+            
+            if (!empty($scheme['unit_id']) && (!empty($scheme['promo_qty']) || !empty($scheme['bonus_qty']) || !empty($scheme['to_qty']) || !empty($scheme['to_rs']))) {
+                $schemeStmt->execute([
+                    $tenant_id,
+                    $product_id,
+                    $scheme['unit_id'],
+                    $scheme['promo_qty'] ?? 0,
+                    $scheme['bonus_qty'] ?? 0,
+                    $scheme['to_qty'] ?? 0,
+                    $scheme['to_rs'] ?? 0
+                ]);
+                $inserted++;
+                error_log('Scheme inserted successfully');
+            } else {
+                error_log('Scheme skipped - missing unit_id or all values empty');
+            }
+        }
+        error_log('Total schemes inserted: ' . $inserted);
+    }
+    error_log('=== END SCHEME DEBUG ===');
+    
     echo json_encode(['success' => true, 'message' => 'Product added successfully', 'product_id' => $product_id]);
     
 } catch (PDOException $e) {

@@ -295,6 +295,67 @@ try {
         error_log("CONDITION NOT MET: Stock update skipped - branch data not provided or not array");
     }
     
+    // Save schemes if provided
+    error_log('=== SCHEME SAVE DEBUG (EDIT) ===');
+    error_log('Schemes isset: ' . (isset($_POST['schemes']) ? 'YES' : 'NO'));
+    error_log('Schemes is array: ' . (is_array($_POST['schemes'] ?? null) ? 'YES' : 'NO'));
+    error_log('Schemes count: ' . count($_POST['schemes'] ?? []));
+    error_log('Schemes data: ' . print_r($_POST['schemes'] ?? [], true));
+    
+    if (isset($_POST['schemes']) && is_array($_POST['schemes']) && !empty($_POST['schemes'])) {
+        // Get all unit IDs from schemes
+        $unitIds = [];
+        foreach ($_POST['schemes'] as $schemeJson) {
+            $scheme = json_decode($schemeJson, true);
+            if (!empty($scheme['unit_id'])) {
+                $unitIds[] = $scheme['unit_id'];
+            }
+        }
+        $unitIds = array_unique($unitIds);
+        
+        error_log('Unit IDs to delete: ' . print_r($unitIds, true));
+        
+        // Delete existing schemes for affected units
+        if (!empty($unitIds)) {
+            $placeholders = implode(',', array_fill(0, count($unitIds), '?'));
+            $params = array_merge([$product_id, $tenant_id], $unitIds);
+            $pdo->prepare("DELETE FROM product_schemes WHERE product_id = ? AND tenant_id = ? AND unit_id IN ($placeholders)")
+                ->execute($params);
+            error_log('Old schemes deleted');
+        }
+        
+        // Insert new schemes
+        $schemeStmt = $pdo->prepare("
+            INSERT INTO product_schemes (tenant_id, product_id, unit_id, promo_qty, bonus_qty, to_qty, to_rs)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ");
+        
+        $inserted = 0;
+        foreach ($_POST['schemes'] as $schemeJson) {
+            error_log('Processing scheme JSON: ' . $schemeJson);
+            $scheme = json_decode($schemeJson, true);
+            error_log('Decoded scheme: ' . print_r($scheme, true));
+            
+            if (!empty($scheme['unit_id']) && (!empty($scheme['promo_qty']) || !empty($scheme['bonus_qty']) || !empty($scheme['to_qty']) || !empty($scheme['to_rs']))) {
+                $schemeStmt->execute([
+                    $tenant_id,
+                    $product_id,
+                    $scheme['unit_id'],
+                    $scheme['promo_qty'] ?? 0,
+                    $scheme['bonus_qty'] ?? 0,
+                    $scheme['to_qty'] ?? 0,
+                    $scheme['to_rs'] ?? 0
+                ]);
+                $inserted++;
+                error_log('Scheme inserted successfully');
+            } else {
+                error_log('Scheme skipped - missing unit_id or all values empty');
+            }
+        }
+        error_log('Total schemes inserted: ' . $inserted);
+    }
+    error_log('=== END SCHEME DEBUG (EDIT) ===');
+    
     echo json_encode(['success' => true, 'message' => 'Product updated successfully', 'debug' => $debugInfo]);
     
 } catch (PDOException $e) {

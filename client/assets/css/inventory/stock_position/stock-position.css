@@ -484,26 +484,65 @@ body {
   border-radius: 4px;
   font-size: 11px;
   font-weight: 500;
+  background-color: rgba(107, 114, 128, 0.1);
+  color: var(--subtext);
 }
 
-.transaction-purchase {
+/* Purchase Transactions */
+.transaction-purchase,
+.transaction-purchase-invoice {
   background-color: rgba(47, 191, 113, 0.1);
   color: var(--success);
 }
 
-.transaction-sales {
+/* Sales Transactions */
+.transaction-sales,
+.transaction-sale,
+.transaction-sale-invoice {
   background-color: rgba(31, 123, 255, 0.1);
   color: var(--primary);
 }
 
-.transaction-return {
+/* Sales FOC (Free on Cost) - with multiple class variations */
+.transaction-sale-invoice-foc,
+.transaction-sales-foc,
+.transaction-sale-foc {
+  background-color: rgba(31, 123, 255, 0.15);
+  color: var(--primary);
+  font-weight: 600;
+}
+
+/* Return Transactions */
+.transaction-return,
+.transaction-purchase-return,
+.transaction-sales-return,
+.transaction-sales-invoice-return {
   background-color: rgba(232, 178, 63, 0.1);
   color: var(--warning);
 }
 
-.transaction-adjustment {
+/* Adjustment and Opening Stock */
+.transaction-adjustment,
+.transaction-stock-adjustment,
+.transaction-opening-stock,
+.transaction-opening {
   background-color: rgba(227, 79, 79, 0.1);
   color: var(--error);
+}
+
+/* WIP Transactions */
+.transaction-wip-issue,
+.transaction-wip-receive,
+.transaction-wip {
+  background-color: rgba(138, 43, 226, 0.1);
+  color: #8a2be2;
+}
+
+/* Stock Transfer */
+.transaction-stock-transfer,
+.transaction-transfer {
+  background-color: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
 }
 
 /* Dropdown Styles */

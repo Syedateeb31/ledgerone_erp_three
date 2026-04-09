@@ -1119,8 +1119,6 @@ function initializePage(permissions) {
                     if (discPercentInput) discPercentInput.value = item.discount_percent;
                     const discAmountInput = lastRow.querySelector('.disc-amount-cell input');
                     if (discAmountInput) discAmountInput.value = item.discount_amount;
-                    const toPercentInput = lastRow.querySelector('.to-percent-cell input');
-                    if (toPercentInput) toPercentInput.value = item.trade_offer_percent || 0;
                     const toAmountInput = lastRow.querySelector('.to-amount-cell input');
                     if (toAmountInput) toAmountInput.value = item.trade_offer_amount || 0;
                     const gstPercentInput = lastRow.querySelector('.gst-percent-cell input');
@@ -1131,6 +1129,15 @@ function initializePage(permissions) {
                     if (focInput) focInput.value = item.foc_quantity || 0;
                     const netInput = lastRow.querySelector('.net-cell input');
                     if (netInput) netInput.value = item.net_amount;
+                    
+                    // Set scheme and trigger scheme change
+                    const schemeSelect = lastRow.querySelector('.scheme-select');
+                    if (schemeSelect) {
+                        const itemScheme = item.scheme || 'sale_on_tp';
+                        schemeSelect.value = itemScheme;
+                        // Trigger scheme change event to apply correct calculations
+                        schemeSelect.dispatchEvent(new Event('change'));
+                    }
                 }
 
                 // Load child items
@@ -3163,7 +3170,6 @@ function saveInvoice(status = 'Posted') {
                 grossAmount: 0,
                 discountPercent: 0,
                 discountAmount: 0,
-                tradeOfferPercent: 0,
                 tradeOfferAmount: 0,
                 gstPercent: 0,
                 gstAmount: 0,
@@ -3171,7 +3177,8 @@ function saveInvoice(status = 'Posted') {
                 netAmount: 0,
                 parentRowId: row.dataset.parentRowIndex !== undefined ? parseInt(row.dataset.parentRowIndex) + 1 : null,
                 stockAffects: parseInt(row.dataset.stockAffects) || 0,
-                invoiceAffects: parseInt(row.dataset.invoiceAffects) || 0
+                invoiceAffects: parseInt(row.dataset.invoiceAffects) || 0,
+                scheme: 'sale_on_tp'
             };
             formData.items.push(item);
             continue;
@@ -3198,23 +3205,23 @@ function saveInvoice(status = 'Posted') {
         const grossInput = row.querySelector('.gross-cell input');
         const discPercentInput = row.querySelector('.disc-percent-cell input');
         const discAmountInput = row.querySelector('.disc-amount-cell input');
-        const toPercentInput = row.querySelector('.to-percent-cell input');
         const toAmountInput = row.querySelector('.to-amount-cell input');
         const gstPercentInput = row.querySelector('.gst-percent-cell input');
         const gstAmountInput = row.querySelector('.gst-amount-cell input');
         const focInput = row.querySelector('.foc-cell input');
         const netInput = row.querySelector('.net-cell input');
+        const schemeSelect = row.querySelector('.scheme-select');
         
         const salePrice = parseFloat(priceInput.value);
         const grossAmount = parseFloat(grossInput.value);
         const discountPercent = parseFloat(discPercentInput.value) || 0;
         const discountAmount = parseFloat(discAmountInput.value);
-        const tradeOfferPercent = parseFloat(toPercentInput.value) || 0;
         const tradeOfferAmount = parseFloat(toAmountInput.value) || 0;
         const gstPercent = parseFloat(gstPercentInput.value) || 0;
         const gstAmount = parseFloat(gstAmountInput.value) || 0;
         const focQty = parseFloat(focInput.value) || 0;
         const netAmount = parseFloat(netInput.value);
+        const scheme = schemeSelect ? schemeSelect.value : 'sale_on_tp';
         
         // Create separate item for each unit with quantity
         unitsWithQty.forEach((unit, index) => {
@@ -3228,17 +3235,15 @@ function saveInvoice(status = 'Posted') {
                 dozen: 0,
                 salePrice: salePrice,
                 grossAmount: isFirstUnit ? grossAmount : 0,
-                discountPercent: discountPercent,
-                discountAmount: isFirstUnit ? discountAmount : 0,
-                tradeOfferPercent: tradeOfferPercent,
-                tradeOfferAmount: isFirstUnit ? tradeOfferAmount : 0,
+                discountPeAmount: isFirstUnit ? tradeOfferAmount : 0,
                 gstPercent: gstPercent,
                 gstAmount: isFirstUnit ? gstAmount : 0,
                 focQty: isFirstUnit ? focQty : 0,
                 netAmount: isFirstUnit ? netAmount : 0,
                 parentRowId: null,
                 stockAffects: parseInt(row.dataset.stockAffects) || 1,
-                invoiceAffects: parseInt(row.dataset.invoiceAffects) || 1
+                invoiceAffects: parseInt(row.dataset.invoiceAffects) || 1,
+                scheme: scheme
             };
             formData.items.push(item);
         });
@@ -3258,7 +3263,6 @@ function saveInvoice(status = 'Posted') {
                     grossAmount: 0,
                     discountPercent: 0,
                     discountAmount: 0,
-                    tradeOfferPercent: 0,
                     tradeOfferAmount: 0,
                     gstPercent: 0,
                     gstAmount: 0,
@@ -3266,7 +3270,8 @@ function saveInvoice(status = 'Posted') {
                     netAmount: 0,
                     parentRowId: formData.items.length,
                     stockAffects: parseInt(child.stock_affects) || 0,
-                    invoiceAffects: parseInt(child.invoice_affects) || 0
+                    invoiceAffects: parseInt(child.invoice_affects) || 0,
+                    scheme: 'sale_on_tp'
                 });
             });
         }
@@ -3319,9 +3324,12 @@ function saveInvoice(status = 'Posted') {
 
 // Load invoice settings from localStorage
 function loadInvoiceSettings() {
-    document.getElementById('enableCarton').checked = localStorage.getItem('enableCarton') === 'true';
-    document.getElementById('enableDozen').checked = localStorage.getItem('enableDozen') === 'true';
-    document.getElementById('enableTradeOfferDiscount').checked = localStorage.getItem('enableTradeOfferDiscount') === 'true';
+    // Load scheme preference
+    const defaultScheme = localStorage.getItem('defaultScheme') || 'sale_on_tp';
+    const schemeRadio = document.querySelector(`input[name="defaultScheme"][value="${defaultScheme}"]`);
+    if (schemeRadio) schemeRadio.checked = true;
+    
+    // Load other settings
     document.getElementById('enableTradeOfferAmount').checked = localStorage.getItem('enableTradeOfferAmount') === 'true';
     document.getElementById('enableFOC').checked = localStorage.getItem('enableFOC') === 'true';
     document.getElementById('enableTaxation').checked = localStorage.getItem('enableTaxation') === 'true';
@@ -3336,9 +3344,11 @@ function loadInvoiceSettings() {
 
 // Save invoice settings to localStorage
 function saveInvoiceSettings() {
-    localStorage.setItem('enableCarton', document.getElementById('enableCarton').checked);
-    localStorage.setItem('enableDozen', document.getElementById('enableDozen').checked);
-    localStorage.setItem('enableTradeOfferDiscount', document.getElementById('enableTradeOfferDiscount').checked);
+    // Save scheme preference
+    const selectedScheme = document.querySelector('input[name="defaultScheme"]:checked')?.value || 'sale_on_tp';
+    localStorage.setItem('defaultScheme', selectedScheme);
+    
+    // Save other settings
     localStorage.setItem('enableTradeOfferAmount', document.getElementById('enableTradeOfferAmount').checked);
     localStorage.setItem('enableFOC', document.getElementById('enableFOC').checked);
     localStorage.setItem('enableTaxation', document.getElementById('enableTaxation').checked);
@@ -3354,11 +3364,8 @@ function saveInvoiceSettings() {
 
 // Apply invoice settings to show/hide columns
 function applyInvoiceSettings() {
-    const enableCarton = localStorage.getItem('enableCarton') === 'true';
-    const enableDozen = localStorage.getItem('enableDozen') === 'true';
     const enableCashDiscountPercent = localStorage.getItem('enableCashDiscountPercent') === 'true';
     const enableCashDiscountAmount = localStorage.getItem('enableCashDiscountAmount') === 'true';
-    const enableTradeOfferDiscount = localStorage.getItem('enableTradeOfferDiscount') === 'true';
     const enableTradeOfferAmount = localStorage.getItem('enableTradeOfferAmount') === 'true';
     const enableFOC = localStorage.getItem('enableFOC') === 'true';
     const enableTaxation = localStorage.getItem('enableTaxation') === 'true';
@@ -3366,74 +3373,11 @@ function applyInvoiceSettings() {
     const enableInvoiceCashDiscountAmount = localStorage.getItem('enableInvoiceCashDiscountAmount') === 'true';
     const enableShippingFees = localStorage.getItem('enableShippingFees') === 'true';
 
-    // Get table
-    const table = document.getElementById('itemsTable');
-    const headerRow = table.querySelector('thead tr');
-    const footerRow = table.querySelector('tfoot tr');
-
-    // Column indices (0-based)
-    const PCS_COL = 4;
-    const CTN_COL = 5;
-    const DZ_COL = 6;
-    const DISC_PERCENT_COL = 9;
-    const DISC_AMOUNT_COL = 10;
-    const TO_PERCENT_COL = 11;
-    const TO_AMOUNT_COL = 12;
-    const GST_PERCENT_COL = 13;
-    const GST_AMOUNT_COL = 14;
-    const FOC_COL = 15;
-
-    // Hide/show header columns (only if using old static structure)
-    if (headerRow && headerRow.cells.length > FOC_COL) {
-        if (headerRow.cells[CTN_COL]) headerRow.cells[CTN_COL].style.display = enableCarton ? '' : 'none';
-        if (headerRow.cells[DZ_COL]) headerRow.cells[DZ_COL].style.display = enableDozen ? '' : 'none';
-        if (headerRow.cells[DISC_PERCENT_COL]) headerRow.cells[DISC_PERCENT_COL].style.display = enableCashDiscountPercent ? '' : 'none';
-        if (headerRow.cells[DISC_AMOUNT_COL]) headerRow.cells[DISC_AMOUNT_COL].style.display = enableCashDiscountAmount ? '' : 'none';
-        if (headerRow.cells[TO_PERCENT_COL]) headerRow.cells[TO_PERCENT_COL].style.display = enableTradeOfferDiscount ? '' : 'none';
-        if (headerRow.cells[TO_AMOUNT_COL]) headerRow.cells[TO_AMOUNT_COL].style.display = enableTradeOfferAmount ? '' : 'none';
-        if (headerRow.cells[GST_PERCENT_COL]) headerRow.cells[GST_PERCENT_COL].style.display = enableTaxation ? '' : 'none';
-        if (headerRow.cells[GST_AMOUNT_COL]) headerRow.cells[GST_AMOUNT_COL].style.display = enableTaxation ? '' : 'none';
-        if (headerRow.cells[FOC_COL]) headerRow.cells[FOC_COL].style.display = enableFOC ? '' : 'none';
-    }
-
-    // Hide/show footer columns (only if using old static structure)
-    if (footerRow && footerRow.cells.length > FOC_COL) {
-        if (footerRow.cells[CTN_COL]) footerRow.cells[CTN_COL].style.display = enableCarton ? '' : 'none';
-        if (footerRow.cells[DZ_COL]) footerRow.cells[DZ_COL].style.display = enableDozen ? '' : 'none';
-        if (footerRow.cells[DISC_PERCENT_COL]) footerRow.cells[DISC_PERCENT_COL].style.display = enableCashDiscountPercent ? '' : 'none';
-        if (footerRow.cells[DISC_AMOUNT_COL]) footerRow.cells[DISC_AMOUNT_COL].style.display = enableCashDiscountAmount ? '' : 'none';
-        if (footerRow.cells[TO_PERCENT_COL]) footerRow.cells[TO_PERCENT_COL].style.display = enableTradeOfferDiscount ? '' : 'none';
-        if (footerRow.cells[TO_AMOUNT_COL]) footerRow.cells[TO_AMOUNT_COL].style.display = enableTradeOfferAmount ? '' : 'none';
-        if (footerRow.cells[GST_PERCENT_COL]) footerRow.cells[GST_PERCENT_COL].style.display = enableTaxation ? '' : 'none';
-        if (footerRow.cells[GST_AMOUNT_COL]) footerRow.cells[GST_AMOUNT_COL].style.display = enableTaxation ? '' : 'none';
-        if (footerRow.cells[FOC_COL]) footerRow.cells[FOC_COL].style.display = enableFOC ? '' : 'none';
-    }
-
-    // Hide/show body columns for existing rows (only if using old static structure)
-    const itemsTable = document.getElementById('itemsTable')?.getElementsByTagName('tbody')[0];
-    if (itemsTable && itemsTable.rows.length > 0) {
-        const rows = itemsTable.rows;
-        for (let i = 0; i < rows.length; i++) {
-            // Only apply if cells exist (old structure)
-            if (rows[i].cells.length > FOC_COL) {
-                if (rows[i].cells[CTN_COL]) rows[i].cells[CTN_COL].style.display = enableCarton ? '' : 'none';
-                if (rows[i].cells[DZ_COL]) rows[i].cells[DZ_COL].style.display = enableDozen ? '' : 'none';
-                if (rows[i].cells[DISC_PERCENT_COL]) rows[i].cells[DISC_PERCENT_COL].style.display = enableCashDiscountPercent ? '' : 'none';
-                if (rows[i].cells[DISC_AMOUNT_COL]) rows[i].cells[DISC_AMOUNT_COL].style.display = enableCashDiscountAmount ? '' : 'none';
-                if (rows[i].cells[TO_PERCENT_COL]) rows[i].cells[TO_PERCENT_COL].style.display = enableTradeOfferDiscount ? '' : 'none';
-                if (rows[i].cells[TO_AMOUNT_COL]) rows[i].cells[TO_AMOUNT_COL].style.display = enableTradeOfferAmount ? '' : 'none';
-                if (rows[i].cells[GST_PERCENT_COL]) rows[i].cells[GST_PERCENT_COL].style.display = enableTaxation ? '' : 'none';
-                if (rows[i].cells[GST_AMOUNT_COL]) rows[i].cells[GST_AMOUNT_COL].style.display = enableTaxation ? '' : 'none';
-                if (rows[i].cells[FOC_COL]) rows[i].cells[FOC_COL].style.display = enableFOC ? '' : 'none';
-            }
-        }
-    }
-
     // Hide/show invoice summary fields
     const totalDiscountPercentItem = document.getElementById('totalDiscountPercent')?.closest('.summary-item');
     const totalDiscountAmountItem = document.getElementById('totalDiscountAmount')?.closest('.summary-item');
     const totalGstPercentItem = document.getElementById('totalGstPercent')?.closest('.summary-item');
-    const totalGstAmountItem = document.getElementById('totalGstAmountSummary')?.closest('.summary-item');
+    const totalGstAmountItem = document.getElementById('totalGstAmount')?.closest('.summary-item');
     const shippingFeesItem = document.getElementById('shippingFees')?.closest('.summary-item');
     const enableAmountPaidPaymentMethod = localStorage.getItem('enableAmountPaidPaymentMethod') === 'true';
     const paymentMethodItem = document.getElementById('paymentMethod')?.closest('.summary-item');
@@ -4393,9 +4337,15 @@ async function addRowDynamic() {
     cell1.appendChild(codeContainer);
     initTableDropdownDynamic(codeContainer, row);
     
-    // Unit cells will be added dynamically
+    // Scheme dropdown (inserted at fixed index 2)
+    const schemeCell = row.insertCell(2);
+    schemeCell.className = 'scheme-cell';
+    const schemeDropdown = createSchemeCell(row);
+    schemeCell.appendChild(schemeDropdown);
+    
+    // Unit cells will be added dynamically (inserted starting at index 3)
     // Price
-    const priceCell = row.insertCell(2);
+    const priceCell = row.insertCell(3);
     priceCell.className = 'price-cell';
     const priceInput = document.createElement('input');
     priceInput.type = 'number';
@@ -4411,12 +4361,36 @@ async function addRowDynamic() {
             const cf = Number(input.dataset.conversionFactor) || 1;
             totalQty = Number(totalQty) + Number(qty * cf);
         });
-        calculateRowAmounts(row, Number(totalQty), Number(this.value) || 0);
+        
+        const price = Number(this.value) || 0;
+        
+        // Check active scheme and recalculate accordingly
+        if (typeof SCHEME_TYPES !== 'undefined') {
+            const schemeSelect = row.querySelector('.scheme-select');
+            const activeScheme = schemeSelect ? schemeSelect.value : SCHEME_TYPES.SALE_ON_TP;
+            
+            if (activeScheme === SCHEME_TYPES.LESS && typeof calculateLessSchemeAmounts === 'function') {
+                // For Less scheme (Original): recalculates FOC and T.O
+                calculateLessSchemeAmounts(row, {});
+                return;
+            } else if (activeScheme === SCHEME_TYPES.LESS_SPECIAL && typeof calculateLessSpecialSchemeAmounts === 'function') {
+                // For Less Special scheme: T.O recalculates with new price
+                calculateLessSpecialSchemeAmounts(row, {});
+                return;
+            } else if (activeScheme === SCHEME_TYPES.GIVEN && typeof calculateGivenSchemeAmounts === 'function') {
+                // For Given scheme: recalculate with new price
+                calculateGivenSchemeAmounts(row, {});
+                return;
+            }
+        }
+        
+        // For Sale On TP: use standard calculation
+        calculateRowAmounts(row, Number(totalQty), price);
     });
     priceCell.appendChild(priceInput);
     
     // Gross Amount
-    const grossCell = row.insertCell(3);
+    const grossCell = row.insertCell(4);
     grossCell.className = 'gross-cell';
     const grossInput = document.createElement('input');
     grossInput.type = 'text';
@@ -4427,7 +4401,7 @@ async function addRowDynamic() {
     grossCell.appendChild(grossInput);
     
     // Discount %
-    const discPercentCell = row.insertCell(4);
+    const discPercentCell = row.insertCell(5);
     discPercentCell.className = 'disc-percent-cell';
     const discPercentInput = document.createElement('input');
     discPercentInput.type = 'number';
@@ -4450,7 +4424,7 @@ async function addRowDynamic() {
     discPercentCell.appendChild(discPercentInput);
     
     // Discount Amount
-    const discAmountCell = row.insertCell(5);
+    const discAmountCell = row.insertCell(6);
     discAmountCell.className = 'disc-amount-cell';
     const discAmountInput = document.createElement('input');
     discAmountInput.type = 'number';
@@ -4459,29 +4433,6 @@ async function addRowDynamic() {
     discAmountInput.step = '0.01';
     discAmountInput.value = '0.00';
     discAmountCell.appendChild(discAmountInput);
-    
-    // TO %
-    const toPercentCell = row.insertCell(6);
-    toPercentCell.className = 'to-percent-cell';
-    const toPercentInput = document.createElement('input');
-    toPercentInput.type = 'number';
-    toPercentInput.className = 'table-input';
-    toPercentInput.min = '0';
-    toPercentInput.max = '100';
-    toPercentInput.step = '0.01';
-    toPercentInput.value = '0';
-    toPercentInput.addEventListener('input', function() {
-        const unitInputs = row.querySelectorAll('.unit-input');
-        let totalQty = 0;
-        unitInputs.forEach(input => {
-            const qty = parseFloat(input.value) || 0;
-            const cf = parseFloat(input.dataset.conversionFactor) || 1;
-            totalQty = totalQty + (qty * cf);
-        });
-        const price = parseFloat(row.querySelector('.price-cell input').value) || 0;
-        calculateRowAmounts(row, totalQty, price);
-    });
-    toPercentCell.appendChild(toPercentInput);
     
     // TO Amount
     const toAmountCell = row.insertCell(7);
@@ -4647,12 +4598,19 @@ function initTableDropdownDynamic(container, row) {
             row.dataset.productUomData = JSON.stringify(uomDetails);
             row.dataset.productId = product.id;
             
+            // Initialize scheme dropdown with saved preference
+            const schemeSelect = row.querySelector('.scheme-select');
+            if (schemeSelect) {
+                const savedScheme = localStorage.getItem('defaultScheme') || SCHEME_TYPES.SALE_ON_TP;
+                schemeSelect.value = savedScheme;
+                await onSchemeChange(row, savedScheme);
+            }
+            
             // Set price
             row.querySelector('.price-cell input').value = product.trade_price || 0;
             
             // Set default values
             row.querySelector('.disc-percent-cell input').value = product.default_discount || 0;
-            row.querySelector('.to-percent-cell input').value = product.trade_offer_discount || 0;
             row.querySelector('.foc-cell input').value = product.default_foc || 0;
             row.querySelector('.gst-percent-cell input').value = product.sales_tax || 0;
             
@@ -4766,12 +4724,13 @@ function saveInvoice(status = 'Posted') {
         const grossAmount = parseFloat(row.querySelector('.gross-cell input').value);
         const discountPercent = parseFloat(row.querySelector('.disc-percent-cell input').value) || 0;
         const discountAmount = parseFloat(row.querySelector('.disc-amount-cell input').value) || 0;
-        const tradeOfferPercent = parseFloat(row.querySelector('.to-percent-cell input').value) || 0;
         const tradeOfferAmount = parseFloat(row.querySelector('.to-amount-cell input').value) || 0;
         const gstPercent = parseFloat(row.querySelector('.gst-percent-cell input').value) || 0;
         const gstAmount = parseFloat(row.querySelector('.gst-amount-cell input').value) || 0;
         const focQty = parseFloat(row.querySelector('.foc-cell input').value) || 0;
         const netAmount = parseFloat(row.querySelector('.net-cell input').value);
+        const schemeSelect = row.querySelector('.scheme-select');
+        const scheme = schemeSelect ? schemeSelect.value : 'sale_on_tp';
         
         let isFirstUnit = true;
         unitInputs.forEach(input => {
@@ -4788,7 +4747,6 @@ function saveInvoice(status = 'Posted') {
                     grossAmount: isFirstUnit ? grossAmount : 0,
                     discountPercent: isFirstUnit ? discountPercent : 0,
                     discountAmount: isFirstUnit ? discountAmount : 0,
-                    tradeOfferPercent: isFirstUnit ? tradeOfferPercent : 0,
                     tradeOfferAmount: isFirstUnit ? tradeOfferAmount : 0,
                     gstPercent: isFirstUnit ? gstPercent : 0,
                     gstAmount: isFirstUnit ? gstAmount : 0,
@@ -4796,7 +4754,8 @@ function saveInvoice(status = 'Posted') {
                     netAmount: isFirstUnit ? netAmount : 0,
                     parentRowId: null,
                     stockAffects: parseInt(row.dataset.stockAffects) || 1,
-                    invoiceAffects: parseInt(row.dataset.invoiceAffects) || 1
+                    invoiceAffects: parseInt(row.dataset.invoiceAffects) || 1,
+                    scheme: scheme
                 };
                 formData.items.push(item);
                 isFirstUnit = false;
