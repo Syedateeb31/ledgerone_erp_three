@@ -103,6 +103,10 @@ if (!$user_id) {
                     <input type="text" class="form-control" id="editFinishedGood" readonly>
                 </div>
                 <div class="field-group">
+                    <label class="form-label">BOM Base Qty</label>
+                    <input type="number" class="form-control" id="editBomBaseQty" step="any" min="0.01">
+                </div>
+                <div class="field-group">
                     <label class="form-label">Version</label>
                     <input type="text" class="form-control" id="editVersion">
                 </div>
@@ -110,6 +114,12 @@ if (!$user_id) {
                     <div class="checkbox-wrapper">
                         <input type="checkbox" id="editActive">
                         <label for="editActive">Active</label>
+                    </div>
+                </div>
+                <div class="field-group">
+                    <div class="checkbox-wrapper">
+                        <input type="checkbox" id="editBatchLocked">
+                        <label for="editBatchLocked">Batch Locked</label>
                     </div>
                 </div>
                 <div class="field-group">

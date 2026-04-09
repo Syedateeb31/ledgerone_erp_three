@@ -4848,5 +4848,3 @@ function validateForm() {
     
     return isValid;
 }
-
-

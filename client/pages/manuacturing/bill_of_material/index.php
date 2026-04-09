@@ -55,6 +55,11 @@ if (!$user_id) {
                         <div class="helper-text">Type to search</div>
                     </div>
 
+                    <div class="field-group">
+                        <label class="form-label" for="bomBaseQty">BOM Base Qty <span style="color:#E34F4F;">*</span></label>
+                        <input type="number" class="form-control" id="bomBaseQty" value="1" step="any" min="0.01" required>
+                    </div>
+
                     <!-- Version (default 1.0) -->
                     <div class="field-group">
                         <label class="form-label" for="version">Version <span style="color:#E34F4F;">*</span></label>
@@ -68,6 +73,14 @@ if (!$user_id) {
                             <label for="active">Active</label>
                         </div>
                         <div class="helper-text"> </div> <!-- spacer for alignment -->
+                    </div>
+
+                    <div class="field-group">
+                        <div class="checkbox-wrapper">
+                            <input type="checkbox" id="batchLocked">
+                            <label for="batchLocked">Batch Locked</label>
+                        </div>
+                        <div class="helper-text"> </div>
                     </div>
                 </div>
 
