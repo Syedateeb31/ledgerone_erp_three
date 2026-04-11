@@ -39,7 +39,9 @@ if (!$user_id) {
                     <h1>Production Expenses</h1>
                     <p>Manage and review all manufacturing cost entries</p>
                 </div>
-                <button class="btn btn-secondary" onclick="window.location.href='unit-cost-analysis.php'" style="margin-left:auto;"><i class="fas fa-chart-line"></i> Unit Costs</button>
+                <button class="btn btn-primary" onclick="window.location.href='expense-quick.php'" style="margin-left:auto;"><i class="fas fa-plus-circle"></i> Quick Add</button>
+                <button class="btn btn-secondary" onclick="window.location.href='expense-add.php'"><i class="fas fa-plus"></i> Add Expense</button>
+                <button class="btn btn-secondary" onclick="window.location.href='unit-cost-analysis.php'"><i class="fas fa-chart-line"></i> Unit Costs</button>
                 <button class="btn btn-secondary" onclick="window.location.href='costing-config.php'"><i class="fas fa-cog"></i> Costing Config</button>
                 <button class="btn btn-secondary" onclick="adjustPeriodCosts()"><i class="fas fa-calculator"></i> Adjust Period Costs</button>
             </div>
