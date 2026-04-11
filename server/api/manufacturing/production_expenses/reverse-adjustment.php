@@ -112,6 +112,20 @@ try {
         $reversed_count++;
     }
     
+    // Update production_completions total_cost
+    foreach ($adjustments as $adj) {
+        $updateCompStmt = $pdo->prepare("
+            UPDATE production_completions pc
+            SET total_cost = (
+                SELECT SUM(cp.total_cost)
+                FROM completed_products cp
+                WHERE cp.production_completion_id = pc.id
+            )
+            WHERE pc.production_order_id = ?
+        ");
+        $updateCompStmt->execute([$adj['production_order_id']]);
+    }
+    
     // Delete adjustment records
     $deleteStmt = $pdo->prepare("
         DELETE FROM cost_adjustments
