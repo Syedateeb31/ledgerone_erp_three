@@ -173,6 +173,42 @@ function adjustPeriodCosts() {
     });
 }
 
+function reverseAdjustment() {
+    const dateFrom = document.getElementById('filterDateFrom').value;
+    const dateTo = document.getElementById('filterDateTo').value;
+    
+    if (!dateFrom || !dateTo) {
+        showToast('error', 'Validation', 'Select period dates first');
+        return;
+    }
+    
+    if (!confirm(`Reverse all cost adjustments for period ${dateFrom} to ${dateTo}?\n\nThis will restore original costs before adjustment.`)) {
+        return;
+    }
+    
+    fetch('../../../../server/api/manufacturing/production_expenses/reverse-adjustment.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            period_from: dateFrom,
+            period_to: dateTo
+        })
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            showToast('success', 'Reversed', result.message);
+            loadExpenses();
+        } else {
+            showToast('error', 'Error', result.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showToast('error', 'Error', 'Failed to reverse adjustment');
+    });
+}
+
 
 
 // Toast display (enhanced)
@@ -206,3 +242,4 @@ window.viewExpenseDetail = viewExpenseDetail;
 window.editExpense = editExpense;
 window.deleteExpense = deleteExpense;
 window.adjustPeriodCosts = adjustPeriodCosts;
+window.reverseAdjustment = reverseAdjustment;

@@ -43,6 +43,7 @@ if (!$user_id) {
                 <button class="btn btn-secondary" onclick="window.location.href='unit-cost-analysis.php'"><i class="fas fa-chart-line"></i> Unit Costs</button>
                 <button class="btn btn-secondary" onclick="window.location.href='costing-config.php'"><i class="fas fa-cog"></i> Costing Config</button>
                 <button class="btn btn-secondary" onclick="adjustPeriodCosts()"><i class="fas fa-calculator"></i> Adjust Period Costs</button>
+                <button class="btn btn-secondary" onclick="reverseAdjustment()"><i class="fas fa-undo"></i> Reverse Adjustment</button>
             </div>
 
             <!-- Filters -->
