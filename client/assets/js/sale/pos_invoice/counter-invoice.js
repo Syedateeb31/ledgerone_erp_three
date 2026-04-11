@@ -6,6 +6,8 @@ let currentInvoice = {
     currency: null
 };
 
+let isSaving = false;
+
 let productsData = [];
 let customersData = [];
 let branchesData = [];
@@ -309,9 +311,11 @@ document.addEventListener('DOMContentLoaded', async function() {
             quickPay();
         } else if (combo === shortcuts.save) {
             e.preventDefault();
+            e.stopPropagation();
             saveInvoice();
         } else if (combo === shortcuts.draft) {
             e.preventDefault();
+            e.stopPropagation();
             saveInvoice('Draft');
         } else if (combo === shortcuts.clear && !isInput) {
             e.preventDefault();
@@ -597,8 +601,12 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
     });
     document.getElementById('quickPayBtn').addEventListener('click', quickPay);
-    document.getElementById('saveInvoiceBtn').addEventListener('click', saveInvoice);
-    document.getElementById('saveDraftBtn').addEventListener('click', function() {
+    document.getElementById('saveInvoiceBtn').addEventListener('click', function(e) {
+        e.preventDefault();
+        saveInvoice();
+    });
+    document.getElementById('saveDraftBtn').addEventListener('click', function(e) {
+        e.preventDefault();
         saveInvoice('Draft');
     });
     document.getElementById('amountReceived').addEventListener('input', updateSummary);
@@ -1552,19 +1560,25 @@ function quickPay() {
 }
 
 async function saveInvoice(status = 'Posted') {
+    if (isSaving) return;
+    isSaving = true;
+    
     if (currentInvoice.items.length === 0) {
         alert('Add at least one item to save invoice!');
+        isSaving = false;
         return;
     }
     
     if (!currentInvoice.customer || !currentInvoice.branch || !currentInvoice.currency) {
         alert('Please select customer, branch, and currency!');
+        isSaving = false;
         return;
     }
     
     const paymentMethod = document.getElementById('paymentMethod').value;
     if (paymentMethod === 'bank_transfer' && !document.getElementById('bankAccount').value) {
         alert('Please select a bank account!');
+        isSaving = false;
         return;
     }
     
@@ -1579,6 +1593,7 @@ async function saveInvoice(status = 'Posted') {
                     const availableStock = Math.floor(data.stock);
                     if (availableStock < item.qty) {
                         alert(`Insufficient stock for ${item.product}!\nAvailable: ${availableStock}, Required: ${item.qty}`);
+                        isSaving = false;
                         return;
                     }
                 }
@@ -1671,6 +1686,8 @@ async function saveInvoice(status = 'Posted') {
         }
     } catch (error) {
         alert('Error saving invoice: ' + error.message);
+    } finally {
+        isSaving = false;
     }
 }
 

@@ -485,6 +485,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $issue_date
             ]);
             
+            // 3. Accounting Ledger Entry: Dr. WIP Inventory, Cr. Raw Materials Inventory
+            $glStmt = $pdo->prepare("
+                INSERT INTO accounting_ledger
+                (tenant_id, transaction_type, reference_table, reference_id, account_id, date, description, debit, credit, created_at)
+                VALUES (?, 'wip_issue', 'work_in_progress', ?, ?, ?, ?, ?, ?, NOW())
+            ");
+            
+            // Debit: WIP Inventory (account_id = 116)
+            $glStmt->execute([
+                $tenant_id,
+                $wipHeaderId,
+                116,
+                $issue_date,
+                'Material issued to WIP: ' . $wipNumber,
+                $totalCost,
+                0
+            ]);
+            
+            // Credit: Raw Materials Inventory (account_id = 115)
+            $glStmt->execute([
+                $tenant_id,
+                $wipHeaderId,
+                115,
+                $issue_date,
+                'Material issued to WIP: ' . $wipNumber,
+                0,
+                $totalCost
+            ]);
+            
             // Update production order status
             $poUpdateStmt = $pdo->prepare("
                 UPDATE production_orders
@@ -885,7 +914,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $issue_date
             ]);
             
-            // 2. WIP Product Receive (qty_in) - use wip_product_id not material_id
+            // 2. WIP Product Receive (qty_in) - account_id 116
             $stockInStmt->execute([
                 $tenant_id,
                 $branch_id,
@@ -895,6 +924,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $mat['unit_cost'],
                 $mat['uom_id'],
                 $issue_date
+            ]);
+            
+            // 3. Accounting Ledger Entry: Dr. WIP Inventory, Cr. Raw Materials Inventory
+            $glStmt = $pdo->prepare("
+                INSERT INTO accounting_ledger
+                (tenant_id, transaction_type, reference_table, reference_id, account_id, date, description, debit, credit, created_at)
+                VALUES (?, 'wip_issue', 'work_in_progress', ?, ?, ?, ?, ?, ?, NOW())
+            ");
+            
+            // Debit: WIP Inventory (account_id = 116)
+            $glStmt->execute([
+                $tenant_id,
+                $wipHeaderId,
+                116,
+                $issue_date,
+                'Material issued to WIP: ' . $wipNumber,
+                $mat['issue_qty'] * $mat['unit_cost'],
+                0
+            ]);
+            
+            // Credit: Raw Materials Inventory (account_id = 115)
+            $glStmt->execute([
+                $tenant_id,
+                $wipHeaderId,
+                115,
+                $issue_date,
+                'Material issued to WIP: ' . $wipNumber,
+                0,
+                $mat['issue_qty'] * $mat['unit_cost']
             ]);
             
             $lineStmt->execute([

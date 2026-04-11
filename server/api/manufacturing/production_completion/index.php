@@ -95,7 +95,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 exit;
             }
             
-            // Get total WIP cost
+            // Get total WIP cost (materials)
             $wipStmt = $pdo->prepare("
                 SELECT COALESCE(SUM(total_cost), 0) as total_wip_cost
                 FROM work_in_progress
@@ -104,6 +104,73 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             $wipStmt->execute([$poId]);
             $wip = $wipStmt->fetch(PDO::FETCH_ASSOC);
             $totalWipCost = $wip['total_wip_cost'];
+            
+            // Get costing method configuration
+            $configStmt = $pdo->prepare("
+                SELECT config_value 
+                FROM system_config 
+                WHERE tenant_id = ? AND config_key = 'costing_method'
+            ");
+            $configStmt->execute([$tenant_id]);
+            $costingMethod = $configStmt->fetchColumn() ?: 'actual';
+            
+            // Get total production expenses (actual posted)
+            $expenseStmt = $pdo->prepare("
+                SELECT COALESCE(SUM(total_amount), 0) as total_expenses
+                FROM production_expenses
+                WHERE production_order_id = ? AND status = 'Posted'
+            ");
+            $expenseStmt->execute([$poId]);
+            $expense = $expenseStmt->fetch(PDO::FETCH_ASSOC);
+            $totalExpenses = $expense['total_expenses'];
+            
+            // Calculate overhead to apply
+            $overheadToApply = 0;
+            $costingMethodUsed = 'actual';
+            
+            if ($costingMethod === 'standard') {
+                // STANDARD COSTING: Use predetermined rates
+                $rateStmt = $pdo->prepare("
+                    SELECT rate_type, rate_value
+                    FROM overhead_rates
+                    WHERE tenant_id = ?
+                    ORDER BY id DESC
+                    LIMIT 1
+                ");
+                $rateStmt->execute([$tenant_id]);
+                $rate = $rateStmt->fetch(PDO::FETCH_ASSOC);
+                
+                if ($rate) {
+                    if ($rate['rate_type'] === 'per_unit') {
+                        $overheadToApply = $product['order_qty'] * $rate['rate_value'];
+                    } elseif ($rate['rate_type'] === 'percentage_of_material') {
+                        $overheadToApply = $totalWipCost * ($rate['rate_value'] / 100);
+                    } elseif ($rate['rate_type'] === 'per_hour') {
+                        // Estimate hours from production order dates
+                        $daysStmt = $pdo->prepare("
+                            SELECT DATEDIFF(COALESCE(end_date, CURDATE()), start_date) as days
+                            FROM production_orders
+                            WHERE id = ?
+                        ");
+                        $daysStmt->execute([$poId]);
+                        $days = $daysStmt->fetchColumn();
+                        $hours = max(1, $days * 8); // Assume 8 hours per day
+                        $overheadToApply = $hours * $rate['rate_value'];
+                    }
+                    $costingMethodUsed = 'standard';
+                } else {
+                    // Fallback to actual if no standard rate defined
+                    $overheadToApply = $totalExpenses;
+                    $costingMethodUsed = 'actual';
+                }
+            } else {
+                // ACTUAL COSTING: Use posted expenses (may be 0 initially)
+                $overheadToApply = $totalExpenses;
+                $costingMethodUsed = 'actual';
+            }
+            
+            // Total production cost = Materials + Overhead
+            $totalProductionCost = $totalWipCost + $overheadToApply;
             
             // Get units based on uom_type
             $units = [];
@@ -144,8 +211,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 }
             }
             
-            // Calculate unit cost (total WIP cost / order qty)
-            $baseUnitCost = $product['order_qty'] > 0 ? $totalWipCost / $product['order_qty'] : 0;
+            // Calculate unit cost (total production cost / order qty)
+            $baseUnitCost = $product['order_qty'] > 0 ? $totalProductionCost / $product['order_qty'] : 0;
             
             // Create product entries for each unit
             $productData = [];
@@ -169,7 +236,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                     'uom_id' => $unit['unit_id'],
                     'uom_name' => $unit['uom_name'],
                     'unit_cost' => $baseUnitCost,
-                    'total_wip_cost' => $totalWipCost
+                    'total_wip_cost' => $totalWipCost,
+                    'total_expenses' => $totalExpenses,
+                    'overhead_applied' => $overheadToApply,
+                    'total_production_cost' => $totalProductionCost,
+                    'costing_method' => $costingMethodUsed
                 ];
             }
             
@@ -284,18 +355,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ]);
             
             $remaining_qty -= $prod['completed_qty'];
-            
-            // Get WIP materials from work_in_progress_items
-            $wipStmt = $pdo->prepare("
-                SELECT wpi.material_id, wpi.issue_qty, wpi.uom_id, wpi.unit_cost
-                FROM work_in_progress_items wpi
-                JOIN work_in_progress wp ON wpi.work_in_progress_id = wp.id
-                WHERE wp.production_order_id = ?
-            ");
-            $wipStmt->execute([$po_id]);
-            $wipMaterials = $wipStmt->fetchAll(PDO::FETCH_ASSOC);
-            
-            // 1. WIP OUT for finished product (account_id = 116)
+        }
+        
+        // Get WIP materials from work_in_progress_items
+        $wipStmt = $pdo->prepare("
+            SELECT wpi.material_id, wpi.issue_qty, wpi.uom_id, wpi.unit_cost
+            FROM work_in_progress_items wpi
+            JOIN work_in_progress wp ON wpi.work_in_progress_id = wp.id
+            WHERE wp.production_order_id = ?
+        ");
+        $wipStmt->execute([$po_id]);
+        $wipMaterials = $wipStmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // 1. Raw Materials OUT from WIP (account_id = 116)
+        foreach ($wipMaterials as $material) {
             $stmt = $pdo->prepare("
                 INSERT INTO stock_ledger
                 (tenant_id, account_id, branch_id, product_id, reference_table, reference_id,
@@ -305,15 +378,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->execute([
                 $tenant_id,
                 $branch_id,
-                $prod['product_id'],
+                $material['material_id'],
                 $completion_id,
-                $prod['completed_qty'],
-                $prod['unit_cost'],
-                $prod['uom_id'],
+                $material['issue_qty'],
+                $material['unit_cost'],
+                $material['uom_id'],
                 $complete_date
             ]);
-            
-            // 2. Finished Goods IN (account_id = 117)
+        }
+        
+        // 2. Finished Goods IN (account_id = 117)
+        foreach ($products as $prod) {
             $stmt = $pdo->prepare("
                 INSERT INTO stock_ledger
                 (tenant_id, account_id, branch_id, product_id, reference_table, reference_id,

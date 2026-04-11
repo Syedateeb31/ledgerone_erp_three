@@ -431,6 +431,13 @@ document.addEventListener('DOMContentLoaded', function () {
                 document.getElementById('previousBalance').value = invoice.previous_balance;
                 document.getElementById('remarks').value = invoice.remarks || '';
 
+                // Load sub accounts for supplier
+                await loadSubAccounts(invoice.supplier_id);
+                if (invoice.sub_account_id) {
+                    document.getElementById('subAccountSearch').value = invoice.sub_account_name || '';
+                    document.getElementById('subAccount').value = invoice.sub_account_id;
+                }
+
                 updateCurrencySymbols();
 
                 // Load items with dynamic UOM
