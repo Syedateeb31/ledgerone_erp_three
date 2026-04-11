@@ -174,11 +174,11 @@ function adjustPeriodCosts() {
 }
 
 function reverseAdjustment() {
-    const dateFrom = document.getElementById('filterDateFrom').value;
-    const dateTo = document.getElementById('filterDateTo').value;
+    const dateFrom = prompt('Enter Period From (YYYY-MM-DD):');
+    const dateTo = prompt('Enter Period To (YYYY-MM-DD):');
     
     if (!dateFrom || !dateTo) {
-        showToast('error', 'Validation', 'Select period dates first');
+        showToast('error', 'Required', 'Both dates are required');
         return;
     }
     
