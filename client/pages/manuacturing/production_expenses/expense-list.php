@@ -111,7 +111,7 @@ if (!$user_id) {
         </div>
     </div>
 
-    <script src="../../../assets/js/manufacturing/production_expenses/expense-list.js"></script>
+    <script src="../../../assets/js/manufacturing/production_expenses/expense-list.js?v=<?php echo time(); ?>"></script>
 </body>
 
 </html>
