@@ -109,6 +109,33 @@ if (!$user_id) {
                 <div id="toastMsg"></div>
             </div>
         </div>
+
+        <!-- Reverse Adjustment Modal -->
+        <div class="modal-overlay" id="reverseModal" style="display:none;">
+            <div class="modal-box">
+                <div class="modal-header">
+                    <h3><i class="fas fa-undo"></i> Reverse Cost Adjustment</h3>
+                    <button class="modal-close" onclick="closeReverseModal()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <p style="color:var(--subtext); font-size:13px; margin-bottom:20px;">
+                        This will restore original costs before adjustment for the selected period.
+                    </p>
+                    <div class="field">
+                        <label>Period From <span class="req">*</span></label>
+                        <input type="date" id="reverseDateFrom" class="modal-input">
+                    </div>
+                    <div class="field" style="margin-top:16px;">
+                        <label>Period To <span class="req">*</span></label>
+                        <input type="date" id="reverseDateTo" class="modal-input">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" onclick="closeReverseModal()">Cancel</button>
+                    <button class="btn btn-primary" onclick="confirmReverseAdjustment()"><i class="fas fa-undo"></i> Reverse Adjustment</button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script src="../../../assets/js/manufacturing/production_expenses/expense-list.js?v=<?php echo time(); ?>"></script>

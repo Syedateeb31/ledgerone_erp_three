@@ -174,8 +174,23 @@ function adjustPeriodCosts() {
 }
 
 function reverseAdjustment() {
-    const dateFrom = prompt('Enter Period From (YYYY-MM-DD):');
-    const dateTo = prompt('Enter Period To (YYYY-MM-DD):');
+    const modal = document.getElementById('reverseModal');
+    const today = new Date();
+    const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+    
+    document.getElementById('reverseDateFrom').value = firstDay.toISOString().split('T')[0];
+    document.getElementById('reverseDateTo').value = today.toISOString().split('T')[0];
+    
+    modal.style.display = 'flex';
+}
+
+function closeReverseModal() {
+    document.getElementById('reverseModal').style.display = 'none';
+}
+
+function confirmReverseAdjustment() {
+    const dateFrom = document.getElementById('reverseDateFrom').value;
+    const dateTo = document.getElementById('reverseDateTo').value;
     
     if (!dateFrom || !dateTo) {
         showToast('error', 'Required', 'Both dates are required');
@@ -185,6 +200,8 @@ function reverseAdjustment() {
     if (!confirm(`Reverse all cost adjustments for period ${dateFrom} to ${dateTo}?\n\nThis will restore original costs before adjustment.`)) {
         return;
     }
+    
+    closeReverseModal();
     
     fetch('../../../../server/api/manufacturing/production_expenses/reverse-adjustment.php', {
         method: 'POST',
@@ -243,3 +260,5 @@ window.editExpense = editExpense;
 window.deleteExpense = deleteExpense;
 window.adjustPeriodCosts = adjustPeriodCosts;
 window.reverseAdjustment = reverseAdjustment;
+window.closeReverseModal = closeReverseModal;
+window.confirmReverseAdjustment = confirmReverseAdjustment;
