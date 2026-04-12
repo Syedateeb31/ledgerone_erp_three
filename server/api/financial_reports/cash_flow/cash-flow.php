@@ -500,9 +500,9 @@ try {
         
         SELECT 
             DATE(pex.created_at) as date,
-            CAST(CONCAT('Production Expense - ', pex.expense_number) AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci as description,
+            CAST(CONCAT('Production Expense - ', pex.id) AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci as description,
             CAST('Production Expense' AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci as account,
-            CAST(pex.expense_number AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci as reference,
+            CAST(CONCAT('PROD-', pex.id) AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci as reference,
             CAST('Cash' AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci as method,
             CAST('-' AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci as bank_account,
             0 as inflow,
