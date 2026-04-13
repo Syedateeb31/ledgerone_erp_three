@@ -51,14 +51,14 @@ function loadCustomersData() {
 
 // Load distributions from API
 function loadDistributionsData() {
-    return fetch('../../../../server/api/customer_supplier/customers/get-companies.php')
+    return fetch('../../../../server/api/customer_supplier/customers/get-distributions.php')
         .then(response => {
             if (!response.ok) throw new Error('Failed to load distributions');
             return response.json();
         })
         .then(data => {
             if (data.success) {
-                distributionsData = data.companies || [];
+                distributionsData = data.distributions || [];
                 console.log('✓ Distributions loaded:', distributionsData.length);
             } else {
                 throw new Error(data.message || 'Failed to load distributions');
