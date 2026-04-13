@@ -31,6 +31,12 @@ if (!$user_id) {
                 <p class="page-description">Manage your products and services inventory</p>
             </div>
             <div class="header-actions">
+                <button class="btn btn-secondary" id="aiqBtn">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M2 4H14M2 8H14M2 12H14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    Labels
+                </button>
                 <button class="btn btn-secondary" id="assignUomBtn" style="display: none;">
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M2 8h12M8 2v12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
@@ -175,6 +181,7 @@ if (!$user_id) {
     <?php include 'delete-modal.php'; ?>
     <?php include 'print-code-modal.php'; ?>
     <?php include 'bulk-uom-modal.php'; ?>
+    <?php include 'aiq-modal.php'; ?>
 
     <script src="https://cdn.jsdelivr.net/npm/qrious@4.0.2/dist/qrious.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.5/JsBarcode.all.min.js"></script>

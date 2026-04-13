@@ -33,7 +33,7 @@ try {
     $offset = ($page - 1) * $limit;
     
     $sql = "
-        SELECT p.id, p.code, p.name, p.product_type, p.mrp, p.trade_price, p.is_active,
+        SELECT p.id, p.code, p.name, p.product_type, p.mrp, p.trade_price, p.wholesale_price, p.is_active,
                p.parent_product_id, p.qr_code, p.barcode, p.company_id, p.uom_type,
                c.category_name, sc.subcategory_name, comp.company_name,
                u.uom_name as default_unit_name, ug.group_name as uom_group_name,

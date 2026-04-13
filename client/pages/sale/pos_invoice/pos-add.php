@@ -182,18 +182,20 @@ if (!$user_id) {
                         </tbody>
                         <tfoot>
                             <tr class="totals-row">
-                                <th colspan="2">Totals</th>
+                                <th style="text-align: left;">Totals</th>
+                                <th style="text-align: left;"></th>
+                                <th style="text-align: left;"></th>
                                 <!-- Dynamic unit totals will be inserted here -->
                                 <th id="totalSalePrice">0.00</th>
                                 <th id="totalGrossAmount">0.00</th>
                                 <th></th>
                                 <th id="totalDiscountAmountItems">0.00</th>
-                                <th></th>
                                 <th id="totalTradeOfferAmount">0.00</th>
                                 <th></th>
                                 <th id="totalGstAmount">0.00</th>
                                 <th id="totalFocQty">0.00</th>
                                 <th id="totalNetAmountItems">0.00</th>
+                                <th></th>
                                 <th></th>
                             </tr>
                         </tfoot>

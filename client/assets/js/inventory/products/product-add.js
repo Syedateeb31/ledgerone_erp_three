@@ -567,6 +567,23 @@ function handleFormSubmit(e) {
     // DEBUG: Log ALL form data
     console.log('=== FORM DATA DEBUG ===');
     console.log('Edit ID:', editId);
+    
+    // Log stock opening data specifically
+    const stockEntries = document.querySelectorAll('.stock-entry');
+    console.log('Stock entries count:', stockEntries.length);
+    stockEntries.forEach((entry, index) => {
+        const branchInput = entry.querySelector('input[type="hidden"][name="branch[]"]');
+        const qtyInputs = entry.querySelectorAll('input[name^="openingQty"]');
+        const priceInput = entry.querySelector('input[name="openingPrice[]"]');
+        
+        console.log(`Stock Entry ${index}:`, {
+            branch: branchInput ? branchInput.value : 'empty',
+            qty: qtyInputs.length > 0 ? Array.from(qtyInputs).map(i => i.value) : 'N/A',
+            price: priceInput ? priceInput.value : 'N/A'
+        });
+    });
+    
+    // Log all form entries
     for (let [key, value] of formData.entries()) {
         console.log(key + ':', value);
     }
@@ -669,6 +686,63 @@ function validateForm() {
             errorMsg.textContent = `Value must be at most ${field.max}`;
         }
     });
+
+    // Validate branch-wise opening stock entries
+    const stockSection = document.getElementById('stockSection');
+    if (stockSection && !stockSection.classList.contains('hidden')) {
+        const stockEntries = document.querySelectorAll('.stock-entry');
+        let hasValidEntry = false;
+
+        stockEntries.forEach((entry, index) => {
+            const branchHiddenInput = entry.querySelector('input[type="hidden"][name="branch[]"]');
+            const branchSearchInput = entry.querySelector('.branch-search');
+            const qtyInputs = entry.querySelectorAll('input[name^="openingQty"]');
+            const priceInput = entry.querySelector('input[name="openingPrice[]"]');
+
+            let branchId = branchHiddenInput ? branchHiddenInput.value : '';
+            let hasQty = false;
+
+            // Check if at least one qty field has a value
+            qtyInputs.forEach(input => {
+                if (input.value && parseFloat(input.value) > 0) {
+                    hasQty = true;
+                }
+            });
+
+            // If there's any data in this entry (qty or price), branch must be selected
+            if (hasQty || (priceInput && priceInput.value)) {
+                if (!branchId) {
+                    isValid = false;
+                    if (branchSearchInput) {
+                        branchSearchInput.classList.add('error');
+                        let errorMsg = entry.querySelector('.branch-error-text');
+                        if (!errorMsg) {
+                            errorMsg = document.createElement('div');
+                            errorMsg.className = 'helper-text error-text branch-error-text';
+                            branchSearchInput.parentNode.appendChild(errorMsg);
+                        }
+                        errorMsg.textContent = 'Branch selection is required';
+                    }
+                } else {
+                    hasValidEntry = true;
+                    // Clear error if any
+                    if (branchSearchInput) {
+                        branchSearchInput.classList.remove('error');
+                        const errorMsg = entry.querySelector('.branch-error-text');
+                        if (errorMsg) errorMsg.remove();
+                    }
+                }
+            }
+
+            // If quantity is provided, branch must be selected
+            if (hasQty && !branchId) {
+                isValid = false;
+                if (branchSearchInput) {
+                    branchSearchInput.classList.add('error');
+                }
+            }
+        });
+    }
 
     return isValid;
 }
@@ -1965,41 +2039,141 @@ function loadStockOpeningData(productId) {
     setTimeout(() => {
         const uomType = document.querySelector('input[name="uomType"]:checked').value;
         
-        // For UOM Group mode, we can't reconstruct individual unit quantities from total
-        // So we skip loading and let user re-enter
-        if (uomType === 'group') {
-            console.log('UOM Group mode: Stock entries must be re-entered');
-            return;
-        }
+        // First, load conversion factors if UOM Group
+        const loadConversionFactorsPromise = uomType === 'group' ? 
+            fetch(`../../../../server/api/inventory/products/product-uom-conversions.php?product_id=${productId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.conversions) {
+                        data.conversions.forEach(conv => {
+                            const input = document.querySelector(`input[name="groupConversionFactor[${conv.uom_id}]"]`);
+                            if (input) {
+                                input.value = conv.conversion_factor;
+                            }
+                        });
+                    }
+                })
+                .catch(error => console.error('Error loading conversion factors:', error))
+            : Promise.resolve();
         
-        fetch(`../../../../server/api/inventory/products/stock-opening-get.php?product_id=${productId}`)
-        .then(response => response.json())
-        .then(data => {
-            if (data.success && data.stock_entries.length > 0) {
-                const stockEntries = document.getElementById('stockEntries');
-                stockEntries.innerHTML = '';
-                
-                data.stock_entries.forEach((entry) => {
-                    addStockEntry();
-                    const entryDiv = stockEntries.lastElementChild;
+        // Then load stock opening data after conversion factors are ready
+        loadConversionFactorsPromise.then(() => {
+            fetch(`../../../../server/api/inventory/products/stock-opening-get.php?product_id=${productId}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.stock_entries && data.stock_entries.length > 0) {
+                    const stockEntries = data.stock_entries;
+                    console.log('Loaded stock entries:', stockEntries);
                     
-                    const branchInput = entryDiv.querySelector('.branch-search');
-                    const branchHidden = entryDiv.querySelector('input[name="branch[]"]');
-                    const priceInput = entryDiv.querySelector('input[name="openingPrice[]"]');
-                    
-                    if (branchInput) branchInput.value = entry.branch_display;
-                    if (branchHidden) branchHidden.value = entry.branch_id;
-                    if (priceInput) priceInput.value = entry.opening_price;
-                    
-                    const qtyInput = entryDiv.querySelector('input[name="openingQty[]"]');
-                    if (qtyInput) qtyInput.value = entry.opening_qty;
+                    // Group entries by branch
+                    const entriesByBranch = {};
+                stockEntries.forEach(entry => {
+                    if (!entriesByBranch[entry.branch_id]) {
+                        entriesByBranch[entry.branch_id] = [];
+                    }
+                    entriesByBranch[entry.branch_id].push(entry);
                 });
                 
+                // Clear existing stock entry rows (except first empty template)
+                const stockEntriesContainer = document.getElementById('stockEntries');
+                while (stockEntriesContainer.children.length > 1) {
+                    stockEntriesContainer.removeChild(stockEntriesContainer.lastChild);
+                }
+                
+                // Populate first row with first entry data
+                if (stockEntries.length > 0) {
+                    const firstBranchId = Object.keys(entriesByBranch)[0];
+                    const branchEntries = entriesByBranch[firstBranchId];
+                    const firstEntry = branchEntries[0];
+                    
+                    const firstRow = stockEntriesContainer.querySelector('.stock-entry');
+                    
+                    // Set branch
+                    const branchHidden = firstRow.querySelector('input[type="hidden"][name="branch[]"]');
+                    const branchSearch = firstRow.querySelector('.branch-search');
+                    if (branchHidden && branchSearch && firstEntry.branch_display) {
+                        branchHidden.value = firstEntry.branch_id;
+                        branchSearch.value = firstEntry.branch_display;
+                    }
+                    
+                    // Set price (same for all units in this branch)
+                    const priceInput = firstRow.querySelector('input[name="openingPrice[]"]');
+                    if (priceInput && firstEntry.opening_price) {
+                        priceInput.value = firstEntry.opening_price;
+                    }
+                    
+                    if (uomType === 'group') {
+                        // For UOM groups, populate individual unit quantities
+                        branchEntries.forEach(entry => {
+                            const unitInput = firstRow.querySelector(`input[name="openingQty[${entry.unit_id}][]"]`);
+                            if (unitInput && entry.unit_id) {
+                                unitInput.value = entry.opening_qty;
+                            }
+                        });
+                    } else {
+                        // For single unit mode
+                        const qtyInput = firstRow.querySelector('input[name="openingQty[]"]');
+                        if (qtyInput && firstEntry.opening_qty) {
+                            qtyInput.value = firstEntry.opening_qty;
+                        }
+                    }
+                }
+                
+                // Add additional rows for other branches
+                let branchIndex = 0;
+                for (const branchId of Object.keys(entriesByBranch)) {
+                    if (branchIndex === 0) {
+                        branchIndex++;
+                        continue; // Skip first, already populated
+                    }
+                    
+                    const branchEntries = entriesByBranch[branchId];
+                    addStockEntry();
+                    
+                    const newRow = stockEntriesContainer.lastElementChild;
+                    
+                    // Set branch
+                    const branchHidden = newRow.querySelector('input[type="hidden"][name="branch[]"]');
+                    const branchSearch = newRow.querySelector('.branch-search');
+                    if (branchHidden && branchSearch && branchEntries[0].branch_display) {
+                        branchHidden.value = branchEntries[0].branch_id;
+                        branchSearch.value = branchEntries[0].branch_display;
+                    }
+                    
+                    // Set price
+                    const priceInput = newRow.querySelector('input[name="openingPrice[]"]');
+                    if (priceInput && branchEntries[0].opening_price) {
+                        priceInput.value = branchEntries[0].opening_price;
+                    }
+                    
+                    if (uomType === 'group') {
+                        // For UOM groups, populate individual unit quantities
+                        branchEntries.forEach(entry => {
+                            const unitInput = newRow.querySelector(`input[name="openingQty[${entry.unit_id}][]"]`);
+                            if (unitInput && entry.unit_id) {
+                                unitInput.value = entry.opening_qty;
+                            }
+                        });
+                    } else {
+                        // For single unit mode
+                        const qtyInput = newRow.querySelector('input[name="openingQty[]"]');
+                        if (qtyInput && branchEntries[0].opening_qty) {
+                            qtyInput.value = branchEntries[0].opening_qty;
+                        }
+                    }
+                    
+                    branchIndex++;
+                }
+                
                 calculateTotalStock();
+            } else {
+                console.log('No stock entries found');
             }
+            })
+            .catch(error => console.error('Error loading stock opening data:', error));
         })
-        .catch(error => console.error('Error loading stock opening data:', error));
-    }, 1500);
+        .catch(error => console.error('Error in stock opening load process:', error));
+    }, 1000);
 }
 
 function loadParentProductForEdit(parentProductId) {

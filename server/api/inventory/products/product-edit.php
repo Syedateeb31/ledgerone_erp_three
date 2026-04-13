@@ -185,7 +185,7 @@ try {
         
         $stockLedgerStmt = $pdo->prepare("
             INSERT INTO stock_ledger (tenant_id, account_id, branch_id, product_id, reference_table, reference_id, qty_in, unit_cost, unit_id, transaction_type, transaction_date)
-            VALUES (?, ?, ?, ?, 'products', ?, ?, ?, ?, 'Opening Stock', CURDATE())
+            VALUES (?, ?, ?, ?, 'stock_opening', ?, ?, ?, ?, 'Opening Stock', CURDATE())
         ");
         
         for ($i = 0; $i < count($_POST['branch']); $i++) {
@@ -193,101 +193,95 @@ try {
                 $branchId = $_POST['branch'][$i];
                 $openingPrice = $_POST['openingPrice'][$i] ?? 0;
                 
-                // Calculate total quantity in base units for stock_opening
-                $totalQtyInBaseUnits = 0;
-                $originalQty = 0;
-                $unitIdForStock = null;
-                
                 if ($uom_type === 'group' && $uom_group_id) {
-                    // Get base unit
-                    $baseUnitStmt = $pdo->prepare("
-                        SELECT u.id
-                        FROM uom u
-                        INNER JOIN uom_group_units ugu ON u.id = ugu.uom_id
-                        WHERE ugu.uom_group_id = ? AND u.is_base_unit = 1
-                        LIMIT 1
-                    ");
-                    $baseUnitStmt->execute([$uom_group_id]);
-                    $baseUnitRow = $baseUnitStmt->fetch(PDO::FETCH_ASSOC);
+                    // UOM GROUP MODE: Insert SEPARATE stock_opening entries for EACH unit
+                    error_log("Edit: Processing GROUP UOM for branch $branchId");
                     
-                    if ($baseUnitRow) {
-                        $unitIdForStock = $baseUnitRow['id'];
-                    } else {
-                        $nonBaseStmt = $pdo->prepare("
-                            SELECT u.base_unit_id
-                            FROM uom u
-                            INNER JOIN uom_group_units ugu ON u.id = ugu.uom_id
-                            WHERE ugu.uom_group_id = ? AND u.is_base_unit = 0 AND u.base_unit_id IS NOT NULL
-                            LIMIT 1
-                        ");
-                        $nonBaseStmt->execute([$uom_group_id]);
-                        $nonBaseRow = $nonBaseStmt->fetch(PDO::FETCH_ASSOC);
-                        
-                        if ($nonBaseRow && $nonBaseRow['base_unit_id']) {
-                            $unitIdForStock = $nonBaseRow['base_unit_id'];
+                    $hasGroupData = false;
+                    if (isset($_POST['openingQty']) && is_array($_POST['openingQty'])) {
+                        foreach ($_POST['openingQty'] as $unit_id => $quantities) {
+                            if (is_array($quantities) && isset($quantities[$i]) && !empty($quantities[$i])) {
+                                $unitQty = floatval($quantities[$i]);
+                                $hasGroupData = true;
+                                
+                                // Insert stock_opening for this specific unit
+                                try {
+                                    error_log("Edit: Saving stock_opening for unit {$unit_id}: qty={$unitQty}");
+                                    $stockOpeningStmt->execute([
+                                        $product_id,
+                                        $tenant_id,
+                                        $branchId,
+                                        $unitQty,  // Original quantity for this unit
+                                        $openingPrice,
+                                        $unit_id   // Store the specific unit
+                                    ]);
+                                    $stockOpeningId = $pdo->lastInsertId();
+                                    error_log("Edit: Stock opening saved with ID: {$stockOpeningId}");
+                                    
+                                    // Insert corresponding stock_ledger entry for this unit
+                                    $stockLedgerStmt->execute([
+                                        $tenant_id,
+                                        $inventory_account,
+                                        $branchId,
+                                        $product_id,
+                                        $stockOpeningId,
+                                        $unitQty,  // Store original quantity
+                                        $openingPrice,
+                                        $unit_id   // Store the actual unit used
+                                    ]);
+                                    error_log("Edit: Stock ledger entry created for unit {$unit_id}, referencing stock_opening {$stockOpeningId}");
+                                } catch (Exception $e) {
+                                    error_log("Edit: Error saving stock for unit {$unit_id}: " . $e->getMessage());
+                                }
+                            }
                         }
                     }
                     
-                    // Check if we have group format data (openingQty[unit_id][]) or single format (openingQty[])
-                    if (isset($_POST['openingQty']) && is_array($_POST['openingQty']) && !isset($_POST['openingQty'][$i])) {
-                        // Group format - insert separate entries for each unit
-                        error_log("Using GROUP format for row $i");
-                        $totalQtyInBaseUnits = convertGroupUnitsToBaseUnits($_POST, $i, $product_id, $pdo);
-                        $originalQty = $totalQtyInBaseUnits; // For groups, store converted total
-                    } else {
-                        // Single format (read-only existing stock) - already in base units
-                        error_log("Using SINGLE format for row $i");
-                        if (!empty($_POST['openingQty'][$i])) {
-                            $originalQty = floatval($_POST['openingQty'][$i]); // Store ORIGINAL
-                            $totalQtyInBaseUnits = floatval($_POST['openingQty'][$i]);
-                            error_log("Single format qty: $totalQtyInBaseUnits");
-                        }
+                    if (!$hasGroupData) {
+                        error_log("Edit: No group data found for row {$i}");
                     }
+                    continue; // Skip the single insert below for group mode
                 } else {
                     // Default Unit mode - single quantity
+                    $totalQtyInBaseUnits = 0;
+                    $unitIdForStock = $default_unit;
                     if (!empty($_POST['openingQty'][$i])) {
                         $originalQty = floatval($_POST['openingQty'][$i]); // Store ORIGINAL qty
                         $totalQtyInBaseUnits = convertSingleUnitToBaseUnits($originalQty, $default_unit, $product_conversion_factor, $pdo);
-                    }
-                    $unitIdForStock = $default_unit;
-                }
-                
-                if ($totalQtyInBaseUnits > 0) {
-                    error_log("INSERTING: Branch=$branchId, Qty=$totalQtyInBaseUnits, Price=$openingPrice");
-                    // Insert into stock_opening with ORIGINAL quantity
-                    $stockOpeningStmt->execute([
-                        $product_id,
-                        $tenant_id,
-                        $branchId,
-                        $originalQty,  // Store ORIGINAL quantity (e.g., 150 for Grams)
-                        $openingPrice,
-                        $unitIdForStock  // Store the unit used
-                    ]);
-                    
-                    $stockOpeningId = $pdo->lastInsertId();
-                    error_log("Stock Opening ID: $stockOpeningId");
-                    
-                    // Insert into stock_ledger - separate entries for each unit
-                    if ($uom_type === 'group' && $uom_group_id && isset($_POST['openingQty']) && is_array($_POST['openingQty']) && !isset($_POST['openingQty'][$i])) {
-                        // Group format - insert separate ledger entries for each unit
-                        insertGroupStockLedgerEntries($_POST, $i, $product_id, $stockOpeningId, $branchId, $inventory_account, $tenant_id, $openingPrice, $pdo);
                     } else {
-                        // Single entry for default unit - store ORIGINAL qty, not converted
-                        $originalQty = !empty($_POST['openingQty'][$i]) ? floatval($_POST['openingQty'][$i]) : 0;
+                        $originalQty = 0;
+                    }
+                    
+                    if ($totalQtyInBaseUnits > 0) {
+                        error_log("Edit: INSERTING single unit - Branch=$branchId, Qty=$originalQty, Price=$openingPrice");
+                        // Insert into stock_opening with ORIGINAL quantity
+                        $stockOpeningStmt->execute([
+                            $product_id,
+                            $tenant_id,
+                            $branchId,
+                            $originalQty,  // Store ORIGINAL quantity
+                            $openingPrice,
+                            $unitIdForStock  // Store the unit used
+                        ]);
+                        
+                        $stockOpeningId = $pdo->lastInsertId();
+                        error_log("Edit: Stock Opening ID: $stockOpeningId");
+                        
+                        // Insert corresponding stock_ledger entry
                         $stockLedgerStmt->execute([
                             $tenant_id,
                             $inventory_account,
                             $branchId,
                             $product_id,
                             $stockOpeningId,
-                            $originalQty,  // Store original quantity (e.g., 150 Grams)
+                            $originalQty,  // Store original quantity
                             $openingPrice,
-                            $default_unit  // Store the actual unit used (e.g., Gram)
+                            $unitIdForStock  // Store the actual unit used
                         ]);
-                        error_log("Stock Ledger inserted successfully");
+                        error_log("Edit: Stock Ledger inserted successfully");
+                    } else {
+                        error_log("Edit: SKIPPED single unit - Branch=$branchId, Qty=$originalQty (qty is 0 or negative)");
                     }
-                } else {
-                    error_log("SKIPPED: Branch=$branchId, Qty=$totalQtyInBaseUnits (qty is 0 or negative)");
                 }
             }
         }

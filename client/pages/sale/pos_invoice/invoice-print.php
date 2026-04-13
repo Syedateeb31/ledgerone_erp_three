@@ -517,7 +517,6 @@
             { id: 'gross', label: 'Gross Amt', width: '8%' },
             { id: 'disc_pct', label: 'Disc %', width: '5%' },
             { id: 'disc_amt', label: 'Disc Amt', width: '8%' },
-            { id: 'to_pct', label: 'T.O %', width: '5%' },
             { id: 'to_amt', label: 'T.O Amt', width: '8%' },
             { id: 'gst_pct', label: 'GST %', width: '5%' },
             { id: 'gst_amt', label: 'GST Amt', width: '8%' },
@@ -609,7 +608,7 @@
             headerRow.appendChild(unitPlaceholder);
 
             // Add remaining columns
-            const remainingCols = ['price', 'gross', 'disc_pct', 'disc_amt', 'to_pct', 'to_amt', 'gst_pct', 'gst_amt', 'foc', 'net'];
+            const remainingCols = ['price', 'gross', 'disc_pct', 'disc_amt', 'to_amt', 'gst_pct', 'gst_amt', 'foc', 'net'];
             remainingCols.forEach(colId => {
                 const col = columnConfig.find(c => c.id === colId);
                 if (col && col.visible === false) return;
@@ -623,7 +622,6 @@
                     case 'gross': th.textContent = 'Gross Amt'; th.width = '8%'; break;
                     case 'disc_pct': th.textContent = 'Disc %'; th.width = '5%'; break;
                     case 'disc_amt': th.textContent = 'Disc Amt'; th.width = '8%'; break;
-                    case 'to_pct': th.textContent = 'T.O %'; th.width = '5%'; break;
                     case 'to_amt': th.textContent = 'T.O Amt'; th.width = '8%'; break;
                     case 'gst_pct': th.textContent = 'GST %'; th.width = '5%'; break;
                     case 'gst_amt': th.textContent = 'GST Amt'; th.width = '8%'; break;
@@ -634,7 +632,6 @@
                 // Apply visibility based on settings
                 if (colId === 'disc_pct' && !enableCashDiscountPercent) th.style.display = 'none';
                 if (colId === 'disc_amt' && !enableCashDiscountAmount) th.style.display = 'none';
-                if (colId === 'to_pct' && !enableTradeOfferDiscount) th.style.display = 'none';
                 if (colId === 'to_amt' && !enableTradeOfferAmount) th.style.display = 'none';
                 if (colId === 'gst_pct' && !enableTaxation) th.style.display = 'none';
                 if (colId === 'gst_amt' && !enableTaxation) th.style.display = 'none';
@@ -700,7 +697,6 @@
                 { id: 'gross', label: '', hasTotal: true, totalId: 'totalGrossAmount' },
                 { id: 'disc_pct', label: '', hasTotal: false },
                 { id: 'disc_amt', label: '', hasTotal: true, totalId: 'totalDiscountAmountItems' },
-                { id: 'to_pct', label: '', hasTotal: false },
                 { id: 'to_amt', label: '', hasTotal: true, totalId: 'totalTradeOfferAmountItems' },
                 { id: 'gst_pct', label: '', hasTotal: false },
                 { id: 'gst_amt', label: '', hasTotal: true, totalId: 'totalGstAmountItems' },
@@ -724,7 +720,6 @@
                 // Apply visibility
                 if (colDef.id === 'disc_pct' && !enableCashDiscountPercent) th.style.display = 'none';
                 if (colDef.id === 'disc_amt' && !enableCashDiscountAmount) th.style.display = 'none';
-                if (colDef.id === 'to_pct' && !enableTradeOfferDiscount) th.style.display = 'none';
                 if (colDef.id === 'to_amt' && !enableTradeOfferAmount) th.style.display = 'none';
                 if (colDef.id === 'gst_pct' && !enableTaxation) th.style.display = 'none';
                 if (colDef.id === 'gst_amt' && !enableTaxation) th.style.display = 'none';
@@ -1001,7 +996,6 @@
                     { id: 'gross', value: currencySymbol + ' ' + parseFloat(item.gross_amount).toFixed(2), visible: true },
                     { id: 'disc_pct', value: parseFloat(item.discount_percent || 0).toFixed(2) + '%', visible: enableCashDiscountPercent },
                     { id: 'disc_amt', value: currencySymbol + ' ' + parseFloat(item.discount_amount || 0).toFixed(2), visible: enableCashDiscountAmount },
-                    { id: 'to_pct', value: parseFloat(item.trade_offer_percent || 0).toFixed(2) + '%', visible: enableTradeOfferDiscount },
                     { id: 'to_amt', value: currencySymbol + ' ' + parseFloat(item.trade_offer_amount || 0).toFixed(2), visible: enableTradeOfferAmount },
                     { id: 'gst_pct', value: parseFloat(item.gst_percent || 0).toFixed(2) + '%', visible: enableTaxation },
                     { id: 'gst_amt', value: currencySymbol + ' ' + parseFloat(item.gst_amount || 0).toFixed(2), visible: enableTaxation },
@@ -1074,7 +1068,7 @@
                     }
 
                     // Remaining columns - all dashes for child items
-                    const remainingCols = ['price', 'gross', 'disc_pct', 'disc_amt', 'to_pct', 'to_amt', 'gst_pct', 'gst_amt', 'foc', 'net'];
+                    const remainingCols = ['price', 'gross', 'disc_pct', 'disc_amt', 'to_amt', 'gst_pct', 'gst_amt', 'foc', 'net'];
                     remainingCols.forEach(colId => {
                         const col = columnConfig.find(c => c.id === colId);
                         if (col && col.visible === false) return;
@@ -1086,7 +1080,6 @@
                         // Apply visibility
                         if (colId === 'disc_pct' && !enableCashDiscountPercent) td.style.display = 'none';
                         if (colId === 'disc_amt' && !enableCashDiscountAmount) td.style.display = 'none';
-                        if (colId === 'to_pct' && !enableTradeOfferDiscount) td.style.display = 'none';
                         if (colId === 'to_amt' && !enableTradeOfferAmount) td.style.display = 'none';
                         if (colId === 'gst_pct' && !enableTaxation) td.style.display = 'none';
                         if (colId === 'gst_amt' && !enableTaxation) td.style.display = 'none';
