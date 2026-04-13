@@ -298,6 +298,25 @@ body {
   transform: translateY(0);
 }
 
+.btn-success {
+  background: linear-gradient(
+    135deg,
+    #2fbf71 0%,
+    #26a965 100%
+  );
+  color: white;
+  box-shadow: 0 4px 12px rgba(47, 191, 113, 0.3);
+}
+
+.btn-success:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(47, 191, 113, 0.4);
+}
+
+.btn-success:active:not(:disabled) {
+  transform: translateY(0);
+}
+
 .btn-secondary {
   background: var(--button-secondary-bg);
   color: var(--button-secondary-text);

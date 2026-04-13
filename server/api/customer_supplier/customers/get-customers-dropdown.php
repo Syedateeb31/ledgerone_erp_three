@@ -12,17 +12,16 @@ if (!$tenant_id) {
 }
 
 try {
-    // Fetch distributions (suppliers) for opening balance invoices
     $stmt = $pdo->prepare("
-        SELECT id, supplier_code, supplier_name, supplier_type 
-        FROM suppliers 
-        WHERE tenant_id = ? AND status = 'ACTIVE' AND is_blacklisted = 0
-        ORDER BY supplier_code, supplier_name
+        SELECT id, customer_code, customer_name 
+        FROM customers 
+        WHERE tenant_id = ? AND is_blacklisted = 0 
+        ORDER BY customer_name
     ");
     $stmt->execute([$tenant_id]);
-    $companies = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $customers = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
-    echo json_encode(['success' => true, 'companies' => $companies]);
+    echo json_encode(['success' => true, 'customers' => $customers]);
 } catch (Exception $e) {
     echo json_encode(['success' => false, 'message' => $e->getMessage()]);
 }
