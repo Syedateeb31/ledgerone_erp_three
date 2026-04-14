@@ -700,30 +700,52 @@ async function loadInvoiceData(invoiceId) {
             }
             
             currentReturn.items = [];
+            
+            // Group items by product_id (excluding child products)
+            const productGroups = {};
             data.items.forEach(item => {
                 if (!item.parent_row_id) {
-                    const product = productsData.find(p => p.id == item.product_id);
-                    if (product) {
-                        const uomDetails = getProductUOMDetails(product);
-                        const returnItem = {
-                            id: Date.now() + Math.random(),
-                            product: item.product_name,
-                            productId: item.product_id,
-                            units: uomDetails.units.map((unit, index) => ({
-                                id: unit.id,
-                                name: unit.name,
-                                conversionFactor: unit.conversionFactor,
-                                qty: index === 0 ? parseFloat(item.quantity) : 0
-                            })),
-                            price: parseFloat(item.sale_price),
-                            discountPercent: parseFloat(item.discount_percent || 0),
-                            gstPercent: parseFloat(item.gst_percent || 0),
-                            status: 'sellable'
-                        };
-                        returnItem.qty = calculateTotalQty(returnItem);
-                        recalculateItem(returnItem);
-                        currentReturn.items.push(returnItem);
+                    if (!productGroups[item.product_id]) {
+                        productGroups[item.product_id] = [];
                     }
+                    productGroups[item.product_id].push(item);
+                }
+            });
+            
+            // Create one return item per product with all unit quantities
+            Object.keys(productGroups).forEach(productId => {
+                const items = productGroups[productId];
+                const firstItem = items[0];
+                const product = productsData.find(p => p.id == productId);
+                
+                if (product) {
+                    const uomDetails = getProductUOMDetails(product);
+                    
+                    // Create unit quantity map from invoice items
+                    const unitQtyMap = {};
+                    items.forEach(item => {
+                        unitQtyMap[item.uom_id] = parseFloat(item.quantity);
+                    });
+                    
+                    const returnItem = {
+                        id: Date.now() + Math.random(),
+                        product: firstItem.product_name,
+                        productId: productId,
+                        units: uomDetails.units.map(unit => ({
+                            id: unit.id,
+                            name: unit.name,
+                            conversionFactor: unit.conversionFactor,
+                            qty: unitQtyMap[unit.id] || 0
+                        })),
+                        price: parseFloat(firstItem.sale_price),
+                        discountPercent: parseFloat(firstItem.discount_percent || 0),
+                        gstPercent: parseFloat(firstItem.gst_percent || 0),
+                        status: 'sellable'
+                    };
+                    
+                    returnItem.qty = calculateTotalQty(returnItem);
+                    recalculateItem(returnItem);
+                    currentReturn.items.push(returnItem);
                 }
             });
             
