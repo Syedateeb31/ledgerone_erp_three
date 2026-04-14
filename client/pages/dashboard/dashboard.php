@@ -567,6 +567,204 @@ $hasDateFilter = $dateFrom && $dateTo;
             color: #991b1b;
         }
 
+        .bank-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            z-index: 10000;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(4px);
+        }
+
+        .bank-modal.show {
+            display: flex;
+            animation: fadeIn 0.2s ease;
+        }
+
+        .bank-modal-content {
+            background: white;
+            width: 95%;
+            max-width: 1400px;
+            height: 90vh;
+            border-radius: 12px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            animation: slideUp 0.3s ease;
+        }
+
+        .bank-modal-header {
+            padding: 1.5rem 2rem;
+            background: linear-gradient(135deg, #1f7bff 0%, #1559b8 100%);
+            color: white;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .bank-modal-header h3 {
+            margin: 0;
+            font-size: 1.375rem;
+            font-weight: 600;
+            color: white !important;
+        }
+
+        .bank-modal-close {
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            color: white;
+            font-size: 1.5rem;
+            cursor: pointer;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            transition: all 0.2s;
+        }
+
+        .bank-modal-close:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .bank-modal-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 2rem;
+            background: #f8fafc;
+        }
+
+        .bank-accounts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .bank-account-card {
+            background: white;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 1.5rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .bank-account-card:hover {
+            border-color: var(--primary);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(31, 123, 255, 0.15);
+        }
+
+        .bank-logo {
+            width: 60px;
+            height: 60px;
+            object-fit: contain;
+            border-radius: 8px;
+            background: #f8fafc;
+            padding: 8px;
+        }
+
+        .bank-info h4 {
+            margin: 0 0 0.5rem 0;
+            font-size: 1.125rem;
+            color: var(--heading);
+        }
+
+        .bank-info p {
+            margin: 0;
+            font-size: 0.875rem;
+            color: var(--subtext);
+        }
+
+        .bank-statement-view {
+            display: none;
+        }
+
+        .bank-statement-view.active {
+            display: block;
+        }
+
+        .statement-header {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 10px;
+            margin-bottom: 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid #e2e8f0;
+        }
+
+        .statement-filters {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .statement-table {
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            border: 1px solid #e2e8f0;
+        }
+
+        .statement-table table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .statement-table th {
+            background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+            padding: 1rem;
+            text-align: left;
+            font-weight: 600;
+            font-size: 12px;
+            color: #475569;
+            text-transform: uppercase;
+            border-bottom: 2px solid #e2e8f0;
+        }
+
+        .statement-table td {
+            padding: 1rem;
+            border-bottom: 1px solid #f1f5f9;
+            font-size: 14px;
+            color: #334155;
+        }
+
+        .statement-table tbody tr:hover {
+            background: #f8fafc;
+        }
+
+        @media (max-width: 768px) {
+            .bank-accounts-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .statement-filters {
+                flex-direction: column;
+                width: 100%;
+            }
+
+            .statement-filters select,
+            .statement-filters input,
+            .statement-filters button {
+                width: 100%;
+            }
+        }
+
         @media (max-width: 768px) {
             .ledger-search-box {
                 flex-direction: column;
@@ -721,6 +919,10 @@ $hasDateFilter = $dateFrom && $dateTo;
                     <a href="../financial_reports/cash_flow/cash-flow.php" class="action-btn">
                         <i class="fas fa-exchange-alt"></i>
                         <span>Cash Flow Report</span>
+                    </a>
+                    <a href="#" class="action-btn" onclick="openBankStatementModal(); return false;">
+                        <i class="fas fa-university"></i>
+                        <span>Bank Statement</span>
                     </a>
                 </div>
             </div>
@@ -950,6 +1152,67 @@ $hasDateFilter = $dateFrom && $dateTo;
             </div>
         </div>
     <?php endif; ?>
+
+    <!-- Bank Statement Modal -->
+    <div id="bankStatementModal" class="bank-modal">
+        <div class="bank-modal-content">
+            <div class="bank-modal-header">
+                <h3 id="bankModalTitle">Select Bank Account</h3>
+                <button class="bank-modal-close" onclick="closeBankStatementModal()">&times;</button>
+            </div>
+            <div class="bank-modal-body">
+                <!-- Bank Accounts Selection -->
+                <div id="bankAccountsView" class="bank-accounts-grid"></div>
+                
+                <!-- Bank Statement View -->
+                <div id="bankStatementView" class="bank-statement-view">
+                    <div class="statement-header">
+                        <button class="btn btn-secondary" onclick="backToBankSelection()">
+                            <i class="fas fa-arrow-left"></i> Back
+                        </button>
+                        <div class="statement-filters">
+                            <select id="statementDateRange" class="form-input" style="width: auto;">
+                                <option value="week">Last 7 Days</option>
+                                <option value="month" selected>Last Month</option>
+                                <option value="quarter">Last Quarter</option>
+                                <option value="year">Last Year</option>
+                                <option value="custom">Custom Range</option>
+                            </select>
+                            <input type="date" id="statementFromDate" class="form-input" style="width: auto; display: none;">
+                            <input type="date" id="statementToDate" class="form-input" style="width: auto; display: none;">
+                            <button class="btn btn-primary" onclick="loadBankStatement()">
+                                <i class="fas fa-sync"></i> Refresh
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div id="statementSummary" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;"></div>
+                    
+                    <div class="statement-table">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Description</th>
+                                    <th>Reference</th>
+                                    <th class="text-right">Debit</th>
+                                    <th class="text-right">Credit</th>
+                                    <th class="text-right">Balance</th>
+                                </tr>
+                            </thead>
+                            <tbody id="statementTableBody">
+                                <tr>
+                                    <td colspan="6" style="text-align: center; padding: 3rem; color: #64748b;">
+                                        Select a bank account to view statement
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <?php if ($hasPermission): ?>
         <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
@@ -1674,6 +1937,174 @@ $hasDateFilter = $dateFrom && $dateTo;
                 plotOptions: { bar: { horizontal: true, barHeight: '70%' } },
                 dataLabels: { enabled: false }
             }).render();
+
+            // Bank Statement Functions
+            let selectedBankAccount = null;
+
+            async function openBankStatementModal() {
+                const modal = document.getElementById('bankStatementModal');
+                modal.classList.add('show');
+                await loadBankAccounts();
+            }
+
+            function closeBankStatementModal() {
+                const modal = document.getElementById('bankStatementModal');
+                modal.classList.remove('show');
+                selectedBankAccount = null;
+                document.getElementById('bankAccountsView').style.display = 'grid';
+                document.getElementById('bankStatementView').classList.remove('active');
+            }
+
+            async function loadBankAccounts() {
+                const container = document.getElementById('bankAccountsView');
+                container.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 3rem; color: #64748b;"><i class="fas fa-spinner fa-spin" style="font-size: 2rem; margin-bottom: 1rem;"></i><p>Loading bank accounts...</p></div>';
+
+                try {
+                    const response = await fetch('../../../server/api/financial_reports/cash_flow/filter-options.php');
+                    const result = await response.json();
+
+                    if (result.success && result.bank_accounts && result.bank_accounts.length > 0) {
+                        let html = '';
+                        result.bank_accounts.forEach(bank => {
+                            const logoPath = bank.bank_logo_path 
+                                ? `../../assets/uploads/bank_logo/${bank.bank_logo_path}` 
+                                : '../../assets/uploads/bank_logo/default-bank.png';
+                            
+                            html += `
+                                <div class="bank-account-card" onclick="selectBankAccount(${bank.id}, '${bank.bank_name.replace(/'/g, "\\\'")}')">
+                                    <img src="${logoPath}" alt="${bank.bank_name}" class="bank-logo" onerror="this.src='../../assets/uploads/bank_logo/default-bank.png'">
+                                    <div class="bank-info">
+                                        <h4>${bank.bank_name}</h4>
+                                        <p style="font-weight: 500; color: var(--body); margin-bottom: 0.25rem;">${bank.account_title || 'N/A'}</p>
+                                        <p style="font-size: 0.8rem;">${bank.account_number || 'N/A'}</p>
+                                    </div>
+                                </div>
+                            `;
+                        });
+                        container.innerHTML = html;
+                    } else {
+                        container.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 3rem; color: #64748b;"><i class="fas fa-info-circle" style="font-size: 2rem; margin-bottom: 1rem;"></i><p>No bank accounts found</p></div>';
+                    }
+                } catch (error) {
+                    console.error('Error loading bank accounts:', error);
+                    container.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 3rem; color: #dc2626;"><i class="fas fa-exclamation-circle" style="font-size: 2rem; margin-bottom: 1rem;"></i><p>Error loading bank accounts</p></div>';
+                }
+            }
+
+            function selectBankAccount(bankId, bankName) {
+                selectedBankAccount = { id: bankId, name: bankName };
+                document.getElementById('bankModalTitle').textContent = `Bank Statement - ${bankName}`;
+                document.getElementById('bankAccountsView').style.display = 'none';
+                document.getElementById('bankStatementView').classList.add('active');
+                loadBankStatement();
+            }
+
+            function backToBankSelection() {
+                document.getElementById('bankModalTitle').textContent = 'Select Bank Account';
+                document.getElementById('bankAccountsView').style.display = 'grid';
+                document.getElementById('bankStatementView').classList.remove('active');
+                selectedBankAccount = null;
+            }
+
+            async function loadBankStatement() {
+                if (!selectedBankAccount) return;
+
+                const tableBody = document.getElementById('statementTableBody');
+                const summaryDiv = document.getElementById('statementSummary');
+                
+                tableBody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 3rem; color: #64748b;"><i class="fas fa-spinner fa-spin" style="font-size: 2rem; margin-bottom: 1rem;"></i><br>Loading statement...</td></tr>';
+                summaryDiv.innerHTML = '';
+
+                try {
+                    const dateRange = document.getElementById('statementDateRange').value;
+                    const fromDate = document.getElementById('statementFromDate').value;
+                    const toDate = document.getElementById('statementToDate').value;
+
+                    let url = `../../../server/api/financial_reports/cash_flow/cash-flow.php?bank_account=${selectedBankAccount.id}&date_range=${dateRange}`;
+                    
+                    if (dateRange === 'custom' && fromDate && toDate) {
+                        url += `&from_date=${fromDate}&to_date=${toDate}`;
+                    }
+
+                    const response = await fetch(url);
+                    const result = await response.json();
+
+                    if (result.success && result.data) {
+                        // Render summary
+                        const balances = result.balances || {};
+                        summaryDiv.innerHTML = `
+                            <div class="ledger-summary-card">
+                                <div class="ledger-summary-label">Opening Balance</div>
+                                <div class="ledger-summary-value">Rs ${(balances.opening_balance || 0).toLocaleString('en-PK', {maximumFractionDigits: 2})}</div>
+                            </div>
+                            <div class="ledger-summary-card">
+                                <div class="ledger-summary-label">Total Inflow</div>
+                                <div class="ledger-summary-value positive">Rs ${(balances.total_inflow || 0).toLocaleString('en-PK', {maximumFractionDigits: 2})}</div>
+                            </div>
+                            <div class="ledger-summary-card">
+                                <div class="ledger-summary-label">Total Outflow</div>
+                                <div class="ledger-summary-value negative">Rs ${(balances.total_outflow || 0).toLocaleString('en-PK', {maximumFractionDigits: 2})}</div>
+                            </div>
+                            <div class="ledger-summary-card">
+                                <div class="ledger-summary-label">Closing Balance</div>
+                                <div class="ledger-summary-value">Rs ${(balances.closing_balance || 0).toLocaleString('en-PK', {maximumFractionDigits: 2})}</div>
+                            </div>
+                        `;
+
+                        // Render transactions
+                        if (result.data.length > 0) {
+                            let html = '';
+                            result.data.forEach(txn => {
+                                html += `
+                                    <tr>
+                                        <td>${txn.date || '-'}</td>
+                                        <td>${txn.description || '-'}</td>
+                                        <td>${txn.reference || '-'}</td>
+                                        <td class="text-right">${txn.inflow > 0 ? 'Rs ' + parseFloat(txn.inflow).toLocaleString('en-PK', {maximumFractionDigits: 2}) : '-'}</td>
+                                        <td class="text-right">${txn.outflow > 0 ? 'Rs ' + parseFloat(txn.outflow).toLocaleString('en-PK', {maximumFractionDigits: 2}) : '-'}</td>
+                                        <td class="text-right" style="font-weight: 600;">Rs ${parseFloat(txn.bank_balance || 0).toLocaleString('en-PK', {maximumFractionDigits: 2})}</td>
+                                    </tr>
+                                `;
+                            });
+                            tableBody.innerHTML = html;
+                        } else {
+                            tableBody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 3rem; color: #64748b;">No transactions found for this period</td></tr>';
+                        }
+                    } else {
+                        tableBody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 3rem; color: #dc2626;">Error loading statement</td></tr>';
+                    }
+                } catch (error) {
+                    console.error('Error loading bank statement:', error);
+                    tableBody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 3rem; color: #dc2626;">Error loading statement</td></tr>';
+                }
+            }
+
+            // Toggle custom date inputs for bank statement
+            document.getElementById('statementDateRange')?.addEventListener('change', function() {
+                const fromDate = document.getElementById('statementFromDate');
+                const toDate = document.getElementById('statementToDate');
+                
+                if (this.value === 'custom') {
+                    fromDate.style.display = 'block';
+                    toDate.style.display = 'block';
+                } else {
+                    fromDate.style.display = 'none';
+                    toDate.style.display = 'none';
+                }
+            });
+
+            // Close modal on escape or outside click
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') {
+                    closeBankStatementModal();
+                }
+            });
+
+            document.getElementById('bankStatementModal')?.addEventListener('click', function(e) {
+                if (e.target === this) {
+                    closeBankStatementModal();
+                }
+            });
         </script>
         <script src="../../assets/js/dashboard/dashboard-main.js"></script>
     <?php endif; ?>

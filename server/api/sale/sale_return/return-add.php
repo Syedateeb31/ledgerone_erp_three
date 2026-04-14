@@ -109,12 +109,32 @@ try {
     ");
 
     foreach ($input['items'] as $item) {
+        // Calculate total quantity from unit entries
+        $totalQty = 0;
+        $primaryUomId = null;
+        
+        if (isset($item['unitEntries']) && is_array($item['unitEntries'])) {
+            foreach ($item['unitEntries'] as $entry) {
+                if ($entry['quantity'] > 0) {
+                    if ($primaryUomId === null) {
+                        $primaryUomId = $entry['uomId'];
+                    }
+                    $totalQty += convertToPieces($entry['quantity'], $entry['uomId'], $pdo, $item['productId']);
+                }
+            }
+        }
+        
+        // Use first unit as primary UOM
+        if ($primaryUomId === null) {
+            $primaryUomId = 9; // Default to Piece
+        }
+        
         $item_stmt->execute([
             $tenant_id,
             $invoice_id,
             $item['productId'],
-            $item['uomId'],
-            $item['quantity'],
+            $primaryUomId,
+            $totalQty,
             $item['salePrice'],
             $item['grossAmount'],
             $item['discountPercent'] ?? 0.00,
@@ -136,32 +156,37 @@ try {
             $accountStmt->execute([$item['productId']]);
             $accountId = $accountStmt->fetchColumn() ?: 0;
 
-            // Convert quantity to pieces based on UOM
-            $qtyInPieces = convertToPieces($item['quantity'], $item['uomId'], $pdo, $item['productId']);
-
-            // Insert stock ledger for quantity returned
-            $stock_stmt = $pdo->prepare("
-                INSERT INTO stock_ledger (
-                    tenant_id, account_id, branch_id, product_id, reference_table, reference_id,
-                    qty_in, unit_cost, unit_id, stock_status, transaction_type, transaction_date
-                ) VALUES (?, ?, ?, ?, 'sale_return', ?, ?, ?, ?, ?, 'Sale Return', ?)
-            ");
-            $stock_stmt->execute([
-                $tenant_id,
-                $accountId,
-                $input['branchId'],
-                $item['productId'],
-                $invoice_id,
-                $qtyInPieces,
-                $item['salePrice'],
-                $item['uomId'],
-                $item['stockStatus'] ?? 'sellable',
-                $input['saleDate']
-            ]);
+            // Insert stock ledger entries for each unit
+            if (isset($item['unitEntries']) && is_array($item['unitEntries'])) {
+                foreach ($item['unitEntries'] as $entry) {
+                    if ($entry['quantity'] > 0) {
+                        $qtyInPieces = convertToPieces($entry['quantity'], $entry['uomId'], $pdo, $item['productId']);
+                        
+                        $stock_stmt = $pdo->prepare("
+                            INSERT INTO stock_ledger (
+                                tenant_id, account_id, branch_id, product_id, reference_table, reference_id,
+                                qty_in, unit_cost, unit_id, stock_status, transaction_type, transaction_date
+                            ) VALUES (?, ?, ?, ?, 'sale_return', ?, ?, ?, ?, ?, 'Sale Return', ?)
+                        ");
+                        $stock_stmt->execute([
+                            $tenant_id,
+                            $accountId,
+                            $input['branchId'],
+                            $item['productId'],
+                            $invoice_id,
+                            $qtyInPieces,
+                            $item['salePrice'],
+                            $entry['uomId'],
+                            $item['stockStatus'] ?? 'sellable',
+                            $input['saleDate']
+                        ]);
+                    }
+                }
+            }
 
             // Insert stock ledger for FOC quantity if exists
             if (isset($item['focQty']) && $item['focQty'] > 0) {
-                $focQtyInPieces = convertToPieces($item['focQty'], $item['uomId'], $pdo, $item['productId']);
+                $focQtyInPieces = convertToPieces($item['focQty'], $primaryUomId, $pdo, $item['productId']);
 
                 $foc_stmt = $pdo->prepare("
                     INSERT INTO stock_ledger (
@@ -177,7 +202,7 @@ try {
                     $invoice_id,
                     $focQtyInPieces,
                     0,
-                    $item['uomId'],
+                    $primaryUomId,
                     $item['stockStatus'] ?? 'sellable',
                     $input['saleDate']
                 ]);

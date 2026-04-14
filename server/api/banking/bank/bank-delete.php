@@ -31,13 +31,21 @@ try {
     
     $pdo->beginTransaction();
     
-    // Get account_id before deleting
-    $stmt = $pdo->prepare("SELECT account_id FROM bank_accounts WHERE id = ? AND tenant_id = ?");
+    // Get account_id and bank_logo_path before deleting
+    $stmt = $pdo->prepare("SELECT account_id, bank_logo_path FROM bank_accounts WHERE id = ? AND tenant_id = ?");
     $stmt->execute([$id, $tenant_id]);
     $account = $stmt->fetch();
     
     if (!$account) {
         throw new Exception('Bank account not found');
+    }
+    
+    // Delete bank logo file if exists
+    if ($account['bank_logo_path']) {
+        $logoPath = '../../../../client/assets/uploads/bank_logo/' . $account['bank_logo_path'];
+        if (file_exists($logoPath)) {
+            unlink($logoPath);
+        }
     }
     
     // Delete from accounting_ledger

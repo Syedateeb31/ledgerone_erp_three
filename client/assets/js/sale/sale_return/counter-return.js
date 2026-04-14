@@ -292,26 +292,37 @@ function addProductFromQuick() {
     
     if (product) {
         const priceType = document.querySelector('input[name="priceType"]:checked')?.value || 'tp';
-        const uom = uomData.find(u => u.id == product.default_unit_id);
+        const uomDetails = getProductUOMDetails(product);
+        const quickQty = parseFloat(document.getElementById('quickQty').value) || 1;
+        
+        // Find base unit (conversion factor = 1) or use first unit
+        const baseUnitIndex = uomDetails.units.findIndex(u => u.conversionFactor === 1);
+        const targetIndex = baseUnitIndex >= 0 ? baseUnitIndex : 0;
+        
         const item = {
             id: Date.now(),
             product: product.name,
             productId: product.id,
-            unit: uom ? uom.uom_name : 'PCS',
-            uomId: product.default_unit_id || 9,
-            qty: parseFloat(document.getElementById('quickQty').value) || 1,
+            units: uomDetails.units.map((unit, index) => ({
+                id: unit.id,
+                name: unit.name,
+                conversionFactor: unit.conversionFactor,
+                qty: index === targetIndex ? quickQty : 0
+            })),
             price: parseFloat(priceType === 'mrp' ? product.sale_price : product.trade_price),
             discountPercent: 0,
             gstPercent: parseFloat(product.sales_tax || 0),
             status: 'sellable'
         };
         
+        item.qty = calculateTotalQty(item);
         item.gross = item.qty * item.price;
         item.discountAmount = item.gross * (item.discountPercent / 100);
         item.gstAmount = (item.gross - item.discountAmount) * (item.gstPercent / 100);
         item.net = item.gross - item.discountAmount + item.gstAmount;
         
         currentReturn.items.push(item);
+        recalculateMaxColumns();
         renderItems();
         updateSummary();
         
@@ -326,14 +337,40 @@ function renderItems() {
     const tbody = document.getElementById('itemsBody');
     tbody.innerHTML = '';
     
+    // Update headers and footer
+    updateTableHeaders();
+    
     currentReturn.items.forEach((item, index) => {
         const row = document.createElement('div');
         row.className = 'item-row';
-        row.innerHTML = `
+        row.style.display = 'grid';
+        row.style.gridTemplateColumns = getGridTemplate();
+        row.style.gap = '4px';
+        row.style.alignItems = 'center';
+        
+        let html = `
             <div class="text-center">${index + 1}</div>
             <div>${item.product}</div>
-            <div>${item.unit}</div>
-            <input type="number" value="${item.qty}" min="1" class="text-right" onchange="updateItemQty(${item.id}, this.value)">
+        `;
+        
+        // Add unit inputs
+        for (let i = 0; i < maxUnitColumns; i++) {
+            if (i < item.units.length) {
+                const unit = item.units[i];
+                html += `
+                    <div style="display: flex; flex-direction: column; gap: 2px;">
+                        <div style="font-size: 9px; color: var(--subtext); text-align: center;">${unit.name}</div>
+                        <input type="number" value="${unit.qty}" min="0" step="0.01" class="text-right" 
+                            style="height: 24px; padding: 0 4px; font-size: 11px;" 
+                            onchange="updateUnitQty(${item.id}, ${i}, this.value)">
+                    </div>
+                `;
+            } else {
+                html += `<div class="text-center" style="color: var(--subtext); font-size: 11px;">-</div>`;
+            }
+        }
+        
+        html += `
             <input type="number" value="${item.price.toFixed(2)}" step="0.01" class="text-right" onchange="updateItemPrice(${item.id}, this.value)">
             <div class="readonly">${formatCurrency(item.gross)}</div>
             <input type="number" value="${item.discountPercent}" step="0.1" class="text-right" onchange="updateItemDiscount(${item.id}, this.value)">
@@ -349,9 +386,24 @@ function renderItems() {
                 </button>
             </div>
         `;
+        
+        row.innerHTML = html;
         tbody.appendChild(row);
     });
+    
+    updateFooterTotals();
 }
+
+window.updateUnitQty = function(itemId, unitIndex, newQty) {
+    const item = currentReturn.items.find(i => i.id === itemId);
+    if (item && item.units[unitIndex]) {
+        item.units[unitIndex].qty = parseFloat(newQty) || 0;
+        item.qty = calculateTotalQty(item);
+        recalculateItem(item);
+        renderItems();
+        updateSummary();
+    }
+};
 
 window.updateItemQty = function(itemId, newQty) {
     const item = currentReturn.items.find(i => i.id === itemId);
@@ -400,8 +452,6 @@ function updateSummary() {
     const amountRefunded = parseFloat(document.getElementById('amountRefunded').value) || 0;
     const balance = netAmount - amountRefunded;
     
-    const totalQty = currentReturn.items.reduce((sum, item) => sum + item.qty, 0);
-    document.getElementById('totalQty').textContent = totalQty.toFixed(2);
     document.getElementById('totalGross').textContent = formatCurrency(totalBill);
     document.getElementById('totalNet').textContent = formatCurrency(currentReturn.items.reduce((sum, item) => sum + item.net, 0));
     
@@ -414,6 +464,82 @@ function updateSummary() {
     document.getElementById('itemCount').textContent = currentReturn.items.length;
     
     document.getElementById('balanceAmount').style.color = balance >= 0 ? 'var(--error)' : 'var(--success)';
+}
+
+function updateTableHeaders() {
+    const header = document.getElementById('itemsHeader');
+    header.innerHTML = '';
+    header.style.display = 'grid';
+    header.style.gridTemplateColumns = getGridTemplate();
+    header.style.gap = '4px';
+    
+    let html = `
+        <div class="col-header text-center">#</div>
+        <div class="col-header">PRODUCT</div>
+    `;
+    
+    for (let i = 0; i < maxUnitColumns; i++) {
+        html += `<div class="col-header text-center">UNIT ${i + 1}</div>`;
+    }
+    
+    html += `
+        <div class="col-header text-right">PRICE</div>
+        <div class="col-header text-right">GROSS</div>
+        <div class="col-header text-right">DISC%</div>
+        <div class="col-header text-right">GST%</div>
+        <div class="col-header text-center">STATUS</div>
+        <div class="col-header text-right">NET</div>
+        <div class="col-header text-center">ACT</div>
+    `;
+    
+    header.innerHTML = html;
+}
+
+function updateFooterTotals() {
+    const footer = document.getElementById('itemsFooter');
+    footer.style.display = 'grid';
+    footer.style.gridTemplateColumns = getGridTemplate();
+    
+    let html = `
+        <div></div>
+        <div>TOTALS</div>
+    `;
+    
+    // Calculate unit totals
+    for (let i = 0; i < maxUnitColumns; i++) {
+        let total = 0;
+        currentReturn.items.forEach(item => {
+            if (item.units && item.units[i]) {
+                total += item.units[i].qty || 0;
+            }
+        });
+        html += `<div class="text-right">${total.toFixed(2)}</div>`;
+    }
+    
+    html += `
+        <div></div>
+        <div class="text-right" id="totalGross">0.00</div>
+        <div></div>
+        <div></div>
+        <div></div>
+        <div class="text-right" id="totalNet">0.00</div>
+        <div></div>
+    `;
+    
+    footer.innerHTML = html;
+    
+    // Update totals
+    const totalBill = currentReturn.items.reduce((sum, item) => sum + item.gross, 0);
+    const totalNet = currentReturn.items.reduce((sum, item) => sum + item.net, 0);
+    document.getElementById('totalGross').textContent = formatCurrency(totalBill);
+    document.getElementById('totalNet').textContent = formatCurrency(totalNet);
+}
+
+function getGridTemplate() {
+    const baseColumns = '30px 120px';
+    const unitColumns = ' 70px'.repeat(maxUnitColumns);
+    const endColumns = ' 70px 70px 70px 70px 60px 80px 40px';
+    return baseColumns + unitColumns + endColumns;
 }
 
 function updateReturnDiscount() {
@@ -461,8 +587,10 @@ async function saveReturn() {
         amountPaid: parseFloat(document.getElementById('amountRefunded').value) || 0,
         items: currentReturn.items.map(item => ({
             productId: item.productId,
-            uomId: item.uomId,
-            quantity: item.qty,
+            unitEntries: item.units.map(unit => ({
+                uomId: unit.id,
+                quantity: unit.qty || 0
+            })).filter(entry => entry.quantity > 0),
             salePrice: item.price,
             grossAmount: item.gross,
             discountPercent: item.discountPercent,
@@ -574,24 +702,32 @@ async function loadInvoiceData(invoiceId) {
             currentReturn.items = [];
             data.items.forEach(item => {
                 if (!item.parent_row_id) {
-                    const uom = uomData.find(u => u.id == item.uom_id);
-                    const returnItem = {
-                        id: Date.now() + Math.random(),
-                        product: item.product_name,
-                        productId: item.product_id,
-                        unit: uom ? uom.uom_name : 'PCS',
-                        uomId: item.uom_id,
-                        qty: parseFloat(item.quantity),
-                        price: parseFloat(item.sale_price),
-                        discountPercent: parseFloat(item.discount_percent || 0),
-                        gstPercent: parseFloat(item.gst_percent || 0),
-                        status: 'sellable'
-                    };
-                    recalculateItem(returnItem);
-                    currentReturn.items.push(returnItem);
+                    const product = productsData.find(p => p.id == item.product_id);
+                    if (product) {
+                        const uomDetails = getProductUOMDetails(product);
+                        const returnItem = {
+                            id: Date.now() + Math.random(),
+                            product: item.product_name,
+                            productId: item.product_id,
+                            units: uomDetails.units.map((unit, index) => ({
+                                id: unit.id,
+                                name: unit.name,
+                                conversionFactor: unit.conversionFactor,
+                                qty: index === 0 ? parseFloat(item.quantity) : 0
+                            })),
+                            price: parseFloat(item.sale_price),
+                            discountPercent: parseFloat(item.discount_percent || 0),
+                            gstPercent: parseFloat(item.gst_percent || 0),
+                            status: 'sellable'
+                        };
+                        returnItem.qty = calculateTotalQty(returnItem);
+                        recalculateItem(returnItem);
+                        currentReturn.items.push(returnItem);
+                    }
                 }
             });
             
+            recalculateMaxColumns();
             renderItems();
             updateSummary();
             showNotification('Invoice loaded successfully!');

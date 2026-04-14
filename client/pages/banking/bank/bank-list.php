@@ -331,6 +331,14 @@ $currency_symbol = $currency['symbol'] ?? '$';
                         <input type="number" id="editOpeningBalance" step="0.01">
                     </div>
                     <div class="form-row">
+                        <label>Bank Logo</label>
+                        <input type="file" id="editBankLogo" accept="image/*">
+                        <div style="font-size: 12px; color: var(--light-text-sub); margin-top: 4px;">Upload new logo (JPG, PNG, GIF - Max 2MB)</div>
+                        <div id="editLogoPreview" style="margin-top: 10px; display: none;">
+                            <img id="editLogoPreviewImg" style="max-width: 100px; max-height: 100px; border-radius: 8px;" />
+                        </div>
+                    </div>
+                    <div class="form-row">
                         <label>Status</label>
                         <select id="editIsActive">
                             <option value="1">Active</option>
