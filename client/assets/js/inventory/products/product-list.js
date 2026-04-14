@@ -14,6 +14,11 @@ document.addEventListener('DOMContentLoaded', function () {
         window.location.href = 'product-add.php';
     });
 
+    // Bulk Opening Stock button
+    document.getElementById('bulkOpeningStockBtn').addEventListener('click', function () {
+        window.location.href = 'bulk-opening-stock.php';
+    });
+
     // Add First Product button
     document.getElementById('addFirstProduct').addEventListener('click', function () {
         window.location.href = 'product-add.php';
