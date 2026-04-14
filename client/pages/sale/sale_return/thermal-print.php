@@ -316,6 +316,17 @@
             tbody.innerHTML = '';
             
             items.forEach((item) => {
+                // Calculate total quantity from unit_entries
+                let totalQtyDisplay = '';
+                if (item.unit_entries && item.unit_entries.length > 0) {
+                    const qtyParts = item.unit_entries.map(entry => 
+                        `${parseFloat(entry.quantity).toFixed(0)} ${entry.uom_name}`
+                    );
+                    totalQtyDisplay = qtyParts.join(' + ');
+                } else {
+                    totalQtyDisplay = '0';
+                }
+                
                 const row = tbody.insertRow();
                 const discountAmt = parseFloat(item.discount_amount || 0);
                 const tradeOfferAmt = parseFloat(item.trade_offer_amount || 0);
@@ -323,7 +334,7 @@
                 
                 row.innerHTML = `
                     <td>${item.product_name}</td>
-                    <td class="text-right">${parseFloat(item.quantity).toFixed(2)}</td>
+                    <td class="text-right" style="font-size: 9px;">${totalQtyDisplay}</td>
                     <td class="text-right">${currencySymbol}${parseFloat(item.sale_price).toFixed(2)}</td>
                     <td class="text-right">${currencySymbol}${totalDisc.toFixed(2)}</td>
                     <td class="text-right">${currencySymbol}${parseFloat(item.net_amount).toFixed(2)}</td>
