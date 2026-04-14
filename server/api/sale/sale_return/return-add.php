@@ -98,7 +98,7 @@ try {
     $invoice_id = $pdo->lastInsertId();
     $status = $input['status'] ?? 'Posted';
 
-    // Insert return items
+    // Insert return items - one record per unit entry
     $item_stmt = $pdo->prepare("
         INSERT INTO sale_return_items (
             tenant_id, sale_invoice_id, product_id, uom_id,
@@ -109,45 +109,43 @@ try {
     ");
 
     foreach ($input['items'] as $item) {
-        // Calculate total quantity from unit entries
-        $totalQty = 0;
-        $primaryUomId = null;
-        
         if (isset($item['unitEntries']) && is_array($item['unitEntries'])) {
+            // Calculate total quantity in pieces for amount calculations
+            $totalQtyInPieces = 0;
             foreach ($item['unitEntries'] as $entry) {
                 if ($entry['quantity'] > 0) {
-                    if ($primaryUomId === null) {
-                        $primaryUomId = $entry['uomId'];
-                    }
-                    $totalQty += convertToPieces($entry['quantity'], $entry['uomId'], $pdo, $item['productId']);
+                    $totalQtyInPieces += convertToPieces($entry['quantity'], $entry['uomId'], $pdo, $item['productId']);
+                }
+            }
+            
+            // Insert one record per unit entry
+            foreach ($item['unitEntries'] as $entry) {
+                if ($entry['quantity'] > 0) {
+                    $qtyInPieces = convertToPieces($entry['quantity'], $entry['uomId'], $pdo, $item['productId']);
+                    $proportionOfTotal = $totalQtyInPieces > 0 ? ($qtyInPieces / $totalQtyInPieces) : 0;
+                    
+                    $item_stmt->execute([
+                        $tenant_id,
+                        $invoice_id,
+                        $item['productId'],
+                        $entry['uomId'],
+                        $entry['quantity'],  // Original quantity (e.g., 2 for 2 Dozen)
+                        $item['salePrice'],
+                        $item['grossAmount'] * $proportionOfTotal,
+                        $item['discountPercent'] ?? 0.00,
+                        $item['discountAmount'] * $proportionOfTotal ?? 0.00,
+                        $item['tradeOfferPercent'] ?? 0.00,
+                        $item['tradeOfferAmount'] * $proportionOfTotal ?? 0.00,
+                        $item['gstPercent'] ?? 0.00,
+                        $item['gstAmount'] * $proportionOfTotal ?? 0.00,
+                        0.00, // FOC handled separately
+                        $item['netAmount'] * $proportionOfTotal,
+                        $user_id,
+                        $user_id
+                    ]);
                 }
             }
         }
-        
-        // Use first unit as primary UOM
-        if ($primaryUomId === null) {
-            $primaryUomId = 9; // Default to Piece
-        }
-        
-        $item_stmt->execute([
-            $tenant_id,
-            $invoice_id,
-            $item['productId'],
-            $primaryUomId,
-            $totalQty,
-            $item['salePrice'],
-            $item['grossAmount'],
-            $item['discountPercent'] ?? 0.00,
-            $item['discountAmount'] ?? 0.00,
-            $item['tradeOfferPercent'] ?? 0.00,
-            $item['tradeOfferAmount'] ?? 0.00,
-            $item['gstPercent'] ?? 0.00,
-            $item['gstAmount'] ?? 0.00,
-            $item['focQty'] ?? 0.00,
-            $item['netAmount'],
-            $user_id,
-            $user_id
-        ]);
 
         // Skip stock_ledger for Draft status
         if ($status === 'Posted') {
@@ -156,12 +154,10 @@ try {
             $accountStmt->execute([$item['productId']]);
             $accountId = $accountStmt->fetchColumn() ?: 0;
 
-            // Insert stock ledger entries for each unit
+            // Insert stock ledger entries for each unit - ORIGINAL quantities
             if (isset($item['unitEntries']) && is_array($item['unitEntries'])) {
                 foreach ($item['unitEntries'] as $entry) {
                     if ($entry['quantity'] > 0) {
-                        $qtyInPieces = convertToPieces($entry['quantity'], $entry['uomId'], $pdo, $item['productId']);
-                        
                         $stock_stmt = $pdo->prepare("
                             INSERT INTO stock_ledger (
                                 tenant_id, account_id, branch_id, product_id, reference_table, reference_id,
@@ -174,9 +170,9 @@ try {
                             $input['branchId'],
                             $item['productId'],
                             $invoice_id,
-                            $qtyInPieces,
+                            $entry['quantity'],  // ORIGINAL quantity (e.g., 2 for 2 Dozen)
                             $item['salePrice'],
-                            $entry['uomId'],
+                            $entry['uomId'],     // Original unit (e.g., Dozen)
                             $item['stockStatus'] ?? 'sellable',
                             $input['saleDate']
                         ]);
@@ -186,7 +182,11 @@ try {
 
             // Insert stock ledger for FOC quantity if exists
             if (isset($item['focQty']) && $item['focQty'] > 0) {
-                $focQtyInPieces = convertToPieces($item['focQty'], $primaryUomId, $pdo, $item['productId']);
+                // Use first unit from unitEntries or default to Piece
+                $focUomId = 9; // Default to Piece
+                if (isset($item['unitEntries']) && count($item['unitEntries']) > 0) {
+                    $focUomId = $item['unitEntries'][0]['uomId'];
+                }
 
                 $foc_stmt = $pdo->prepare("
                     INSERT INTO stock_ledger (
@@ -200,9 +200,9 @@ try {
                     $input['branchId'],
                     $item['productId'],
                     $invoice_id,
-                    $focQtyInPieces,
+                    $item['focQty'],
                     0,
-                    $primaryUomId,
+                    $focUomId,
                     $item['stockStatus'] ?? 'sellable',
                     $input['saleDate']
                 ]);
