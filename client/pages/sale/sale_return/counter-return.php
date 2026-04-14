@@ -340,7 +340,7 @@ $user_employee_id = $user['employee_id'] ?? null;
     </div>
 
     <script>const userEmployeeId = <?php echo json_encode($user_employee_id); ?>;</script>
-    <script src="../../../assets/js/sale/sale_return/counter-return-uom.js"></script>
-    <script src="../../../assets/js/sale/sale_return/counter-return.js"></script>
+    <script src="../../../assets/js/sale/sale_return/counter-return-uom.js?v=<?php echo time(); ?>"></script>
+    <script src="../../../assets/js/sale/sale_return/counter-return.js?v=<?php echo time(); ?>"></script>
 </body>
 </html>
