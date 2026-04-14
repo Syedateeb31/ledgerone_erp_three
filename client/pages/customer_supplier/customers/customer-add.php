@@ -103,6 +103,14 @@ if (!$user_id) {
                             <i class="fas fa-address-book"></i>
                             Contact Information
                         </h3>
+                        <!-- Add this BEFORE the address form-group -->
+<div class="form-group col-12">
+    <label for="shopkeeperName">
+        <i class="fas fa-store"></i>
+        Shopkeeper Name
+    </label>
+    <input type="text" id="shopkeeperName" placeholder="Enter shopkeeper name">
+</div>
 
                         <div class="form-group col-12">
                             <label for="address">

@@ -302,29 +302,29 @@ function updateFooterTotals() {
     
     const footerRow = tfoot.rows[0];
     
-    // The first cell should be "Totals" with colspan
-    // We need to update its colspan to account for S# + Product + Scheme + dynamic units
-    const totalsCell = footerRow.cells[0];
-    if (totalsCell) {
-        totalsCell.colSpan = 3 + maxUnitColumns; // S# + Product + Scheme + all unit columns
-    }
-    
-    // Remove old unit total cells (they would be after the Totals cell)
-    // Since Totals has colspan, the next cells are the fixed columns
-    // We need to remove any cells between index 1 and the first known fixed column
+    // Remove old unit total cells that were dynamically inserted
+    // Keep removing cells at index 3 until we reach the known fixed column IDs
     let safetyCounter = 0;
     const knownIds = ['totalSalePrice', 'totalGrossAmount', 'totalDiscountAmountItems', 
                       'totalTradeOfferAmount', 'totalGstAmount', 'totalFocQty', 'totalNetAmountItems'];
     
-    while (footerRow.cells.length > 1 && safetyCounter < 20) {
-        if (footerRow.cells.length <= 1) break;
-        const cell = footerRow.cells[1];
+    while (footerRow.cells.length > 3 && safetyCounter < 20) {
+        const cell = footerRow.cells[3];
         // Stop if we reach a cell with a known fixed id
         if (cell && cell.id && knownIds.includes(cell.id)) {
             break;
         }
-        footerRow.deleteCell(1);
+        footerRow.deleteCell(3);
         safetyCounter++;
+    }
+    
+    // Insert empty cells for dynamic unit columns at index 3
+    for (let i = 0; i < maxUnitColumns; i++) {
+        const cell = footerRow.insertCell(3 + i);
+        cell.textContent = '';
+        cell.style.textAlign = 'center';
+        cell.style.padding = '8px 4px';
+        cell.style.borderTop = '2px solid var(--border-strong, #c9cfda)';
     }
 }
 

@@ -45,6 +45,10 @@ $currency_symbol = $currency['symbol'] ?? '$';
                     <i class="fas fa-plus"></i>
                     Add Customer
                 </a>
+                <a href="opening-balance-invoices-add.php" class="btn btn-success">
+                    <i class="fas fa-file-invoice-dollar"></i>
+                    Add Opening Invoices
+                </a>
             </div>
         </div>
 

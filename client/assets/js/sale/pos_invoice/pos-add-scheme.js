@@ -193,7 +193,7 @@ async function applyLessScheme(row, product) {
 /**
  * Apply "Less Special" scheme
  * Enables T.O Amt calculation (formula-based), FOC Qty readonly
- * Formula: (Sale Price × to_qty) / (to_qty + to_rs) × Qty = T.O Amt
+ * Formula: (Qty × Sale Price) / (promo_qty + bonus_qty) = T.O Amt
  * @param {HTMLTableRowElement} row - The table row
  * @param {Object} product - Product object
  */
@@ -322,7 +322,7 @@ async function calculateLessSchemeAmounts(row, product) {
 
 /**
  * Calculate amounts for "Less Special" scheme
- * Formula: (Sale Price × to_qty) / (to_qty + to_rs) × Qty = T.O Amt
+ * Formula: (Qty × Sale Price) / (promo_qty + bonus_qty) = T.O Amt
  * @param {HTMLTableRowElement} row - The table row
  * @param {Object} product - Product object (optional)
  */
@@ -370,15 +370,17 @@ async function calculateLessSpecialSchemeAmounts(row, product) {
     });
     
     // Calculate T.O Amount using Less Special formula
-    // Formula: (Sale Price × to_qty) / (to_qty + to_rs) × Total Qty = T.O Amt
+    // Formula: (Total Qty × Sale Price) / (promo_qty + bonus_qty) = T.O Amt
+    // Example: (12 × 200) / (12 + 1) = 2400 / 13 = 184.61
     if (schemes && schemes.length > 0 && totalQty > 0 && salePrice > 0) {
         const scheme = schemes[0]; // Use first scheme for calculation
         
-        if (scheme.to_qty && scheme.to_rs !== undefined) {
-            // Per unit T.O discount
-            const perUnitTO = (salePrice * scheme.to_qty) / (parseFloat(scheme.to_qty) + parseFloat(scheme.to_rs));
-            // Total T.O Amount
-            totalTOAmount = perUnitTO * totalQty;
+        if (scheme.promo_qty && scheme.bonus_qty !== undefined) {
+            const denominator = parseFloat(scheme.promo_qty) + parseFloat(scheme.bonus_qty);
+            if (denominator > 0) {
+                // T.O Amount = (Total Qty × Sale Price) / (promo_qty + bonus_qty)
+                totalTOAmount = (totalQty * salePrice) / denominator;
+            }
         }
     }
     
