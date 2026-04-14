@@ -317,6 +317,30 @@ const cancelDelete = document.getElementById('cancelDelete');
 const cancelEdit = document.getElementById('cancelEdit');
 const confirmDelete = document.getElementById('confirmDelete');
 const saveEdit = document.getElementById('saveEdit');
+const editBankLogoInput = document.getElementById('editBankLogo');
+const editLogoPreview = document.getElementById('editLogoPreview');
+const editLogoPreviewImg = document.getElementById('editLogoPreviewImg');
+
+// Edit Logo Preview
+editBankLogoInput.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (file) {
+        if (file.size > 2 * 1024 * 1024) {
+            alert('File size must be less than 2MB');
+            editBankLogoInput.value = '';
+            editLogoPreview.style.display = 'none';
+            return;
+        }
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            editLogoPreviewImg.src = e.target.result;
+            editLogoPreview.style.display = 'block';
+        };
+        reader.readAsDataURL(file);
+    } else {
+        editLogoPreview.style.display = 'none';
+    }
+});
 
 function showDeleteModal(id) {
     deleteAccountId = id;
@@ -349,6 +373,15 @@ function showEditModal(id) {
         document.getElementById('editBalanceType').value = account.balance_type || 'debit';
         document.getElementById('editOpeningBalance').value = account.opening_balance || 0;
         document.getElementById('editIsActive').value = account.is_active ? '1' : '0';
+        
+        // Show existing logo if available
+        if (account.bank_logo_path) {
+            editLogoPreviewImg.src = `../../../assets/uploads/bank_logo/${account.bank_logo_path}`;
+            editLogoPreview.style.display = 'block';
+        } else {
+            editLogoPreview.style.display = 'none';
+        }
+        editBankLogoInput.value = '';
     }
     editModal.classList.add('show');
 }
@@ -475,36 +508,37 @@ document.addEventListener('DOMContentLoaded', () => {
     
     saveEdit.addEventListener('click', () => {
         if (editAccountId) {
-            const formData = {
-                id: editAccountId,
-                bankName: document.getElementById('editBankName').value,
-                accountNumber: document.getElementById('editAccountNumber').value,
-                accountTitle: document.getElementById('editAccountTitle').value,
-                accountType: document.getElementById('editAccountType').value,
-                currency: document.getElementById('editCurrency').value,
-                branchName: document.getElementById('editBranchName').value,
-                branchCode: document.getElementById('editBranchCode').value,
-                branchCity: document.getElementById('editBranchCity').value,
-                branchState: document.getElementById('editBranchState').value,
-                iban: document.getElementById('editIban').value,
-                swiftCode: document.getElementById('editSwiftCode').value,
-                contactPerson: document.getElementById('editContactPerson').value,
-                contactNumber: document.getElementById('editContactNumber').value,
-                email: document.getElementById('editEmail').value,
-                balanceType: document.getElementById('editBalanceType').value,
-                openingBalance: document.getElementById('editOpeningBalance').value,
-                isActive: document.getElementById('editIsActive').value === '1'
-            };
+            const formData = new FormData();
+            formData.append('id', editAccountId);
+            formData.append('bankName', document.getElementById('editBankName').value);
+            formData.append('accountNumber', document.getElementById('editAccountNumber').value);
+            formData.append('accountTitle', document.getElementById('editAccountTitle').value);
+            formData.append('accountType', document.getElementById('editAccountType').value);
+            formData.append('currency', document.getElementById('editCurrency').value);
+            formData.append('branchName', document.getElementById('editBranchName').value);
+            formData.append('branchCode', document.getElementById('editBranchCode').value);
+            formData.append('branchCity', document.getElementById('editBranchCity').value);
+            formData.append('branchState', document.getElementById('editBranchState').value);
+            formData.append('iban', document.getElementById('editIban').value);
+            formData.append('swiftCode', document.getElementById('editSwiftCode').value);
+            formData.append('contactPerson', document.getElementById('editContactPerson').value);
+            formData.append('contactNumber', document.getElementById('editContactNumber').value);
+            formData.append('email', document.getElementById('editEmail').value);
+            formData.append('balanceType', document.getElementById('editBalanceType').value);
+            formData.append('openingBalance', document.getElementById('editOpeningBalance').value);
+            formData.append('isActive', document.getElementById('editIsActive').value === '1');
+            
+            // Append bank logo if selected
+            if (editBankLogoInput.files[0]) {
+                formData.append('bankLogo', editBankLogoInput.files[0]);
+            }
             
             saveEdit.disabled = true;
             saveEdit.textContent = 'Saving...';
             
             fetch('../../../../server/api/banking/bank/bank-edit.php', {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(formData)
+                method: 'POST',
+                body: formData
             })
             .then(response => response.json())
             .then(data => {

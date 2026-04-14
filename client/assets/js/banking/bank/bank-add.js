@@ -2,6 +2,9 @@
 const isMfbCheckbox = document.getElementById('isMfb');
 const mfbSection = document.getElementById('mfbSection');
 const mfbNameInput = document.getElementById('mfbName');
+const bankLogoInput = document.getElementById('bankLogo');
+const logoPreview = document.getElementById('logoPreview');
+const logoPreviewImg = document.getElementById('logoPreviewImg');
 
 isMfbCheckbox.addEventListener('change', () => {
     if (isMfbCheckbox.checked) {
@@ -11,6 +14,27 @@ isMfbCheckbox.addEventListener('change', () => {
         mfbSection.style.display = 'none';
         mfbNameInput.required = false;
         mfbNameInput.value = '';
+    }
+});
+
+// Bank Logo Preview
+bankLogoInput.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (file) {
+        if (file.size > 2 * 1024 * 1024) {
+            alert('File size must be less than 2MB');
+            bankLogoInput.value = '';
+            logoPreview.style.display = 'none';
+            return;
+        }
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            logoPreviewImg.src = e.target.result;
+            logoPreview.style.display = 'block';
+        };
+        reader.readAsDataURL(file);
+    } else {
+        logoPreview.style.display = 'none';
     }
 });
 
@@ -65,30 +89,34 @@ submitBtn.addEventListener('click', (e) => {
 
     if (isValid) {
         // Gather form data
-        const formData = {
-            bankName: document.getElementById('bankName').value,
-            accountNumber: document.getElementById('accountNumber').value,
-            accountTitle: document.getElementById('accountTitle').value,
-            accountType: document.getElementById('accountType').value,
-            isMfb: document.getElementById('isMfb').checked,
-            mfbName: document.getElementById('mfbName').value,
-            currency: document.getElementById('currency').value,
-            branchName: document.getElementById('branchName').value,
-            branchCode: document.getElementById('branchCode').value,
-            branchCity: document.getElementById('branchCity').value,
-            branchState: document.getElementById('branchState').value,
-            branchAddress: document.getElementById('branchAddress').value,
-            balanceType: document.querySelector('input[name="balanceType"]:checked').value,
-            openingBalance: document.getElementById('openingBalance').value,
-            asOfDate: document.getElementById('asOfDate').value,
-            iban: document.getElementById('iban').value,
-            swiftCode: document.getElementById('swiftCode').value,
-            contactPerson: document.getElementById('contactPerson').value,
-            contactNumber: document.getElementById('contactNumber').value,
-            email: document.getElementById('email').value,
-            notes: document.getElementById('notes').value,
-            isActive: document.getElementById('isActive').checked
-        };
+        const formData = new FormData();
+        formData.append('bankName', document.getElementById('bankName').value);
+        formData.append('accountNumber', document.getElementById('accountNumber').value);
+        formData.append('accountTitle', document.getElementById('accountTitle').value);
+        formData.append('accountType', document.getElementById('accountType').value);
+        formData.append('isMfb', document.getElementById('isMfb').checked);
+        formData.append('mfbName', document.getElementById('mfbName').value);
+        formData.append('currency', document.getElementById('currency').value);
+        formData.append('branchName', document.getElementById('branchName').value);
+        formData.append('branchCode', document.getElementById('branchCode').value);
+        formData.append('branchCity', document.getElementById('branchCity').value);
+        formData.append('branchState', document.getElementById('branchState').value);
+        formData.append('branchAddress', document.getElementById('branchAddress').value);
+        formData.append('balanceType', document.querySelector('input[name="balanceType"]:checked').value);
+        formData.append('openingBalance', document.getElementById('openingBalance').value);
+        formData.append('asOfDate', document.getElementById('asOfDate').value);
+        formData.append('iban', document.getElementById('iban').value);
+        formData.append('swiftCode', document.getElementById('swiftCode').value);
+        formData.append('contactPerson', document.getElementById('contactPerson').value);
+        formData.append('contactNumber', document.getElementById('contactNumber').value);
+        formData.append('email', document.getElementById('email').value);
+        formData.append('notes', document.getElementById('notes').value);
+        formData.append('isActive', document.getElementById('isActive').checked);
+        
+        // Append bank logo if selected
+        if (bankLogoInput.files[0]) {
+            formData.append('bankLogo', bankLogoInput.files[0]);
+        }
 
         // Submit to API
         submitBtn.disabled = true;
@@ -96,10 +124,7 @@ submitBtn.addEventListener('click', (e) => {
         
         fetch('../../../../server/api/banking/bank/bank-add.php', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(formData)
+            body: formData
         })
         .then(response => response.json())
         .then(data => {
@@ -110,6 +135,8 @@ submitBtn.addEventListener('click', (e) => {
                 document.getElementById('isActive').checked = true;
                 mfbSection.style.display = 'none';
                 mfbNameInput.required = false;
+                bankLogoInput.value = '';
+                logoPreview.style.display = 'none';
                 
                 // Remove error messages
                 document.querySelectorAll('.error').forEach(el => {
@@ -142,6 +169,8 @@ cancelBtn.addEventListener('click', () => {
         document.getElementById('isActive').checked = true;
         mfbSection.style.display = 'none';
         mfbNameInput.required = false;
+        bankLogoInput.value = '';
+        logoPreview.style.display = 'none';
 
         // Remove error messages
         document.querySelectorAll('.error').forEach(el => {

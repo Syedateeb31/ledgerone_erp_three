@@ -103,6 +103,15 @@ if (!$user_id) {
                                 <option value="GBP">GBP - British Pound</option>
                             </select>
                         </div>
+
+                        <div class="form-row full-width">
+                            <label class="form-label" for="bankLogo">Bank Logo</label>
+                            <input type="file" id="bankLogo" class="form-input" accept="image/*">
+                            <div class="helper-text">Upload bank logo (JPG, PNG, GIF - Max 2MB)</div>
+                            <div id="logoPreview" style="margin-top: 10px; display: none;">
+                                <img id="logoPreviewImg" style="max-width: 150px; max-height: 150px; border-radius: 8px;" />
+                            </div>
+                        </div>
                     </div>
                 </div>
 

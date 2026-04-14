@@ -27,7 +27,8 @@ try {
         SELECT id, bank_name, account_number, account_title, account_type, is_mfb, 
                mfb_name, currency, branch_name, branch_city, branch_state, 
                opening_balance, debit_amount, credit_amount, balance_type, 
-               is_active, created_at
+               is_active, created_at, bank_logo_path, iban, swift_code, 
+               contact_person, contact_number, email, branch_code
         FROM bank_accounts 
         WHERE tenant_id = ? 
         ORDER BY created_at DESC
