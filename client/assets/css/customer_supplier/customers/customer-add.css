@@ -754,3 +754,76 @@ footer {
   border-color: var(--primary) !important;
   box-shadow: 0 0 0 3px var(--accent-glow) !important;
 }
+
+/* Customize Fields Modal Styles */
+.customize-field-item {
+  padding: 12px;
+  border-radius: 8px;
+  background: var(--surface-2);
+  transition: all 0.2s ease;
+}
+
+.customize-field-item:hover {
+  background: var(--button-ghost-hover);
+}
+
+.customize-field-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 !important;
+  padding: 0 !important;
+  font-weight: 500;
+  cursor: pointer;
+  color: var(--body);
+}
+
+.customize-field-label:hover {
+  color: var(--primary);
+}
+
+.customize-field-label input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  min-width: 20px;
+  accent-color: var(--primary);
+  cursor: pointer;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 1.5px solid var(--input-border) !important;
+  border-radius: 4px;
+}
+
+.customize-field-label input[type="checkbox"]:hover {
+  border-color: var(--primary) !important;
+}
+
+.customize-field-label span {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.btn-sm {
+  height: 40px !important;
+  padding: 0 16px !important;
+  font-size: 14px !important;
+}
+
+/* Select All / Deselect All Button Container */
+.customize-field-buttons {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.customize-field-buttons .btn {
+  flex: 1;
+  text-align: center;
+}
+
+.customize-field-buttons .btn i {
+  margin-right: 4px;
+}
+

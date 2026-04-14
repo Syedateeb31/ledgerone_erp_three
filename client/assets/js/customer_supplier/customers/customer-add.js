@@ -1,4 +1,313 @@
 document.addEventListener('DOMContentLoaded', function () {
+    // ===== CUSTOMIZE FIELDS FUNCTIONALITY =====
+    const CUSTOMIZE_FIELDS_KEY = 'customerFormCustomizeFields';
+    
+    // Define all customizable fields
+    const allFields = [
+        { id: 'company', label: 'Company', visible: true },
+        { id: 'customerCode', label: 'Customer Code', visible: true },
+        { id: 'customerType', label: 'Customer Type', visible: true },
+        { id: 'customerName', label: 'Customer Name', visible: true },
+        { id: 'shopkeeperName', label: 'Shopkeeper Name', visible: false },
+        { id: 'address', label: 'Address', visible: false },
+        { id: 'primaryPhone', label: 'Primary Phone', visible: false },
+        { id: 'secondaryPhone', label: 'Secondary Phone', visible: false },
+        { id: 'email', label: 'Email Address', visible: false },
+        { id: 'identityCard', label: 'Identity Card No', visible: false },
+        { id: 'salesOfficer', label: 'Associated Sales Officer', visible: false },
+        { id: 'supplierMan', label: 'Supplier Man', visible: false },
+        { id: 'country', label: 'Country', visible: false },
+        { id: 'region', label: 'Region', visible: false },
+        { id: 'city', label: 'City', visible: false },
+        { id: 'cityZone', label: 'City Zone', visible: false },
+        { id: 'area', label: 'Area', visible: false },
+        { id: 'isSalesTaxRegistered', label: 'Is Sales Tax Registered?', visible: false },
+        { id: 'strn', label: 'STRN', visible: false },
+        { id: 'isFiler', label: 'Is Filer?', visible: false },
+        { id: 'ntn', label: 'NTN', visible: false },
+        { id: 'advanceIncomeTax', label: 'Advance Income Tax %', visible: false },
+        { id: 'defaultDiscount', label: 'Default Discount %', visible: false },
+        { id: 'balanceLimit', label: 'Credit Limit', visible: false },
+        { id: 'balancePeriodLimit', label: 'Credit Period Limit (Days)', visible: false },
+        { id: 'openingDebit', label: 'Opening Debit Amount', visible: false },
+        { id: 'openingCredit', label: 'Opening Credit Amount', visible: false },
+        { id: 'isWholesaler', label: 'Is Wholesaler?', visible: false },
+        { id: 'blacklist', label: 'Blacklist Customer', visible: false },
+        // Opening Balance Invoices Section
+        { id: 'openingInvoicesSection', label: '📋 Opening Balance Invoices', visible: false },
+        // Sub Accounts Section
+        { id: 'subAccountsTableBody', label: '👥 Sub Accounts', visible: false }
+    ];
+    
+    // Declare notification elements early for customize field functions to use
+    const notification = document.getElementById('notification');
+    const notificationTitle = document.getElementById('notificationTitle');
+    const notificationMessage = document.getElementById('notificationMessage');
+    const notificationClose = document.getElementById('notificationClose');
+    
+    // Get field visibility settings from localStorage
+    function getFieldVisibility() {
+        const stored = localStorage.getItem(CUSTOMIZE_FIELDS_KEY);
+        if (stored) {
+            try {
+                return JSON.parse(stored);
+            } catch (e) {
+                return getDefaultVisibility();
+            }
+        }
+        return getDefaultVisibility();
+    }
+    
+    // Get default visibility for all fields
+    function getDefaultVisibility() {
+        const defaults = {};
+        allFields.forEach(field => {
+            defaults[field.id] = field.visible;
+        });
+        return defaults;
+    }
+    
+    // Save field visibility to localStorage
+    function saveFieldVisibility(visibility) {
+        localStorage.setItem(CUSTOMIZE_FIELDS_KEY, JSON.stringify(visibility));
+    }
+    
+    // Get form group container for a field
+    function getFieldFormGroup(fieldId) {
+        const element = document.getElementById(fieldId);
+        if (!element) return null;
+        
+        // Handle special cases like sections (Opening Invoices, Sub Accounts)
+        if (fieldId === 'openingInvoicesSection' || fieldId === 'subAccountsSection') {
+            return element;
+        }
+        
+        // Find the closest .form-group parent
+        let parent = element.closest('.form-group');
+        if (parent) return parent;
+        
+        // For checkboxes, might be in different structure
+        parent = element.closest('.checkbox-group');
+        if (parent && parent.closest('.form-group')) {
+            return parent.closest('.form-group');
+        }
+        
+        return parent;
+    }
+    
+    // Toggle field visibility
+    function toggleFieldVisibility(fieldId, isVisible) {
+        const formGroup = getFieldFormGroup(fieldId);
+        if (formGroup) {
+            formGroup.style.display = isVisible ? '' : 'none';
+        }
+        
+        // Hide section heading if all fields in section are hidden
+        hideSectionIfEmpty(fieldId);
+    }
+    
+    // Hide section heading if all its fields are hidden
+    function hideSectionIfEmpty(fieldId) {
+        const element = document.getElementById(fieldId);
+        if (!element) return;
+        
+        const section = element.closest('.form-section');
+        if (!section) return;
+        
+        const formGroups = section.querySelectorAll('.form-group');
+        let hasVisibleField = false;
+        
+        formGroups.forEach(fg => {
+            const hasInput = fg.querySelector('input, select, textarea');
+            if (hasInput && fg.style.display !== 'none') {
+                hasVisibleField = true;
+            }
+        });
+        
+        const heading = section.querySelector('.section-title');
+        if (heading) {
+            heading.style.display = hasVisibleField ? '' : 'none';
+        }
+    }
+    
+    // Apply stored visibility settings on page load
+    function applyFieldVisibility() {
+        const visibility = getFieldVisibility();
+        allFields.forEach(field => {
+            if (visibility.hasOwnProperty(field.id)) {
+                toggleFieldVisibility(field.id, visibility[field.id]);
+            }
+        });
+    }
+    
+    // Initialize customize fields modal
+    const customizeFieldsBtn = document.getElementById('customizeFieldsBtn');
+    const customizeFieldsModal = document.getElementById('customizeFieldsModal');
+    const customizeFieldsModalClose = document.getElementById('customizeFieldsModalClose');
+    const customizeFieldsList = document.getElementById('customizeFieldsList');
+    const customizeFieldsSaveBtn = document.getElementById('customizeFieldsSaveBtn');
+    const customizeFieldsResetBtn = document.getElementById('customizeFieldsResetBtn');
+    const customizeFieldsSelectAllBtn = document.getElementById('customizeFieldsSelectAllBtn');
+    const customizeFieldsDeselectAllBtn = document.getElementById('customizeFieldsDeselectAllBtn');
+    
+    // Define showNotification before using it in customize fields
+    function showNotification(title, message, type = 'success') {
+        notificationTitle.textContent = title;
+        notificationMessage.textContent = message;
+        notification.className = 'notification';
+        notification.classList.add(type, 'show');
+
+        // Auto hide after 5 seconds
+        setTimeout(function () {
+            notification.classList.remove('show');
+        }, 5000);
+    }
+    
+    // Populate customize fields modal
+    function populateCustomizeFieldsList() {
+        const visibility = getFieldVisibility();
+        customizeFieldsList.innerHTML = '';
+        
+        allFields.forEach(field => {
+            const isVisible = visibility[field.id] !== undefined ? visibility[field.id] : field.visible;
+            const checkbox = document.createElement('div');
+            checkbox.className = 'customize-field-item';
+            checkbox.innerHTML = `
+                <label class=\"customize-field-label\">
+                    <input type=\"checkbox\" class=\"customize-field-checkbox\" data-field-id=\"${field.id}\" ${isVisible ? 'checked' : ''}>
+                    <span>${field.label}</span>
+                </label>
+            `;
+            customizeFieldsList.appendChild(checkbox);
+        });
+    }
+    
+    // Open customize fields modal
+    customizeFieldsBtn.addEventListener('click', function() {
+        populateCustomizeFieldsList();
+        customizeFieldsModal.classList.add('show');
+    });
+    
+    // Close customize fields modal
+    function closeCustomizeFieldsModal() {
+        customizeFieldsModal.classList.remove('show');
+    }
+    
+    customizeFieldsModalClose.addEventListener('click', closeCustomizeFieldsModal);
+    customizeFieldsModal.addEventListener('click', function(e) {
+        if (e.target === customizeFieldsModal) closeCustomizeFieldsModal();
+    });
+    
+    // Save field preferences
+    customizeFieldsSaveBtn.addEventListener('click', function() {
+        const checkboxes = customizeFieldsList.querySelectorAll('.customize-field-checkbox');
+        const visibility = {};
+        
+        checkboxes.forEach(checkbox => {
+            const fieldId = checkbox.dataset.fieldId;
+            visibility[fieldId] = checkbox.checked;
+        });
+        
+        saveFieldVisibility(visibility);
+        applyFieldVisibility();
+        
+        // Hide all empty sections
+        document.querySelectorAll('.form-section').forEach(section => {
+            const formGroups = section.querySelectorAll('.form-group');
+            let hasVisibleField = false;
+            
+            formGroups.forEach(fg => {
+                const hasInput = fg.querySelector('input, select, textarea');
+                const hasCheckbox = fg.querySelector('input[type="checkbox"]');
+                if ((hasInput || hasCheckbox) && fg.style.display !== 'none') {
+                    hasVisibleField = true;
+                }
+            });
+            
+            const heading = section.querySelector('.section-title');
+            if (heading) {
+                heading.style.display = hasVisibleField ? '' : 'none';
+            }
+            
+            // Hide helper-text only form-groups only if section is completely empty
+            if (!hasVisibleField) {
+                formGroups.forEach(fg => {
+                    const hasInput = fg.querySelector('input, select, textarea');
+                    const hasCheckbox = fg.querySelector('input[type="checkbox"]');
+                    if (!hasInput && !hasCheckbox) {
+                        fg.style.display = 'none';
+                    }
+                });
+            } else {
+                // Show helper-text if section has visible fields
+                formGroups.forEach(fg => {
+                    const hasInput = fg.querySelector('input, select, textarea');
+                    const hasCheckbox = fg.querySelector('input[type="checkbox"]');
+                    if (!hasInput && !hasCheckbox) {
+                        fg.style.display = '';
+                    }
+                });
+            }
+        });
+        
+        closeCustomizeFieldsModal();
+        showNotification('Success', 'Field preferences saved successfully!', 'success');
+    });
+    
+    // Reset to default visibility
+    customizeFieldsResetBtn.addEventListener('click', function() {
+        if (confirm('Are you sure you want to reset to default field visibility?')) {
+            const defaults = getDefaultVisibility();
+            saveFieldVisibility(defaults);
+            applyFieldVisibility();
+            populateCustomizeFieldsList();
+            showNotification('Success', 'Field visibility reset to default', 'success');
+        }
+    });
+    
+    // Select All button
+    customizeFieldsSelectAllBtn.addEventListener('click', function() {
+        const checkboxes = customizeFieldsList.querySelectorAll('.customize-field-checkbox');
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = true;
+        });
+    });
+    
+    // Deselect All button
+    customizeFieldsDeselectAllBtn.addEventListener('click', function() {
+        const checkboxes = customizeFieldsList.querySelectorAll('.customize-field-checkbox');
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = false;
+        });
+    });
+    
+    // Close notification handler
+    notificationClose.addEventListener('click', function() {
+        notification.classList.remove('show');
+    });
+    
+    // Apply visibility on page load - MUST BE DONE BEFORE OTHER SETUP
+    applyFieldVisibility();
+    
+    // Hide all empty sections after applying visibility
+    document.querySelectorAll('.form-section').forEach(section => {
+        const formGroups = section.querySelectorAll('.form-group');
+        let hasVisibleField = false;
+        
+        formGroups.forEach(fg => {
+            const hasInput = fg.querySelector('input, select, textarea');
+            const hasCheckbox = fg.querySelector('input[type="checkbox"]');
+            if ((hasInput || hasCheckbox) && fg.style.display !== 'none') {
+                hasVisibleField = true;
+            }
+        });
+        
+        const heading = section.querySelector('.section-title');
+        if (heading && !hasVisibleField) {
+            heading.style.display = 'none';
+        }
+    });
+    
     // Check permissions
     checkPermissions();
     // Set customer code field to show Auto Generated
@@ -40,10 +349,6 @@ document.addEventListener('DOMContentLoaded', function () {
     const openingCredit = document.getElementById('openingCredit');
     const submitBtn = document.getElementById('submitBtn');
     const resetBtn = document.getElementById('resetBtn');
-    const notification = document.getElementById('notification');
-    const notificationTitle = document.getElementById('notificationTitle');
-    const notificationMessage = document.getElementById('notificationMessage');
-    const notificationClose = document.getElementById('notificationClose');
 
     // Territory dropdowns
     const countrySelect = document.getElementById('country');
@@ -759,24 +1064,9 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 
-
-    // Show notification
-    function showNotification(title, message, type = 'success') {
-        notificationTitle.textContent = title;
-        notificationMessage.textContent = message;
-        notification.className = 'notification';
-        notification.classList.add(type, 'show');
-
-        // Auto hide after 5 seconds
-        setTimeout(function () {
-            notification.classList.remove('show');
-        }, 5000);
-    }
-
-    // Close notification
-    notificationClose.addEventListener('click', function () {
-        notification.classList.remove('show');
-    });
+    // Note: showNotification function is defined earlier in the customize fields section
+    
+    // Note: notificationClose event listener is handled in the customize fields section
     
     // Check permissions
     function checkPermissions() {

@@ -450,7 +450,6 @@ function validateFormData() {
         const rowErrors = [];
         
         if (!customerId) rowErrors.push('Customer is required');
-        if (!distributionId) rowErrors.push('Distribution is required');
         if (!invoiceNumber) rowErrors.push('Invoice number is required');
         if (!invoiceDate) rowErrors.push('Invoice date is required');
         if (!debit || isNaN(parseFloat(debit)) || parseFloat(debit) <= 0) {
@@ -465,7 +464,7 @@ function validateFormData() {
             validRowCount++;
             invoices.push({
                 customer_id: parseInt(customerId),
-                distribution_id: parseInt(distributionId),
+                distribution_id: distributionId ? parseInt(distributionId) : null,
                 employee_id: officerId ? parseInt(officerId) : null,
                 invoice_number: invoiceNumber,
                 invoice_date: invoiceDate,
