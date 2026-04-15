@@ -362,7 +362,7 @@ if (!$user_id) {
         </button>
     </div>
 
-    <script src="../../../assets/js/customer_supplier/suppliers/supplier-add.js"></script>
+    <script src="../../../assets/js/customer_supplier/suppliers/supplier-add.js?v=<?php echo time(); ?>"></script>
 </body>
 
 </html>

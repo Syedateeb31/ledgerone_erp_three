@@ -388,7 +388,7 @@ $currency_symbol = $currency['symbol'] ?? '$';
     <script>
         const currencySymbol = '<?php echo $currency_symbol; ?>';
     </script>
-    <script src="../../../assets/js/customer_supplier/suppliers/supplier-list.js"></script>
+    <script src="../../../assets/js/customer_supplier/suppliers/supplier-list.js?v=<?php echo time(); ?>"></script>
 </body>
 
 </html>
