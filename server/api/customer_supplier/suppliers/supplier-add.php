@@ -76,7 +76,7 @@ try {
     $data['id'] = $new_id;
     
     // Insert supplier
-    $sql = "INSERT INTO suppliers (id, tenant_id, company_id, salesman_id, supplier_code, supplier_name, brand_name,  address, primary_phone, secondary_phone, identity_card_no, email, opening_debit_amount, opening_credit_amount, ait_percent, is_blacklisted, created_by, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+    $sql = "INSERT INTO suppliers (id, tenant_id, company_id, salesman_id, supplier_code, supplier_name, brand_name, address, primary_phone, secondary_phone, identity_card_no, email, opening_debit_amount, opening_credit_amount, ait_percent, is_blacklisted, created_by, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
     
     $stmt = $pdo->prepare($sql);
     $stmt->execute([
