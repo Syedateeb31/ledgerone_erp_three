@@ -64,7 +64,7 @@ try {
         'opening_debit_amount' => floatval($input['openingDebit'] ?? 0),
         'opening_credit_amount' => floatval($input['openingCredit'] ?? 0),
         'ait_percent' => floatval($input['aitPercent'] ?? 0),
-        'is_blacklisted' => !empty($input['blacklist']) ? 1 : 0,
+        'is_blacklisted' => isset($input['blacklist']) && $input['blacklist'] === true ? 1 : 0,
         'created_by' => $user_id,
         'updated_by' => $user_id
     ];
