@@ -45,14 +45,326 @@ document.addEventListener('DOMContentLoaded', function () {
                 <td><span class="status-badge status-${status}">${status.charAt(0).toUpperCase() + status.slice(1)}</span></td>
                 <td>
                     <div class="action-buttons">
-                        <button class="action-btn edit" title="Edit"><i class="fas fa-edit"></i></button>
-                        <button class="action-btn delete" title="Delete"><i class="fas fa-trash"></i></button>
-                        <button class="action-btn" title="View"><i class="fas fa-eye"></i></button>
+                        <button class="action-btn edit" data-id="${supplier.id}" title="Edit"><i class="fas fa-edit"></i></button>
+                        <button class="action-btn delete" data-id="${supplier.id}" title="Delete"><i class="fas fa-trash"></i></button>
+                        <button class="action-btn view" data-id="${supplier.id}" title="View"><i class="fas fa-eye"></i></button>
                     </div>
                 </td>
             `;
             suppliersTable.appendChild(row);
         });
+    }
+    
+    // Action buttons event delegation
+    suppliersTable.addEventListener('click', function(e) {
+        const target = e.target.closest('button');
+        if (!target) return;
+        
+        const supplierId = target.dataset.id;
+        const supplier = suppliers.find(s => s.id == supplierId);
+        
+        if (target.classList.contains('edit')) {
+            openEditModal(supplierId);
+        } else if (target.classList.contains('delete')) {
+            openDeleteModal(supplierId, supplier.supplier_name);
+        } else if (target.classList.contains('view')) {
+            openViewModal(supplierId);
+        }
+    });
+    
+    // Delete Modal
+    const deleteModal = document.getElementById('deleteModal');
+    const deleteModalClose = document.getElementById('deleteModalClose');
+    const deleteCancelBtn = document.getElementById('deleteCancelBtn');
+    const deleteConfirmBtn = document.getElementById('deleteConfirmBtn');
+    const deleteSupplierName = document.getElementById('deleteSupplierName');
+    let currentDeletingId = null;
+    
+    function openDeleteModal(id, name) {
+        currentDeletingId = id;
+        deleteSupplierName.textContent = name;
+        deleteModal.classList.add('show');
+    }
+    
+    function closeDeleteModal() {
+        deleteModal.classList.remove('show');
+        currentDeletingId = null;
+    }
+    
+    deleteModalClose.addEventListener('click', closeDeleteModal);
+    deleteCancelBtn.addEventListener('click', closeDeleteModal);
+    deleteModal.addEventListener('click', function(e) {
+        if (e.target === deleteModal) closeDeleteModal();
+    });
+    
+    deleteConfirmBtn.addEventListener('click', function() {
+        deleteConfirmBtn.disabled = true;
+        deleteConfirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Deleting...';
+        
+        fetch('../../../../server/api/customer_supplier/suppliers/supplier-delete.php', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: currentDeletingId })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showNotification('Success', data.message, 'success');
+                closeDeleteModal();
+                loadSuppliers();
+            } else {
+                showNotification('Error', data.message, 'error');
+            }
+        })
+        .catch(error => {
+            showNotification('Error', 'Failed to delete supplier', 'error');
+        })
+        .finally(() => {
+            deleteConfirmBtn.disabled = false;
+            deleteConfirmBtn.innerHTML = '<i class="fas fa-trash"></i> Delete Supplier';
+        });
+    });
+    
+    // View Modal
+    const viewModal = document.getElementById('viewModal');
+    const viewModalClose = document.getElementById('viewModalClose');
+    const viewCloseBtn = document.getElementById('viewCloseBtn');
+    const viewEditBtn = document.getElementById('viewEditBtn');
+    let currentViewingId = null;
+    
+    function openViewModal(id) {
+        currentViewingId = id;
+        fetch(`../../../../server/api/customer_supplier/suppliers/supplier-edit.php?id=${id}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    populateViewModal(data.supplier);
+                    viewModal.classList.add('show');
+                } else {
+                    showNotification('Error', data.message, 'error');
+                }
+            })
+            .catch(error => {
+                showNotification('Error', 'Failed to load supplier data', 'error');
+            });
+    }
+    
+    function populateViewModal(supplier) {
+        document.getElementById('viewSupplierCode').textContent = supplier.supplier_code;
+        document.getElementById('viewSupplierName').textContent = supplier.supplier_name;
+        document.getElementById('viewAddress').textContent = supplier.address || '-';
+        document.getElementById('viewPrimaryPhone').textContent = supplier.primary_phone || '-';
+        document.getElementById('viewSecondaryPhone').textContent = supplier.secondary_phone || '-';
+        document.getElementById('viewEmail').textContent = supplier.email || '-';
+        document.getElementById('viewIdentityCard').textContent = supplier.identity_card_no || '-';
+        document.getElementById('viewOpeningDebit').textContent = `${currencySymbol}${parseFloat(supplier.opening_debit_amount || 0).toFixed(2)}`;
+        document.getElementById('viewOpeningCredit').textContent = `${currencySymbol}${parseFloat(supplier.opening_credit_amount || 0).toFixed(2)}`;
+        document.getElementById('viewAitPercent').textContent = `${parseFloat(supplier.ait_percent || 0).toFixed(2)}%`;
+        document.getElementById('viewCurrentBalance').textContent = `${currencySymbol}${parseFloat(supplier.current_balance || 0).toFixed(2)}`;
+        document.getElementById('viewStatus').innerHTML = supplier.is_blacklisted ? 
+            '<span class="status-badge status-blacklisted">Blacklisted</span>' : 
+            '<span class="status-badge status-active">Active</span>';
+        document.getElementById('viewCreatedAt').textContent = new Date(supplier.created_at).toLocaleDateString();
+        document.getElementById('viewUpdatedAt').textContent = new Date(supplier.updated_at).toLocaleDateString();
+        
+        // Load salesman name
+        if (supplier.salesman_id) {
+            fetch('../../../../server/api/customer_supplier/suppliers/get-employees.php')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const employee = data.employees.find(e => e.id == supplier.salesman_id);
+                        document.getElementById('viewSalesman').textContent = employee ? employee.full_name : '-';
+                    }
+                });
+        } else {
+            document.getElementById('viewSalesman').textContent = '-';
+        }
+    }
+    
+    function closeViewModal() {
+        viewModal.classList.remove('show');
+        currentViewingId = null;
+    }
+    
+    viewModalClose.addEventListener('click', closeViewModal);
+    viewCloseBtn.addEventListener('click', closeViewModal);
+    viewModal.addEventListener('click', function(e) {
+        if (e.target === viewModal) closeViewModal();
+    });
+    
+    viewEditBtn.addEventListener('click', function() {
+        closeViewModal();
+        openEditModal(currentViewingId);
+    });
+    
+    // Edit Modal (placeholder - to be implemented)
+    function openEditModal(id) {
+        const editModal = document.getElementById('editModal');
+        const editModalClose = document.getElementById('editModalClose');
+        const editCancelBtn = document.getElementById('editCancelBtn');
+        const editSupplierForm = document.getElementById('editSupplierForm');
+        const editSaveBtn = document.getElementById('editSaveBtn');
+        
+        let currentEditingId = id;
+        
+        // Fetch supplier data
+        fetch(`../../../../server/api/customer_supplier/suppliers/supplier-edit.php?id=${id}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    populateEditForm(data.supplier);
+                    editModal.classList.add('show');
+                } else {
+                    showNotification('Error', data.message, 'error');
+                }
+            })
+            .catch(error => {
+                showNotification('Error', 'Failed to load supplier data', 'error');
+            });
+        
+        function populateEditForm(supplier) {
+            document.getElementById('editSupplierCode').value = supplier.supplier_code;
+            document.getElementById('editSupplierName').value = supplier.supplier_name;
+            document.getElementById('editAddress').value = supplier.address || '';
+            document.getElementById('editPrimaryPhone').value = supplier.primary_phone || '';
+            document.getElementById('editSecondaryPhone').value = supplier.secondary_phone || '';
+            document.getElementById('editEmail').value = supplier.email || '';
+            document.getElementById('editIdentityCard').value = supplier.identity_card_no || '';
+            document.getElementById('editOpeningDebit').value = supplier.opening_debit_amount || 0;
+            document.getElementById('editOpeningCredit').value = supplier.opening_credit_amount || 0;
+            document.getElementById('editAitPercent').value = supplier.ait_percent || 0;
+            document.getElementById('editBlacklist').checked = supplier.is_blacklisted == 1;
+            
+            // Load companies
+            fetch('../../../../server/api/customer_supplier/suppliers/get-companies.php')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const editCompany = document.getElementById('editCompany');
+                        editCompany.innerHTML = '<option value="">Select Company</option>';
+                        data.companies.forEach(company => {
+                            const option = new Option(company.company_name, company.id);
+                            if (company.id == supplier.company_id) {
+                                option.selected = true;
+                            }
+                            editCompany.appendChild(option);
+                        });
+                    }
+                });
+            
+            // Load employees for salesman
+            fetch('../../../../server/api/customer_supplier/suppliers/get-employees.php')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const editSalesman = document.getElementById('editSalesman');
+                        editSalesman.innerHTML = '<option value="">Select Salesman</option>';
+                        data.employees.forEach(employee => {
+                            const option = new Option(employee.full_name, employee.id);
+                            if (employee.id == supplier.salesman_id) {
+                                option.selected = true;
+                            }
+                            editSalesman.appendChild(option);
+                        });
+                    }
+                });
+            
+            // Load sub accounts
+            fetch(`../../../../server/api/customer_supplier/suppliers/supplier-sub-accounts.php?supplier_id=${supplier.id}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.subAccounts && data.subAccounts.length > 0) {
+                        const tbody = document.getElementById('editSubAccountsBody');
+                        tbody.innerHTML = '';
+                        data.subAccounts.forEach((subAccount, index) => {
+                            const row = document.createElement('tr');
+                            row.innerHTML = `
+                                <td>${index + 1}</td>
+                                <td><input type="text" class="sub-account-input" value="${subAccount.sub_account_name}" placeholder="Enter sub account name"></td>
+                                <td><input type="number" class="sub-account-debit" value="${subAccount.debit || 0}" step="0.01" min="0" placeholder="0.00"></td>
+                                <td><input type="number" class="sub-account-credit" value="${subAccount.credit || 0}" step="0.01" min="0" placeholder="0.00"></td>
+                                <td>
+                                    <button type="button" class="btn-icon btn-add" title="Add Row"><i class="fas fa-plus"></i></button>
+                                    <button type="button" class="btn-icon btn-remove" title="Remove Row"><i class="fas fa-minus"></i></button>
+                                </td>
+                            `;
+                            tbody.appendChild(row);
+                        });
+                    }
+                });
+        }
+        
+        function closeEditModal() {
+            editModal.classList.remove('show');
+            editSupplierForm.reset();
+        }
+        
+        editModalClose.addEventListener('click', closeEditModal);
+        editCancelBtn.addEventListener('click', closeEditModal);
+        editModal.addEventListener('click', function(e) {
+            if (e.target === editModal) closeEditModal();
+        });
+        
+        // Form submission
+        editSupplierForm.onsubmit = function(e) {
+            e.preventDefault();
+            
+            // Collect sub accounts
+            const subAccounts = [];
+            const rows = document.getElementById('editSubAccountsBody').querySelectorAll('tr');
+            rows.forEach(row => {
+                const name = row.querySelector('.sub-account-input').value.trim();
+                const debit = parseFloat(row.querySelector('.sub-account-debit').value) || 0;
+                const credit = parseFloat(row.querySelector('.sub-account-credit').value) || 0;
+                if (name) {
+                    subAccounts.push({ name, debit, credit });
+                }
+            });
+            
+            const formData = {
+                id: currentEditingId,
+                companyId: document.getElementById('editCompany').value,
+                salesmanId: document.getElementById('editSalesman').value || null,
+                supplierName: document.getElementById('editSupplierName').value.trim(),
+                address: document.getElementById('editAddress').value.trim(),
+                primaryPhone: document.getElementById('editPrimaryPhone').value.trim(),
+                secondaryPhone: document.getElementById('editSecondaryPhone').value.trim(),
+                identityCard: document.getElementById('editIdentityCard').value.trim(),
+                email: document.getElementById('editEmail').value.trim(),
+                openingDebit: document.getElementById('editOpeningDebit').value || 0,
+                openingCredit: document.getElementById('editOpeningCredit').value || 0,
+                aitPercent: document.getElementById('editAitPercent').value || 0,
+                blacklist: document.getElementById('editBlacklist').checked,
+                subAccounts: subAccounts
+            };
+            
+            editSaveBtn.disabled = true;
+            editSaveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Updating...';
+            
+            fetch('../../../../server/api/customer_supplier/suppliers/supplier-edit.php', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(formData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification('Success', data.message, 'success');
+                    closeEditModal();
+                    loadSuppliers();
+                } else {
+                    showNotification('Error', data.message, 'error');
+                }
+            })
+            .catch(error => {
+                showNotification('Error', 'Failed to update supplier', 'error');
+            })
+            .finally(() => {
+                editSaveBtn.disabled = false;
+                editSaveBtn.innerHTML = '<i class="fas fa-save"></i> Update Supplier';
+            });
+        };
     }
     
     function updateStats(stats) {
