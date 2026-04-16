@@ -37,33 +37,47 @@ try {
     // Handle file upload
     $bankLogoPath = null;
     if (isset($_FILES['bankLogo']) && $_FILES['bankLogo']['error'] === UPLOAD_ERR_OK) {
-        $uploadDir = '../../../../client/assets/uploads/bank_logo/';
-        
-        // Create directory if it doesn't exist
-        if (!is_dir($uploadDir)) {
-            mkdir($uploadDir, 0755, true);
+        try {
+            $baseDir = realpath(__DIR__ . '/../../../../');
+            if (!$baseDir) {
+                throw new Exception('Could not determine base directory');
+            }
+            $uploadDir = $baseDir . DIRECTORY_SEPARATOR . 'client' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'bank_logo' . DIRECTORY_SEPARATOR;
+            
+            if (!is_dir($uploadDir)) {
+                if (!mkdir($uploadDir, 0777, true)) {
+                    throw new Exception('Could not create upload directory');
+                }
+            }
+            
+            if (!is_writable($uploadDir)) {
+                chmod($uploadDir, 0777);
+            }
+            
+            $fileExtension = strtolower(pathinfo($_FILES['bankLogo']['name'], PATHINFO_EXTENSION));
+            $allowedExtensions = ['jpg', 'jpeg', 'png', 'gif'];
+            
+            if (!in_array($fileExtension, $allowedExtensions)) {
+                throw new Exception('Invalid file type. Only JPG, PNG, and GIF are allowed.');
+            }
+            
+            if ($_FILES['bankLogo']['size'] > 2 * 1024 * 1024) {
+                throw new Exception('File size must be less than 2MB');
+            }
+            
+            $uniqueFilename = uniqid('bank_logo_', true) . '.' . $fileExtension;
+            $uploadPath = $uploadDir . $uniqueFilename;
+            
+            if (!move_uploaded_file($_FILES['bankLogo']['tmp_name'], $uploadPath)) {
+                throw new Exception('move_uploaded_file failed');
+            }
+            
+            $bankLogoPath = 'client/assets/uploads/bank_logo/' . $uniqueFilename;
+        } catch (Exception $uploadError) {
+            // Log error but don't fail the entire request
+            error_log('Bank logo upload error: ' . $uploadError->getMessage());
+            $bankLogoPath = null;
         }
-        
-        $fileExtension = strtolower(pathinfo($_FILES['bankLogo']['name'], PATHINFO_EXTENSION));
-        $allowedExtensions = ['jpg', 'jpeg', 'png', 'gif'];
-        
-        if (!in_array($fileExtension, $allowedExtensions)) {
-            throw new Exception('Invalid file type. Only JPG, PNG, and GIF are allowed.');
-        }
-        
-        if ($_FILES['bankLogo']['size'] > 2 * 1024 * 1024) {
-            throw new Exception('File size must be less than 2MB');
-        }
-        
-        // Generate unique filename
-        $uniqueFilename = uniqid('bank_logo_', true) . '.' . $fileExtension;
-        $uploadPath = $uploadDir . $uniqueFilename;
-        
-        if (!move_uploaded_file($_FILES['bankLogo']['tmp_name'], $uploadPath)) {
-            throw new Exception('Failed to upload file');
-        }
-        
-        $bankLogoPath = $uniqueFilename;
     }
     
     $pdo->beginTransaction();

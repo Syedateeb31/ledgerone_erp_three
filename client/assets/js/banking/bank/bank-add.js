@@ -46,7 +46,7 @@ document.getElementById('asOfDate').value = today;
 const form = document.getElementById('bankAccountForm');
 const submitBtn = document.getElementById('submitBtn');
 const cancelBtn = document.getElementById('cancelBtn');
-const saveDraftBtn = document.getElementById('saveDraftBtn');
+const saveDraftBtn = document.getElementById('saveDraftBtn') || null;
 
 // Input validation on blur
 const requiredInputs = form.querySelectorAll('[required]');
@@ -182,39 +182,11 @@ cancelBtn.addEventListener('click', () => {
 });
 
 // Save as Draft button
-saveDraftBtn.addEventListener('click', () => {
-    // Gather form data (don't validate required fields for draft)
-    const formData = {
-        bankName: document.getElementById('bankName').value,
-        accountNumber: document.getElementById('accountNumber').value,
-        accountTitle: document.getElementById('accountTitle').value,
-        accountType: document.getElementById('accountType').value,
-        isMfb: document.getElementById('isMfb').checked,
-        mfbName: document.getElementById('mfbName').value,
-        currency: document.getElementById('currency').value,
-        branchName: document.getElementById('branchName').value,
-        branchCode: document.getElementById('branchCode').value,
-        branchCity: document.getElementById('branchCity').value,
-        branchState: document.getElementById('branchState').value,
-        branchAddress: document.getElementById('branchAddress').value,
-        balanceType: document.querySelector('input[name="balanceType"]:checked')?.value || 'debit',
-        openingBalance: document.getElementById('openingBalance').value,
-        asOfDate: document.getElementById('asOfDate').value,
-        iban: document.getElementById('iban').value,
-        swiftCode: document.getElementById('swiftCode').value,
-        contactPerson: document.getElementById('contactPerson').value,
-        contactNumber: document.getElementById('contactNumber').value,
-        email: document.getElementById('email').value,
-        notes: document.getElementById('notes').value,
-        isActive: document.getElementById('isActive').checked,
-        isDraft: true
-    };
-
-    // For draft functionality, you could add isDraft: true to formData
-    // and handle it in the API
-    console.log('Draft functionality not implemented yet');
-    alert('Draft functionality will be implemented in future version.');
-});
+if (saveDraftBtn) {
+    saveDraftBtn.addEventListener('click', () => {
+        alert('Draft functionality will be implemented in future version.');
+    });
+}
 
 // Remove sample data for production
 // window.addEventListener('DOMContentLoaded', () => {

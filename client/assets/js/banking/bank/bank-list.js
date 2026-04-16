@@ -376,7 +376,10 @@ function showEditModal(id) {
         
         // Show existing logo if available
         if (account.bank_logo_path) {
-            editLogoPreviewImg.src = `../../../assets/uploads/bank_logo/${account.bank_logo_path}`;
+            // Store just the filename, construct full path from current page location
+            const filename = account.bank_logo_path.split('/').pop();
+            const logoUrl = '../../../assets/uploads/bank_logo/' + filename;
+            editLogoPreviewImg.src = logoUrl;
             editLogoPreview.style.display = 'block';
         } else {
             editLogoPreview.style.display = 'none';

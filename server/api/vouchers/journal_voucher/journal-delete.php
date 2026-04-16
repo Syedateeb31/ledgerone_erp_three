@@ -33,9 +33,10 @@ if (!$id) {
 try {
     $pdo->beginTransaction();
 
-    // Check if voucher exists and is draft
+    // Step 1: Verify voucher exists and belongs to current tenant
     $stmt = $pdo->prepare(
-        "SELECT id, status FROM journal_voucher WHERE id = ? AND tenant_id = ?"
+        "SELECT id, status, voucher_number FROM journal_voucher 
+         WHERE id = ? AND tenant_id = ?"
     );
     $stmt->execute([$id, $tenant_id]);
     $voucher = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -46,23 +47,50 @@ try {
         exit();
     }
 
-    if ($voucher['status'] !== 'draft') {
-        http_response_code(400);
-        echo json_encode(['error' => 'Only draft vouchers can be deleted']);
-        exit();
+    // Step 2: Delete ledger entries if posted
+    if ($voucher['status'] === 'posted') {
+        $stmt = $pdo->prepare(
+            "DELETE FROM accounting_ledger 
+             WHERE reference_table = ? AND reference_id = ? AND tenant_id = ?"
+        );
+        $stmt->execute(['journal_voucher', $id, $tenant_id]);
+        $ledgerDeleted = $stmt->rowCount();
+    } else {
+        $ledgerDeleted = 0;
     }
 
-    // Delete voucher lines
-    $stmt = $pdo->prepare("DELETE FROM journal_voucher_line WHERE voucher_id = ?");
-    $stmt->execute([$id]);
+    // Step 3: Delete all journal voucher lines
+    $stmt = $pdo->prepare(
+        "DELETE FROM journal_voucher_line 
+         WHERE voucher_id = ? AND tenant_id = ?"
+    );
+    $stmt->execute([$id, $tenant_id]);
+    $linesDeleted = $stmt->rowCount();
 
-    // Delete voucher
-    $stmt = $pdo->prepare("DELETE FROM journal_voucher WHERE id = ?");
-    $stmt->execute([$id]);
+    // Step 4: Delete the journal voucher
+    $stmt = $pdo->prepare(
+        "DELETE FROM journal_voucher 
+         WHERE id = ? AND tenant_id = ?"
+    );
+    $stmt->execute([$id, $tenant_id]);
+    $voucherDeleted = $stmt->rowCount();
+
+    // Step 5: Verify deletion was successful
+    if ($voucherDeleted === 0) {
+        throw new Exception('Failed to delete voucher record');
+    }
 
     $pdo->commit();
 
-    echo json_encode(['success' => true, 'message' => 'Voucher deleted successfully']);
+    echo json_encode([
+        'success' => true,
+        'message' => 'Voucher deleted successfully',
+        'voucherNumber' => $voucher['voucher_number'],
+        'status' => $voucher['status'],
+        'linesDeleted' => $linesDeleted,
+        'ledgerDeleted' => $ledgerDeleted,
+        'voucherDeleted' => $voucherDeleted
+    ]);
 
 } catch (Exception $e) {
     $pdo->rollBack();

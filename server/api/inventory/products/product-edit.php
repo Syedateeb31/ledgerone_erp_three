@@ -46,9 +46,7 @@ try {
     $trade_offer_discount = !empty($_POST['tradeOfferDiscount']) ? $_POST['tradeOfferDiscount'] : 0;
     $default_foc = !empty($_POST['defaultFoc']) ? $_POST['defaultFoc'] : 0;
     $carton_conversion = !empty($_POST['cartonConversion']) ? $_POST['cartonConversion'] : 0;
-    $sales_tax_type = $_POST['salesTaxType'] ?? null;
-    $sales_tax = !empty($_POST['salesTax']) ? $_POST['salesTax'] : 0;
-    $further_tax = !empty($_POST['furtherTax']) ? $_POST['furtherTax'] : 0;
+    $tax_regime_id = !empty($_POST['salesTaxType']) ? $_POST['salesTaxType'] : null;
     $min_stock = !empty($_POST['minStock']) ? $_POST['minStock'] : 0;
     $max_stock = !empty($_POST['maxStock']) ? $_POST['maxStock'] : 0;
     $manufacturing_date = !empty($_POST['manufacturingDate']) ? $_POST['manufacturingDate'] : null;
@@ -93,7 +91,7 @@ try {
                 company_id = ?, name = ?, product_type = ?, uom_type = ?, default_unit_id = ?, uom_group_id = ?, product_conversion_factor = ?, category_id = ?, subcategory_id = ?,
                 inventory_account_id = ?, vendor_id = ?, parent_product_id = ?, description = ?, qr_code = ?, barcode = ?, purchase_price = ?, 
                 trade_price = ?, wholesale_price = ?, mrp = ?, default_discount = ?, trade_offer_discount = ?, default_foc = ?, 
-                carton_conversion = ?, sales_tax_type = ?, sales_tax = ?, further_tax = ?, min_stock_level = ?, max_stock_level = ?, 
+                carton_conversion = ?, tax_regime_id = ?, min_stock_level = ?, max_stock_level = ?, 
                 manufacturing_date = ?, expiry_date = ?, photo = ?, is_active = ?, stock_affects = ?, invoice_affects = ?, updated_at = CURRENT_TIMESTAMP
             WHERE id = ? AND tenant_id = ?
         ");
@@ -102,7 +100,7 @@ try {
             $company, $name, $product_type, $uom_type, $default_unit, $uom_group_id, $product_conversion_factor, $category, $subcategory,
             $inventory_account, $vendor_id, $parent_product_id, $description, $qr_code, $barcode, $purchase_price,
             $trade_price, $wholesale_price, $mrp, $default_discount, $trade_offer_discount, $default_foc,
-            $carton_conversion, $sales_tax_type, $sales_tax, $further_tax, $min_stock, $max_stock,
+            $carton_conversion, $tax_regime_id, $min_stock, $max_stock,
             $manufacturing_date, $expiry_date, $photo_filename, $is_active, $stock_affects, $invoice_affects, $product_id, $tenant_id
         ]);
     } else {
@@ -111,7 +109,7 @@ try {
                 company_id = ?, name = ?, product_type = ?, uom_type = ?, default_unit_id = ?, uom_group_id = ?, product_conversion_factor = ?, category_id = ?, subcategory_id = ?,
                 inventory_account_id = ?, vendor_id = ?, parent_product_id = ?, description = ?, qr_code = ?, barcode = ?, purchase_price = ?, 
                 trade_price = ?, wholesale_price = ?, mrp = ?, default_discount = ?, trade_offer_discount = ?, default_foc = ?, 
-                carton_conversion = ?, sales_tax_type = ?, sales_tax = ?, further_tax = ?, min_stock_level = ?, max_stock_level = ?, 
+                carton_conversion = ?, tax_regime_id = ?, min_stock_level = ?, max_stock_level = ?, 
                 manufacturing_date = ?, expiry_date = ?, is_active = ?, stock_affects = ?, invoice_affects = ?, updated_at = CURRENT_TIMESTAMP
             WHERE id = ? AND tenant_id = ?
         ");
@@ -120,7 +118,7 @@ try {
             $company, $name, $product_type, $uom_type, $default_unit, $uom_group_id, $product_conversion_factor, $category, $subcategory,
             $inventory_account, $vendor_id, $parent_product_id, $description, $qr_code, $barcode, $purchase_price,
             $trade_price, $wholesale_price, $mrp, $default_discount, $trade_offer_discount, $default_foc,
-            $carton_conversion, $sales_tax_type, $sales_tax, $further_tax, $min_stock, $max_stock,
+            $carton_conversion, $tax_regime_id, $min_stock, $max_stock,
             $manufacturing_date, $expiry_date, $is_active, $stock_affects, $invoice_affects, $product_id, $tenant_id
         ]);
     }

@@ -62,6 +62,9 @@ window.addEventListener('load', function () {
     // Load companies
     loadCompanies();
     
+    // Load tax regimes
+    loadTaxRegimes();
+    
 
     
     // Category change handler to load subcategories
@@ -1899,9 +1902,6 @@ function loadProductForEdit(productId) {
             safeSetValue('tradeOfferDiscount', product.trade_offer_discount || '');
             safeSetValue('defaultFoc', product.default_foc || '');
             safeSetValue('cartonConversion', product.carton_conversion || '');
-            safeSetValue('salesTaxType', product.sales_tax_type || '');
-            safeSetValue('salesTax', product.sales_tax || '');
-            safeSetValue('furtherTax', product.further_tax || '');
             safeSetValue('minStock', product.min_stock_level || '');
             safeSetValue('maxStock', product.max_stock_level || '');
             safeSetValue('manufacturingDate', (product.manufacturing_date && product.manufacturing_date !== '0000-00-00') ? product.manufacturing_date : '');
@@ -1978,6 +1978,13 @@ function loadProductForEdit(productId) {
                 }
                 if (product.parent_product_id) {
                     loadParentProductForEdit(product.parent_product_id);
+                }
+                // Populate Sales Tax Type (custom dropdown with search)
+                if (product.tax_regime_id && product.regime_name) {
+                    const searchInput = document.getElementById('salesTaxTypeSearch');
+                    const hiddenInput = document.getElementById('salesTaxType');
+                    if (searchInput) searchInput.value = product.regime_name;
+                    if (hiddenInput) hiddenInput.value = product.tax_regime_id;
                 }
             }, 1000);
             
@@ -2455,4 +2462,78 @@ function loadExistingSchemesForEdit(productId) {
         }
     })
     .catch(error => console.error('Error loading schemes:', error));
+}
+
+function loadTaxRegimes() {
+    fetch('../../../../server/api/inventory/products/tax-regimes-list.php')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.regimes) {
+                // Store data globally for use by dropdown
+                window.taxRegimesData = data.regimes;
+                // Initialize the dropdown
+                initTaxRegimeDropdown();
+            }
+        })
+        .catch(error => console.error('Error loading tax regimes:', error));
+}
+
+function initTaxRegimeDropdown() {
+    const searchInput = document.getElementById('salesTaxTypeSearch');
+    const hiddenInput = document.getElementById('salesTaxType');
+    const dropdownList = document.getElementById('taxRegimeDropdown');
+    
+    if (!searchInput || !hiddenInput || !dropdownList) return;
+    
+    searchInput.addEventListener('focus', () => {
+        renderTaxRegimeList('', dropdownList, searchInput, hiddenInput);
+        dropdownList.style.display = 'block';
+    });
+    
+    searchInput.addEventListener('input', () => {
+        const query = searchInput.value.toLowerCase();
+        renderTaxRegimeList(query, dropdownList, searchInput, hiddenInput);
+    });
+    
+    document.addEventListener('click', (e) => {
+        if (!searchInput.contains(e.target) && !dropdownList.contains(e.target)) {
+            dropdownList.style.display = 'none';
+        }
+    });
+}
+
+function renderTaxRegimeList(query, dropdownList, searchInput, hiddenInput) {
+    dropdownList.innerHTML = '';
+    
+    if (!window.taxRegimesData || window.taxRegimesData.length === 0) {
+        dropdownList.innerHTML = '<div class="dropdown-item" style="color: var(--subtext); cursor: default;">No tax types available</div>';
+        return;
+    }
+    
+    const filtered = window.taxRegimesData.filter(regime => 
+        regime.regime_name.toLowerCase().includes(query) ||
+        (regime.description && regime.description.toLowerCase().includes(query))
+    );
+    
+    if (filtered.length === 0) {
+        dropdownList.innerHTML = '<div class="dropdown-item" style="color: var(--subtext); cursor: default;">No tax types found</div>';
+    } else {
+        filtered.forEach(regime => {
+            const item = document.createElement('div');
+            item.className = 'dropdown-item';
+            item.textContent = regime.regime_name;
+            if (regime.description) {
+                item.title = regime.description;
+            }
+            item.dataset.id = regime.id;
+            
+            item.addEventListener('click', () => {
+                searchInput.value = regime.regime_name;
+                hiddenInput.value = regime.id;
+                dropdownList.style.display = 'none';
+            });
+            
+            dropdownList.appendChild(item);
+        });
+    }
 }

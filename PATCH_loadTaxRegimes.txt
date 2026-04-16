@@ -1,0 +1,14 @@
+// PATCH: Update loadTaxRegimes function in product-add.js
+// Replace the existing loadTaxRegimes function with this version:
+
+function loadTaxRegimes() {
+    fetch('../../../../server/api/inventory/products/tax-regimes-list.php')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.regimes) {
+                window.taxRegimesData = data.regimes;
+                initTaxRegimeDropdown();
+            }
+        })
+        .catch(error => console.error('Error loading tax regimes:', error));
+}

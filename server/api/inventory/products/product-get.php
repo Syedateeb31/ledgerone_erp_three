@@ -31,12 +31,13 @@ try {
     }
     
     $stmt = $pdo->prepare("
-        SELECT p.*, c.category_name, sc.subcategory_name, u.uom_name, u.unit_scope, u.is_base_unit, ug.group_name as uom_group_name
+        SELECT p.*, c.category_name, sc.subcategory_name, u.uom_name, u.unit_scope, u.is_base_unit, ug.group_name as uom_group_name, tr.regime_name
         FROM products p
         LEFT JOIN categories c ON p.category_id = c.id
         LEFT JOIN subcategories sc ON p.subcategory_id = sc.id
         LEFT JOIN uom u ON p.default_unit_id = u.id
         LEFT JOIN uom_groups ug ON p.uom_group_id = ug.id
+        LEFT JOIN tax_regimes tr ON p.tax_regime_id = tr.id
         WHERE p.id = ? AND p.tenant_id = ?
     ");
     $stmt->execute([$product_id, $tenant_id]);

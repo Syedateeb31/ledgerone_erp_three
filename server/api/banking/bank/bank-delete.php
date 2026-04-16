@@ -42,9 +42,16 @@ try {
     
     // Delete bank logo file if exists
     if ($account['bank_logo_path']) {
-        $logoPath = '../../../../client/assets/uploads/bank_logo/' . $account['bank_logo_path'];
-        if (file_exists($logoPath)) {
-            unlink($logoPath);
+        try {
+            $baseDir = realpath(__DIR__ . '/../../../../');
+            if ($baseDir) {
+                $logoPath = $baseDir . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $account['bank_logo_path']);
+                if (file_exists($logoPath)) {
+                    unlink($logoPath);
+                }
+            }
+        } catch (Exception $e) {
+            error_log('Error deleting bank logo: ' . $e->getMessage());
         }
     }
     

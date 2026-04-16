@@ -17,28 +17,25 @@ if (!$user_id || !$tenant_id) {
 }
 
 try {
+    $year = date('Y');
+    $nextNumber = 1;
+    
+    // Get the highest number for this tenant in current year
     $stmt = $pdo->prepare(
         "SELECT voucher_number FROM journal_voucher 
-         WHERE tenant_id = ? 
-         ORDER BY id DESC LIMIT 1"
+         WHERE tenant_id = ? AND voucher_number LIKE ? 
+         ORDER BY CAST(SUBSTRING_INDEX(voucher_number, '-', -1) AS UNSIGNED) DESC LIMIT 1"
     );
-    $stmt->execute([$tenant_id]);
+    $stmt->execute([$tenant_id, "JV-{$year}-%"]);
     $result = $stmt->fetch(PDO::FETCH_ASSOC);
     
     if ($result) {
-        // Extract number from voucher (e.g., JV-2023-001 -> 001)
         preg_match('/(\d+)$/', $result['voucher_number'], $matches);
         $lastNumber = isset($matches[1]) ? intval($matches[1]) : 0;
         $nextNumber = $lastNumber + 1;
-        
-        // Get year
-        $year = date('Y');
-        $nextVoucherNumber = "JV-{$year}-" . str_pad($nextNumber, 3, '0', STR_PAD_LEFT);
-    } else {
-        // First voucher
-        $year = date('Y');
-        $nextVoucherNumber = "JV-{$year}-001";
     }
+    
+    $nextVoucherNumber = "JV-{$year}-" . str_pad($nextNumber, 3, '0', STR_PAD_LEFT);
     
     echo json_encode([
         'success' => true,
