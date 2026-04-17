@@ -101,6 +101,7 @@ try {
             // Log error but don't fail the entire request
             error_log('Bank logo upload error: ' . $uploadError->getMessage());
         }
+    }
     
     // Update bank_accounts
     $stmt = $pdo->prepare("
