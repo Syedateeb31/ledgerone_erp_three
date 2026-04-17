@@ -170,8 +170,8 @@ if (!$user_id) {
                                 <th width="5%">Disc %</th>
                                 <th width="8%"><span id="discountAmountLabel">Disc Amt</span></th>
                                 <th width="8%">T.O Amt</th>
-                                <th width="5%">GST %</th>
-                                <th width="8%">GST Amt</th>
+                                <th width="5%">Tax %</th>
+                                <th width="8%">Tax Amt</th>
                                 <th width="5%">FOC Qty</th>
                                 <th width="8%"><span id="netAmountLabel">Net Amount</span></th>
                                 <th width="3%">Actions</th>
@@ -192,7 +192,7 @@ if (!$user_id) {
                                 <th id="totalDiscountAmountItems">0.00</th>
                                 <th id="totalTradeOfferAmount">0.00</th>
                                 <th></th>
-                                <th id="totalGstAmount">0.00</th>
+                                <th id="totalTaxAmount">0.00</th>
                                 <th id="totalFocQty">0.00</th>
                                 <th id="totalNetAmountItems">0.00</th>
                                 <th></th>
@@ -397,6 +397,18 @@ if (!$user_id) {
                         <span>Given</span>
                     </label>
                 </div>
+
+                <div style="margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid var(--border-default);">
+                    <p style="margin-bottom: 12px; font-weight: 600; font-size: 14px;">Sale Price (₨):</p>
+                    <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px; cursor: pointer;">
+                        <input type="radio" name="salePriceSetting" value="trade_price" id="salePriceTP" style="width: auto;">
+                        <span>Trade Price (TP)</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                        <input type="radio" name="salePriceSetting" value="mrp" id="salePriceMRP" style="width: auto;">
+                        <span>Maximum Retail Price (MRP)</span>
+                    </label>
+                </div>
                 
                 <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; cursor: pointer;">
                     <input type="checkbox" id="enableTradeOfferAmount" style="width: auto;">
@@ -408,7 +420,7 @@ if (!$user_id) {
                 </label>
                 <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; cursor: pointer;">
                     <input type="checkbox" id="enableTaxation" style="width: auto;">
-                    <span>Enable Taxation</span>
+                    <span>Enable Tax % and Tax Amt</span>
                 </label>
                 <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; cursor: pointer;">
                     <input type="checkbox" id="enableCashDiscountPercent" style="width: auto;">
@@ -801,7 +813,9 @@ if (!$user_id) {
 
     <script src="../../../assets/js/sale/pos_invoice/pos-add-uom.js?v=<?php echo time(); ?>&debug=1"></script>
     <script src="../../../assets/js/sale/pos_invoice/pos-add-scheme.js?v=<?php echo time(); ?>"></script>
+    <script src="../../../assets/js/sale/pos_invoice/pos-tax-calculation.js?v=<?php echo time(); ?>"></script>
     <script src="../../../assets/js/sale/pos_invoice/withholding-tax.js?v=<?php echo time(); ?>"></script>
     <script src="../../../assets/js/sale/pos_invoice/pos-add.js?v=<?php echo time(); ?>"></script>
+    <script src="../../../assets/js/sale/pos_invoice/tax-integration.js?v=<?php echo time(); ?>"></script>
 </body>
 </html>

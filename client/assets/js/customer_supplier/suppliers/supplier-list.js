@@ -274,9 +274,10 @@ document.addEventListener('DOMContentLoaded', function () {
             fetch(`../../../../server/api/customer_supplier/suppliers/supplier-sub-accounts.php?supplier_id=${supplier.id}`)
                 .then(response => response.json())
                 .then(data => {
+                    const tbody = document.getElementById('editSubAccountsBody');
+                    tbody.innerHTML = '';
+                    
                     if (data.success && data.subAccounts && data.subAccounts.length > 0) {
-                        const tbody = document.getElementById('editSubAccountsBody');
-                        tbody.innerHTML = '';
                         data.subAccounts.forEach((subAccount, index) => {
                             const row = document.createElement('tr');
                             row.innerHTML = `
@@ -290,9 +291,71 @@ document.addEventListener('DOMContentLoaded', function () {
                                 </td>
                             `;
                             tbody.appendChild(row);
+                            attachSubAccountRowListeners(row);
                         });
+                    } else {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td>1</td>
+                            <td><input type="text" class="sub-account-input" placeholder="Enter sub account name"></td>
+                            <td><input type="number" class="sub-account-debit" step="0.01" min="0" placeholder="0.00"></td>
+                            <td><input type="number" class="sub-account-credit" step="0.01" min="0" placeholder="0.00"></td>
+                            <td>
+                                <button type="button" class="btn-icon btn-add" title="Add Row"><i class="fas fa-plus"></i></button>
+                                <button type="button" class="btn-icon btn-remove" title="Remove Row"><i class="fas fa-minus"></i></button>
+                            </td>
+                        `;
+                        tbody.appendChild(row);
+                        attachSubAccountRowListeners(row);
                     }
                 });
+        }
+        
+        function updateSubAccountRowNumbers() {
+            const tbody = document.getElementById('editSubAccountsBody');
+            const rows = tbody.querySelectorAll('tr');
+            rows.forEach((row, index) => {
+                row.querySelector('td:first-child').textContent = index + 1;
+            });
+        }
+        
+        function attachSubAccountRowListeners(row) {
+            const addBtn = row.querySelector('.btn-add');
+            const removeBtn = row.querySelector('.btn-remove');
+            
+            if (addBtn) {
+                addBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const tbody = document.getElementById('editSubAccountsBody');
+                    const newRow = document.createElement('tr');
+                    const rowCount = tbody.querySelectorAll('tr').length + 1;
+                    newRow.innerHTML = `
+                        <td>${rowCount}</td>
+                        <td><input type="text" class="sub-account-input" placeholder="Enter sub account name"></td>
+                        <td><input type="number" class="sub-account-debit" step="0.01" min="0" placeholder="0.00"></td>
+                        <td><input type="number" class="sub-account-credit" step="0.01" min="0" placeholder="0.00"></td>
+                        <td>
+                            <button type="button" class="btn-icon btn-add" title="Add Row"><i class="fas fa-plus"></i></button>
+                            <button type="button" class="btn-icon btn-remove" title="Remove Row"><i class="fas fa-minus"></i></button>
+                        </td>
+                    `;
+                    tbody.appendChild(newRow);
+                    attachSubAccountRowListeners(newRow);
+                });
+            }
+            
+            if (removeBtn) {
+                removeBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const tbody = document.getElementById('editSubAccountsBody');
+                    if (tbody.querySelectorAll('tr').length > 1) {
+                        row.remove();
+                        updateSubAccountRowNumbers();
+                    } else {
+                        alert('At least one sub-account row must remain');
+                    }
+                });
+            }
         }
         
         function closeEditModal() {
@@ -304,6 +367,12 @@ document.addEventListener('DOMContentLoaded', function () {
         editCancelBtn.addEventListener('click', closeEditModal);
         editModal.addEventListener('click', function(e) {
             if (e.target === editModal) closeEditModal();
+        });
+        
+        // Attach listeners to initial sub-account rows
+        const initialRows = document.getElementById('editSubAccountsBody').querySelectorAll('tr');
+        initialRows.forEach(row => {
+            attachSubAccountRowListeners(row);
         });
         
         // Form submission

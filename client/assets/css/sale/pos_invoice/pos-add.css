@@ -688,6 +688,14 @@ td:not(:has(.unit-input)):not(:has(button)):not(.price-cell):not(.gross-cell):no
   color: #db2777;
 }
 
+/* Tax cells styling */
+.tax-percent-cell input,
+.tax-amount-cell input {
+  background: linear-gradient(135deg, #fce7f3 0%, #ffffff 100%);
+  border-color: #ec4899;
+  color: #db2777;
+}
+
 /* FOC cell styling */
 .foc-cell input {
   background: linear-gradient(135deg, #dbeafe 0%, #ffffff 100%);

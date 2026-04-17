@@ -946,6 +946,11 @@ function initializePage(permissions) {
             if (customerId) {
                 fetchCustomerBalance(customerId);
                 loadSubAccounts(customerId);
+                
+                // Recalculate tax for all products with the new customer
+                if (typeof loadTaxRatesForCustomer === 'function') {
+                    loadTaxRatesForCustomer(customerId);
+                }
             }
         }
     });
@@ -1121,10 +1126,10 @@ function initializePage(permissions) {
                     if (discAmountInput) discAmountInput.value = item.discount_amount;
                     const toAmountInput = lastRow.querySelector('.to-amount-cell input');
                     if (toAmountInput) toAmountInput.value = item.trade_offer_amount || 0;
-                    const gstPercentInput = lastRow.querySelector('.gst-percent-cell input');
-                    if (gstPercentInput) gstPercentInput.value = item.gst_percent || 0;
-                    const gstAmountInput = lastRow.querySelector('.gst-amount-cell input');
-                    if (gstAmountInput) gstAmountInput.value = item.gst_amount || 0;
+                    const taxPercentInput = lastRow.querySelector('.tax-percent-cell input');
+                    if (taxPercentInput) taxPercentInput.value = item.tax_percent || 0;
+                    const taxAmountInput = lastRow.querySelector('.tax-amount-cell input');
+                    if (taxAmountInput) taxAmountInput.value = item.tax_amount || 0;
                     const focInput = lastRow.querySelector('.foc-cell input');
                     if (focInput) focInput.value = item.foc_quantity || 0;
                     const netInput = lastRow.querySelector('.net-cell input');
@@ -1276,18 +1281,16 @@ function initializePage(permissions) {
 
                     lastRow.cells[1].querySelector('.search-input').value = item.product_name;
                     lastRow.cells[1].querySelector('.item-code').value = item.product_id;
-                    lastRow.cells[2].querySelector('select').value = item.uom_id;
-                    lastRow.cells[3].querySelector('input').value = item.quantity;
-                    lastRow.cells[7].querySelector('input').value = item.sale_price;
-                    lastRow.cells[8].querySelector('input').value = item.gross_amount;
-                    lastRow.cells[9].querySelector('input').value = item.discount_percent || 0;
-                    lastRow.cells[10].querySelector('input').value = item.discount_amount || 0;
-                    lastRow.cells[11].querySelector('input').value = item.trade_offer_percent || 0;
-                    lastRow.cells[12].querySelector('input').value = item.trade_offer_amount || 0;
-                    lastRow.cells[13].querySelector('input').value = item.gst_percent || 0;
-                    lastRow.cells[14].querySelector('input').value = item.gst_amount || 0;
-                    lastRow.cells[15].querySelector('input').value = item.foc_quantity || 0;
-                    lastRow.cells[16].querySelector('input').value = item.net_amount;
+                    lastRow.querySelector('.scheme-select').value = item.uom_id;
+                    lastRow.querySelector('.price-cell input').value = item.sale_price;
+                    lastRow.querySelector('.gross-cell input').value = item.gross_amount;
+                    lastRow.querySelector('.disc-percent-cell input').value = item.discount_percent || 0;
+                    lastRow.querySelector('.disc-amount-cell input').value = item.discount_amount || 0;
+                    lastRow.querySelector('.to-amount-cell input').value = item.trade_offer_amount || 0;
+                    lastRow.querySelector('.tax-percent-cell input').value = item.tax_percent || 0;
+                    lastRow.querySelector('.tax-amount-cell input').value = item.tax_amount || 0;
+                    lastRow.querySelector('.foc-cell input').value = item.foc_quantity || 0;
+                    lastRow.querySelector('.net-cell input').value = item.net_amount;
                     lastRow.dataset.stockAffects = item.stock_affects || 1;
                     lastRow.dataset.invoiceAffects = item.invoice_affects || 1;
                     lastRow.dataset.productId = item.product_id;
@@ -1704,26 +1707,28 @@ function initializePage(permissions) {
         tradeOfferAmount.value = '0.00';
         cell12.appendChild(tradeOfferAmount);
 
-        // GST % (input)
+        // Tax % (input)
         const cell13 = row.insertCell(13);
-        const gstPercent = document.createElement('input');
-        gstPercent.type = 'number';
-        gstPercent.className = 'table-input';
-        gstPercent.min = '0';
-        gstPercent.max = '100';
-        gstPercent.step = '0.01';
-        gstPercent.value = '0';
-        cell13.appendChild(gstPercent);
+        const taxPercent = document.createElement('input');
+        taxPercent.type = 'number';
+        taxPercent.className = 'table-input';
+        taxPercent.min = '0';
+        taxPercent.max = '100';
+        taxPercent.step = '0.01';
+        taxPercent.value = '0';
+        taxPercent.className = 'table-input tax-percent-cell';
+        cell13.appendChild(taxPercent);
 
-        // GST Amount (input)
+        // Tax Amount (input)
         const cell14 = row.insertCell(14);
-        const gstAmount = document.createElement('input');
-        gstAmount.type = 'number';
-        gstAmount.className = 'table-input';
-        gstAmount.min = '0';
-        gstAmount.step = '0.01';
-        gstAmount.value = '0.00';
-        cell14.appendChild(gstAmount);
+        const taxAmount = document.createElement('input');
+        taxAmount.type = 'number';
+        taxAmount.className = 'table-input';
+        taxAmount.min = '0';
+        taxAmount.step = '0.01';
+        taxAmount.value = '0.00';
+        taxAmount.className = 'table-input tax-amount-cell';
+        cell14.appendChild(taxAmount);
 
         // FOC Qty (input)
         const cell15 = row.insertCell(15);
@@ -1833,8 +1838,8 @@ function initializePage(permissions) {
         discountAmount.addEventListener('input', calculateRowFromAmount);
         tradeOfferDiscount.addEventListener('input', calculateRow);
         tradeOfferAmount.addEventListener('input', calculateRowFromTradeOfferAmount);
-        gstPercent.addEventListener('input', calculateRow);
-        gstAmount.addEventListener('input', calculateRowFromGstAmount);
+        taxPercent.addEventListener('input', calculateRow);
+        taxAmount.addEventListener('input', calculateRowFromTaxAmount);
 
         // Enter key navigation for faster workflow
         qtyInput.addEventListener('keydown', function (e) {
@@ -2103,7 +2108,7 @@ function initializePage(permissions) {
             updateInvoiceSummary();
         }
 
-        function calculateRowFromGstAmount() {
+        function calculateRowFromTaxAmount() {
             // Delegate to global calculateRowAmounts from pos-add-uom.js
             if (typeof calculateRowAmounts === 'function') {
                 // Calculate total quantity from dynamic unit inputs
@@ -2124,7 +2129,7 @@ function initializePage(permissions) {
             const price = parseFloat(priceInput.value) || 0;
             const discountPct = parseFloat(discountPercent.value) || 0;
             const tradeOfferPct = parseFloat(tradeOfferDiscount.value) || 0;
-            const gstAmt = parseFloat(gstAmount.value) || 0;
+            const taxAmt = parseFloat(taxAmount.value) || 0;
 
             const gross = qty * price;
             grossAmount.value = gross.toFixed(2);
@@ -2138,13 +2143,13 @@ function initializePage(permissions) {
             const tradeOfferAmt = afterDiscount * (tradeOfferPct / 100);
             tradeOfferAmount.value = tradeOfferAmt.toFixed(2);
 
-            // Calculate GST percentage from amount
+            // Calculate Tax percentage from amount
             const afterTradeOffer = afterDiscount - tradeOfferAmt;
-            const gstPct = afterTradeOffer > 0 ? (gstAmt / afterTradeOffer) * 100 : 0;
-            gstPercent.value = gstPct.toFixed(2);
+            const taxPct = afterTradeOffer > 0 ? (taxAmt / afterTradeOffer) * 100 : 0;
+            taxPercent.value = taxPct.toFixed(2);
 
             // Calculate net amount
-            const net = afterTradeOffer + gstAmt;
+            const net = afterTradeOffer + taxAmt;
             netAmount.value = net.toFixed(2);
 
             // Update invoice summary
@@ -2264,7 +2269,8 @@ function initializePage(permissions) {
 
                 // Fetch price from rate_list_items or fallback to product
                 const customerId = document.getElementById('customerCode').value;
-                const priceType = document.querySelector('input[name="priceType"]:checked')?.value || 'tp';
+                const salePriceSetting = localStorage.getItem('salePriceSetting') || 'trade_price';
+                const priceType = salePriceSetting === 'mrp' ? 'mrp' : 'tp';
                 let price = priceType === 'mrp' ? (parseFloat(mrp) || 0) : (parseFloat(tp) || 0);
                 let rateListQty = 0;
                 let focQty = 0;
@@ -2372,14 +2378,11 @@ function initializePage(permissions) {
         requestAnimationFrame(() => {
             let totalBill = 0;
             let totalQty = 0;
-            let totalPcs = 0;
-            let totalCtn = 0;
-            let totalDz = 0;
             let totalSalePrice = 0;
             let totalGrossAmount = 0;
             let totalDiscountAmountItems = 0;
             let totalTradeOfferAmount = 0;
-            let totalGstAmount = 0;
+            let totalTaxAmount = 0;
             let totalFocQty = 0;
             let totalNetAmountItems = 0;
             const rows = itemsTable.rows;
@@ -2397,28 +2400,27 @@ function initializePage(permissions) {
                     continue;
                 }
 
-                const qtyInput = rows[i].cells[3].querySelector('input');
-                const pcsInput = rows[i].cells[4]?.querySelector('input');
-                const ctnInput = rows[i].cells[5]?.querySelector('input');
-                const dzInput = rows[i].cells[6]?.querySelector('input');
-                const salePriceInput = rows[i].cells[7]?.querySelector('input');
-                const grossAmountInput = rows[i].cells[8]?.querySelector('input');
-                const discountAmountInput = rows[i].cells[10]?.querySelector('input');
-                const tradeOfferAmountInput = rows[i].cells[12]?.querySelector('input');
-                const gstAmountInput = rows[i].cells[14]?.querySelector('input');
-                const focQtyInput = rows[i].cells[15]?.querySelector('input');
-                const netAmountInput = rows[i].cells[16]?.querySelector('input');
+                const salePriceInput = rows[i].querySelector('.price-cell input');
+                const grossAmountInput = rows[i].querySelector('.gross-cell input');
+                const discountAmountInput = rows[i].querySelector('.disc-amount-cell input');
+                const tradeOfferAmountInput = rows[i].querySelector('.to-amount-cell input');
+                const taxAmountInput = rows[i].querySelector('.tax-amount-cell input');
+                const focQtyInput = rows[i].querySelector('.foc-cell input');
+                const netAmountInput = rows[i].querySelector('.net-cell input');
+                const unitInputs = rows[i].querySelectorAll('.unit-input');
+                
+                let rowTotalQty = 0;
+                unitInputs.forEach(input => {
+                    rowTotalQty += parseFloat(input.value) || 0;
+                });
 
                 if (netAmountInput && !row.classList.contains('child-row')) {
-                    totalQty += parseFloat(qtyInput?.value) || 0;
-                    totalPcs += parseFloat(pcsInput?.value) || 0;
-                    totalCtn += parseFloat(ctnInput?.value) || 0;
-                    totalDz += parseFloat(dzInput?.value) || 0;
+                    totalQty += rowTotalQty;
                     totalSalePrice += parseFloat(salePriceInput?.value) || 0;
                     totalGrossAmount += parseFloat(grossAmountInput?.value) || 0;
                     totalDiscountAmountItems += parseFloat(discountAmountInput?.value) || 0;
                     totalTradeOfferAmount += parseFloat(tradeOfferAmountInput?.value) || 0;
-                    totalGstAmount += parseFloat(gstAmountInput?.value) || 0;
+                    totalTaxAmount += parseFloat(taxAmountInput?.value) || 0;
                     totalFocQty += parseFloat(focQtyInput?.value) || 0;
                     totalNetAmountItems += parseFloat(netAmountInput?.value) || 0;
                     totalBill += parseFloat(netAmountInput?.value) || 0;
@@ -2426,15 +2428,11 @@ function initializePage(permissions) {
             }
 
             // Batch DOM updates
-            document.getElementById('totalQty').textContent = totalQty.toFixed(2);
-            document.getElementById('totalPcs').textContent = totalPcs.toFixed(2);
-            document.getElementById('totalCtn').textContent = totalCtn.toFixed(2);
-            document.getElementById('totalDz').textContent = totalDz.toFixed(2);
             document.getElementById('totalSalePrice').textContent = totalSalePrice.toFixed(2);
             document.getElementById('totalGrossAmount').textContent = totalGrossAmount.toFixed(2);
             document.getElementById('totalDiscountAmountItems').textContent = totalDiscountAmountItems.toFixed(2);
             document.getElementById('totalTradeOfferAmount').textContent = totalTradeOfferAmount.toFixed(2);
-            document.getElementById('totalGstAmount').textContent = totalGstAmount.toFixed(2);
+            document.getElementById('totalTaxAmount').textContent = totalTaxAmount.toFixed(2);
             document.getElementById('totalFocQty').textContent = totalFocQty.toFixed(2);
             document.getElementById('totalNetAmountItems').textContent = totalNetAmountItems.toFixed(2);
             document.getElementById('totalBill').textContent = totalNetAmountItems.toFixed(2);
@@ -2545,9 +2543,9 @@ function initializePage(permissions) {
     }
 
     // Add event listener for total GST amount
-    const totalGstAmountSummary = document.getElementById('totalGstAmountSummary');
-    if (totalGstAmountSummary) {
-        totalGstAmountSummary.addEventListener('input', updateInvoiceSummaryFromGstAmount);
+    const totalTaxAmountSummary = document.getElementById('totalTaxAmountSummary');
+    if (totalTaxAmountSummary) {
+        totalTaxAmountSummary.addEventListener('input', updateInvoiceSummaryFromTaxAmount);
     }
 
     // Add event listener for shipping fees
@@ -3171,8 +3169,8 @@ function saveInvoice(status = 'Posted') {
                 discountPercent: 0,
                 discountAmount: 0,
                 tradeOfferAmount: 0,
-                gstPercent: 0,
-                gstAmount: 0,
+                taxPercent: 0,
+                taxAmount: 0,
                 focQty: 0,
                 netAmount: 0,
                 parentRowId: row.dataset.parentRowIndex !== undefined ? parseInt(row.dataset.parentRowIndex) + 1 : null,
@@ -3206,8 +3204,8 @@ function saveInvoice(status = 'Posted') {
         const discPercentInput = row.querySelector('.disc-percent-cell input');
         const discAmountInput = row.querySelector('.disc-amount-cell input');
         const toAmountInput = row.querySelector('.to-amount-cell input');
-        const gstPercentInput = row.querySelector('.gst-percent-cell input');
-        const gstAmountInput = row.querySelector('.gst-amount-cell input');
+        const taxPercentInput = row.querySelector('.tax-percent-cell input');
+        const taxAmountInput = row.querySelector('.tax-amount-cell input');
         const focInput = row.querySelector('.foc-cell input');
         const netInput = row.querySelector('.net-cell input');
         const schemeSelect = row.querySelector('.scheme-select');
@@ -3217,8 +3215,8 @@ function saveInvoice(status = 'Posted') {
         const discountPercent = parseFloat(discPercentInput.value) || 0;
         const discountAmount = parseFloat(discAmountInput.value);
         const tradeOfferAmount = parseFloat(toAmountInput.value) || 0;
-        const gstPercent = parseFloat(gstPercentInput.value) || 0;
-        const gstAmount = parseFloat(gstAmountInput.value) || 0;
+        const taxPercent = parseFloat(taxPercentInput.value) || 0;
+        const taxAmount = parseFloat(taxAmountInput.value) || 0;
         const focQty = parseFloat(focInput.value) || 0;
         const netAmount = parseFloat(netInput.value);
         const scheme = schemeSelect ? schemeSelect.value : 'sale_on_tp';
@@ -3235,9 +3233,10 @@ function saveInvoice(status = 'Posted') {
                 dozen: 0,
                 salePrice: salePrice,
                 grossAmount: isFirstUnit ? grossAmount : 0,
-                discountPeAmount: isFirstUnit ? tradeOfferAmount : 0,
-                gstPercent: gstPercent,
-                gstAmount: isFirstUnit ? gstAmount : 0,
+                discountAmount: isFirstUnit ? discountAmount : 0,
+                tradeOfferAmount: isFirstUnit ? tradeOfferAmount : 0,
+                taxPercent: taxPercent,
+                taxAmount: isFirstUnit ? taxAmount : 0,
                 focQty: isFirstUnit ? focQty : 0,
                 netAmount: isFirstUnit ? netAmount : 0,
                 parentRowId: null,
@@ -3264,8 +3263,8 @@ function saveInvoice(status = 'Posted') {
                     discountPercent: 0,
                     discountAmount: 0,
                     tradeOfferAmount: 0,
-                    gstPercent: 0,
-                    gstAmount: 0,
+                    taxPercent: 0,
+                    taxAmount: 0,
                     focQty: 0,
                     netAmount: 0,
                     parentRowId: formData.items.length,
@@ -3329,6 +3328,11 @@ function loadInvoiceSettings() {
     const schemeRadio = document.querySelector(`input[name="defaultScheme"][value="${defaultScheme}"]`);
     if (schemeRadio) schemeRadio.checked = true;
     
+    // Load sale price preference
+    const salePriceSetting = localStorage.getItem('salePriceSetting') || 'trade_price';
+    const salePriceRadio = document.querySelector(`input[name="salePriceSetting"][value="${salePriceSetting}"]`);
+    if (salePriceRadio) salePriceRadio.checked = true;
+    
     // Load other settings
     document.getElementById('enableTradeOfferAmount').checked = localStorage.getItem('enableTradeOfferAmount') === 'true';
     document.getElementById('enableFOC').checked = localStorage.getItem('enableFOC') === 'true';
@@ -3347,6 +3351,10 @@ function saveInvoiceSettings() {
     // Save scheme preference
     const selectedScheme = document.querySelector('input[name="defaultScheme"]:checked')?.value || 'sale_on_tp';
     localStorage.setItem('defaultScheme', selectedScheme);
+    
+    // Save sale price preference
+    const selectedSalePrice = document.querySelector('input[name="salePriceSetting"]:checked')?.value || 'trade_price';
+    localStorage.setItem('salePriceSetting', selectedSalePrice);
     
     // Save other settings
     localStorage.setItem('enableTradeOfferAmount', document.getElementById('enableTradeOfferAmount').checked);
@@ -3376,8 +3384,6 @@ function applyInvoiceSettings() {
     // Hide/show invoice summary fields
     const totalDiscountPercentItem = document.getElementById('totalDiscountPercent')?.closest('.summary-item');
     const totalDiscountAmountItem = document.getElementById('totalDiscountAmount')?.closest('.summary-item');
-    const totalGstPercentItem = document.getElementById('totalGstPercent')?.closest('.summary-item');
-    const totalGstAmountItem = document.getElementById('totalGstAmount')?.closest('.summary-item');
     const shippingFeesItem = document.getElementById('shippingFees')?.closest('.summary-item');
     const enableAmountPaidPaymentMethod = localStorage.getItem('enableAmountPaidPaymentMethod') === 'true';
     const paymentMethodItem = document.getElementById('paymentMethod')?.closest('.summary-item');
@@ -3387,8 +3393,6 @@ function applyInvoiceSettings() {
 
     if (totalDiscountPercentItem) totalDiscountPercentItem.style.display = enableInvoiceCashDiscountPercent ? '' : 'none';
     if (totalDiscountAmountItem) totalDiscountAmountItem.style.display = enableInvoiceCashDiscountAmount ? '' : 'none';
-    if (totalGstPercentItem) totalGstPercentItem.style.display = enableTaxation ? '' : 'none';
-    if (totalGstAmountItem) totalGstAmountItem.style.display = enableTaxation ? '' : 'none';
     if (shippingFeesItem) shippingFeesItem.style.display = enableShippingFees ? '' : 'none';
     if (paymentMethodItem) paymentMethodItem.style.display = enableAmountPaidPaymentMethod ? '' : 'none';
     if (bankAccountItem && !enableAmountPaidPaymentMethod) bankAccountItem.style.display = 'none';
@@ -3409,12 +3413,12 @@ function applyColumnVisibility(settings) {
     }
 }
 
-function updateInvoiceSummaryFromGstAmount() {
+function updateInvoiceSummaryFromTaxAmount() {
     let totalBill = 0;
     const rows = itemsTable.rows;
 
     for (let i = 0; i < rows.length; i++) {
-        const netAmountInput = rows[i].cells[13].querySelector('input');
+        const netAmountInput = rows[i].querySelector('.net-cell input');
         if (netAmountInput) {
             totalBill += parseFloat(netAmountInput.value) || 0;
         }
@@ -3424,7 +3428,7 @@ function updateInvoiceSummaryFromGstAmount() {
 
     const discountAmount = parseFloat(document.getElementById('totalDiscountAmount').value) || 0;
     const afterDiscount = totalBill - discountAmount;
-    const gstAmount = parseFloat(document.getElementById('totalGstAmountSummary').value) || 0;
+    const taxAmount = parseFloat(document.getElementById('totalTaxAmountSummary').value) || 0;
     const gstPercent = afterDiscount > 0 ? (gstAmount / afterDiscount) * 100 : 0;
     const shippingFees = parseFloat(document.getElementById('shippingFees').value) || 0;
     const netAmount = afterDiscount + gstAmount + shippingFees;
@@ -4446,16 +4450,16 @@ async function addRowDynamic() {
     toAmountCell.appendChild(toAmountInput);
     
     // GST %
-    const gstPercentCell = row.insertCell(8);
-    gstPercentCell.className = 'gst-percent-cell';
-    const gstPercentInput = document.createElement('input');
-    gstPercentInput.type = 'number';
-    gstPercentInput.className = 'table-input';
-    gstPercentInput.min = '0';
-    gstPercentInput.max = '100';
-    gstPercentInput.step = '0.01';
-    gstPercentInput.value = '0';
-    gstPercentInput.addEventListener('input', function() {
+    const taxPercentCell = row.insertCell(8);
+    taxPercentCell.className = 'tax-percent-cell';
+    const taxPercentInput = document.createElement('input');
+    taxPercentInput.type = 'number';
+    taxPercentInput.className = 'table-input';
+    taxPercentInput.min = '0';
+    taxPercentInput.max = '100';
+    taxPercentInput.step = '0.01';
+    taxPercentInput.value = '0';
+    taxPercentInput.addEventListener('input', function() {
         const unitInputs = row.querySelectorAll('.unit-input');
         let totalQty = 0;
         unitInputs.forEach(input => {
@@ -4466,18 +4470,18 @@ async function addRowDynamic() {
         const price = parseFloat(row.querySelector('.price-cell input').value) || 0;
         calculateRowAmounts(row, totalQty, price);
     });
-    gstPercentCell.appendChild(gstPercentInput);
+    taxPercentCell.appendChild(taxPercentInput);
     
     // GST Amount
-    const gstAmountCell = row.insertCell(9);
-    gstAmountCell.className = 'gst-amount-cell';
-    const gstAmountInput = document.createElement('input');
-    gstAmountInput.type = 'number';
-    gstAmountInput.className = 'table-input';
-    gstAmountInput.min = '0';
-    gstAmountInput.step = '0.01';
-    gstAmountInput.value = '0.00';
-    gstAmountCell.appendChild(gstAmountInput);
+    const taxAmountCell = row.insertCell(9);
+    taxAmountCell.className = 'tax-amount-cell';
+    const taxAmountInput = document.createElement('input');
+    taxAmountInput.type = 'number';
+    taxAmountInput.className = 'table-input';
+    taxAmountInput.min = '0';
+    taxAmountInput.step = '0.01';
+    taxAmountInput.value = '0.00';
+    taxAmountCell.appendChild(taxAmountInput);
     
     // FOC Qty
     const focCell = row.insertCell(10);
@@ -4606,13 +4610,31 @@ function initTableDropdownDynamic(container, row) {
                 await onSchemeChange(row, savedScheme);
             }
             
-            // Set price
-            row.querySelector('.price-cell input').value = product.trade_price || 0;
+            // Set price based on saved setting
+            const salePriceSetting = localStorage.getItem('salePriceSetting') || 'trade_price';
+            const priceValue = salePriceSetting === 'mrp' ? (product.mrp || 0) : (product.trade_price || 0);
+            row.querySelector('.price-cell input').value = priceValue;
             
             // Set default values
             row.querySelector('.disc-percent-cell input').value = product.default_discount || 0;
             row.querySelector('.foc-cell input').value = product.default_foc || 0;
-            row.querySelector('.gst-percent-cell input').value = product.sales_tax || 0;
+            
+            // Calculate and apply tax based on customer and tax regime
+            const customerId = document.getElementById('customerCode').value;
+            if (customerId && product.id) {
+                const taxCalc = await calculateProductTax(customerId, product.id, salePriceSetting);
+                if (taxCalc.success) {
+                    row.querySelector('.tax-percent-cell input').value = parseFloat(taxCalc.tax_rate).toFixed(2);
+                    row.querySelector('.tax-amount-cell input').value = '0.00';
+                } else {
+                    row.querySelector('.tax-percent-cell input').value = 0;
+                    row.querySelector('.tax-amount-cell input').value = '0.00';
+                }
+            } else {
+                // If no customer selected yet, use product default
+                row.querySelector('.tax-percent-cell input').value = product.sales_tax || 0;
+                row.querySelector('.tax-amount-cell input').value = '0.00';
+            }
             
             optionsContainer.style.display = 'none';
             
@@ -4620,7 +4642,6 @@ function initTableDropdownDynamic(container, row) {
             recalculateMaxColumns();
             
             // Load price history and stock
-            const customerId = document.getElementById('customerCode').value;
             if (customerId) {
                 loadPriceHistory(product.id);
             }
@@ -4725,8 +4746,8 @@ function saveInvoice(status = 'Posted') {
         const discountPercent = parseFloat(row.querySelector('.disc-percent-cell input').value) || 0;
         const discountAmount = parseFloat(row.querySelector('.disc-amount-cell input').value) || 0;
         const tradeOfferAmount = parseFloat(row.querySelector('.to-amount-cell input').value) || 0;
-        const gstPercent = parseFloat(row.querySelector('.gst-percent-cell input').value) || 0;
-        const gstAmount = parseFloat(row.querySelector('.gst-amount-cell input').value) || 0;
+        const taxPercent = parseFloat(row.querySelector('.tax-percent-cell input').value) || 0;
+        const taxAmount = parseFloat(row.querySelector('.tax-amount-cell input').value) || 0;
         const focQty = parseFloat(row.querySelector('.foc-cell input').value) || 0;
         const netAmount = parseFloat(row.querySelector('.net-cell input').value);
         const schemeSelect = row.querySelector('.scheme-select');
@@ -4748,8 +4769,8 @@ function saveInvoice(status = 'Posted') {
                     discountPercent: isFirstUnit ? discountPercent : 0,
                     discountAmount: isFirstUnit ? discountAmount : 0,
                     tradeOfferAmount: isFirstUnit ? tradeOfferAmount : 0,
-                    gstPercent: isFirstUnit ? gstPercent : 0,
-                    gstAmount: isFirstUnit ? gstAmount : 0,
+                    taxPercent: isFirstUnit ? taxPercent : 0,
+                    taxAmount: isFirstUnit ? taxAmount : 0,
                     focQty: isFirstUnit ? focQty : 0,
                     netAmount: isFirstUnit ? netAmount : 0,
                     parentRowId: null,

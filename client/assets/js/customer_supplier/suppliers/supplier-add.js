@@ -133,6 +133,67 @@ document.addEventListener('DOMContentLoaded', function () {
         salesmanSearch.focus();
     });
 
+    // Sub-accounts table management
+    const subAccountsBody = document.getElementById('subAccountsBody');
+    
+    function updateRowNumbers() {
+        const rows = subAccountsBody.querySelectorAll('tr');
+        rows.forEach((row, index) => {
+            row.querySelector('td:first-child').textContent = index + 1;
+        });
+    }
+    
+    function addSubAccountRow() {
+        const rowCount = subAccountsBody.querySelectorAll('tr').length + 1;
+        const newRow = document.createElement('tr');
+        newRow.innerHTML = `
+            <td>${rowCount}</td>
+            <td><input type="text" class="sub-account-input" placeholder="Enter sub account name"></td>
+            <td><input type="number" class="sub-account-debit" step="0.01" min="0" placeholder="0.00"></td>
+            <td><input type="number" class="sub-account-credit" step="0.01" min="0" placeholder="0.00"></td>
+            <td>
+                <button type="button" class="btn-icon btn-add" title="Add Row"><i class="fas fa-plus"></i></button>
+                <button type="button" class="btn-icon btn-remove" title="Remove Row"><i class="fas fa-minus"></i></button>
+            </td>
+        `;
+        subAccountsBody.appendChild(newRow);
+        attachSubAccountRowListeners(newRow);
+    }
+    
+    function removeSubAccountRow(button) {
+        const row = button.closest('tr');
+        if (subAccountsBody.querySelectorAll('tr').length > 1) {
+            row.remove();
+            updateRowNumbers();
+        } else {
+            alert('At least one sub-account row must remain');
+        }
+    }
+    
+    function attachSubAccountRowListeners(row) {
+        const addBtn = row.querySelector('.btn-add');
+        const removeBtn = row.querySelector('.btn-remove');
+        
+        if (addBtn) {
+            addBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                addSubAccountRow();
+            });
+        }
+        
+        if (removeBtn) {
+            removeBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                removeSubAccountRow(this);
+            });
+        }
+    }
+    
+    // Attach listeners to initial row
+    subAccountsBody.querySelectorAll('tr').forEach(row => {
+        attachSubAccountRowListeners(row);
+    });
+
     function showNotification(title, message, type = 'success') {
         notificationTitle.textContent = title;
         notificationMessage.textContent = message;
@@ -162,6 +223,23 @@ document.addEventListener('DOMContentLoaded', function () {
         submitBtn.disabled = true;
         submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
 
+        // Collect sub accounts from table
+        const subAccounts = [];
+        const subAccountRows = document.querySelectorAll('#subAccountsBody tr');
+        subAccountRows.forEach(row => {
+            const nameInput = row.querySelector('.sub-account-input');
+            const debitInput = row.querySelector('.sub-account-debit');
+            const creditInput = row.querySelector('.sub-account-credit');
+            
+            if (nameInput && nameInput.value.trim()) {
+                subAccounts.push({
+                    name: nameInput.value.trim(),
+                    debit: debitInput ? parseFloat(debitInput.value) || 0 : 0,
+                    credit: creditInput ? parseFloat(creditInput.value) || 0 : 0
+                });
+            }
+        });
+
         const formData = {
             companyId: companySelect.value,
             salesmanId: salesmanIdsInput.value || null,
@@ -176,7 +254,7 @@ document.addEventListener('DOMContentLoaded', function () {
             openingCredit: document.getElementById('openingCredit').value || 0,
             aitPercent: document.getElementById('aitPercent').value || 0,
             blacklist: document.getElementById('blacklist').checked,
-            subAccounts: []
+            subAccounts: subAccounts
         };
 
         fetch('../../../../server/api/customer_supplier/suppliers/supplier-add.php', {
