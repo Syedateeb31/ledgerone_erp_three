@@ -280,6 +280,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     if (data.success && data.subAccounts && data.subAccounts.length > 0) {
                         data.subAccounts.forEach((subAccount, index) => {
                             const row = document.createElement('tr');
+                            row.dataset.subAccountId = subAccount.id;
                             row.innerHTML = `
                                 <td>${index + 1}</td>
                                 <td><input type="text" class="sub-account-input" value="${subAccount.sub_account_name}" placeholder="Enter sub account name"></td>
@@ -387,7 +388,11 @@ document.addEventListener('DOMContentLoaded', function () {
                 const debit = parseFloat(row.querySelector('.sub-account-debit').value) || 0;
                 const credit = parseFloat(row.querySelector('.sub-account-credit').value) || 0;
                 if (name) {
-                    subAccounts.push({ name, debit, credit });
+                    const subAccount = { name, debit, credit };
+                    if (row.dataset.subAccountId) {
+                        subAccount.id = parseInt(row.dataset.subAccountId);
+                    }
+                    subAccounts.push(subAccount);
                 }
             });
             
