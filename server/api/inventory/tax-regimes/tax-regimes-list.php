@@ -23,19 +23,85 @@ if (!$user_id || !$tenant_id) {
 }
 
 try {
-    // Fetch all active tax regimes - these are system-wide, not tenant-specific
-    $stmt = $pdo->prepare("
-        SELECT id, regime_code, regime_name, is_tax_inclusive, is_single_stage
+    $search = $_GET['search'] ?? '';
+    $tax_authority = $_GET['tax_authority'] ?? '';
+    $status = $_GET['status'] ?? '';
+    $page = max(1, (int)($_GET['page'] ?? 1));
+    $limit = 20;
+    $offset = ($page - 1) * $limit;
+    
+    $sql = "
+        SELECT id, regime_name, regime_code, country_id, tax_authority, tax_base, applies_at_stage,
+               is_active, effective_from, effective_to,
+               (CASE WHEN tenant_id = 0 THEN 'System' ELSE 'Custom' END) as record_type,
+               tenant_id
         FROM tax_regimes
-        WHERE is_active = 1
-        ORDER BY regime_name ASC
-    ");
-    $stmt->execute();
-    $regimes = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        WHERE (tenant_id = ? OR tenant_id = 0)
+    ";
+    
+    $params = [$tenant_id];
+    
+    if ($search) {
+        $sql .= " AND (regime_name LIKE ? OR regime_code LIKE ?)";
+        $params[] = "%$search%";
+        $params[] = "%$search%";
+    }
+    
+    if ($tax_authority) {
+        $sql .= " AND tax_authority = ?";
+        $params[] = $tax_authority;
+    }
+    
+    if ($status !== '') {
+        $active = ($status === 'active') ? 1 : 0;
+        $sql .= " AND is_active = ?";
+        $params[] = $active;
+    }
+    
+    // Count total records
+    $countSql = "
+        SELECT COUNT(*) as total 
+        FROM tax_regimes
+        WHERE (tenant_id = ? OR tenant_id = 0)
+    ";
+    $countParams = [$tenant_id];
+    
+    if ($search) {
+        $countSql .= " AND (regime_name LIKE ? OR regime_code LIKE ?)";
+        $countParams[] = "%$search%";
+        $countParams[] = "%$search%";
+    }
+    if ($tax_authority) {
+        $countSql .= " AND tax_authority = ?";
+        $countParams[] = $tax_authority;
+    }
+    if ($status !== '') {
+        $active = ($status === 'active') ? 1 : 0;
+        $countSql .= " AND is_active = ?";
+        $countParams[] = $active;
+    }
+    
+    $countStmt = $pdo->prepare($countSql);
+    $countStmt->execute($countParams);
+    $totalRecords = $countStmt->fetch()['total'];
+    $totalPages = ceil($totalRecords / $limit);
+    
+    // Get paginated records
+    $sql .= " ORDER BY effective_from DESC, regime_name ASC LIMIT $limit OFFSET $offset";
+    
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    $taxRegimes = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
     echo json_encode([
         'success' => true,
-        'tax_regimes' => $regimes
+        'tax_regimes' => $taxRegimes,
+        'pagination' => [
+            'current_page' => $page,
+            'total_pages' => $totalPages,
+            'total_records' => $totalRecords,
+            'per_page' => $limit
+        ]
     ]);
     
 } catch (PDOException $e) {

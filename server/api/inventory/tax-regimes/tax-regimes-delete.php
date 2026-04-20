@@ -23,43 +23,39 @@ if (!$user_id || !$tenant_id) {
 }
 
 try {
-    $tax_rate_id = $_POST['id'] ?? '';
+    $regime_id = $_POST['id'] ?? '';
     
-    if (empty($tax_rate_id)) {
-        echo json_encode(['success' => false, 'message' => 'Tax rate ID is required']);
+    if (empty($regime_id)) {
+        echo json_encode(['success' => false, 'message' => 'Tax regime ID is required']);
         exit;
     }
     
-    // Verify tax rate exists and belongs to tenant
-    $stmt = $pdo->prepare("SELECT tenant_id FROM tax_rates WHERE id = ?");
-    $stmt->execute([$tax_rate_id]);
-    $taxRate = $stmt->fetch();
+    $stmt = $pdo->prepare("SELECT tenant_id FROM tax_regimes WHERE id = ?");
+    $stmt->execute([$regime_id]);
+    $taxRegime = $stmt->fetch();
     
-    if (!$taxRate) {
-        echo json_encode(['success' => false, 'message' => 'Tax rate not found']);
+    if (!$taxRegime) {
+        echo json_encode(['success' => false, 'message' => 'Tax regime not found']);
         exit;
     }
     
-    // Check if it's a system record
-    if ($taxRate['tenant_id'] == 0) {
-        echo json_encode(['success' => false, 'message' => 'Cannot delete system tax rates']);
+    if ($taxRegime['tenant_id'] == 0) {
+        echo json_encode(['success' => false, 'message' => 'Cannot delete system tax regimes']);
         exit;
     }
     
-    // Check if it belongs to current tenant
-    if ($taxRate['tenant_id'] != $tenant_id) {
+    if ($taxRegime['tenant_id'] != $tenant_id) {
         http_response_code(403);
         echo json_encode(['success' => false, 'message' => 'Unauthorized']);
         exit;
     }
     
-    // Delete tax rate
-    $stmt = $pdo->prepare("DELETE FROM tax_rates WHERE id = ?");
-    $stmt->execute([$tax_rate_id]);
+    $stmt = $pdo->prepare("DELETE FROM tax_regimes WHERE id = ? AND tenant_id = ?");
+    $stmt->execute([$regime_id, $tenant_id]);
     
     echo json_encode([
         'success' => true,
-        'message' => 'Tax rate deleted successfully'
+        'message' => 'Tax regime deleted successfully'
     ]);
     
 } catch (PDOException $e) {
