@@ -933,6 +933,16 @@ function initializePage(permissions) {
                     ? `Dr ${balance.toFixed(2)}`
                     : `Cr ${Math.abs(balance).toFixed(2)}`;
                 showBalanceNotification(balanceText);
+                
+                // Store balance in hidden field
+                let prevBalanceEl = document.getElementById('previousBalance');
+                if (!prevBalanceEl) {
+                    prevBalanceEl = document.createElement('input');
+                    prevBalanceEl.type = 'hidden';
+                    prevBalanceEl.id = 'previousBalance';
+                    document.getElementById('invoiceForm').appendChild(prevBalanceEl);
+                }
+                prevBalanceEl.value = balanceText;
             }
         } catch (error) {
             console.error('Error fetching customer balance:', error);
