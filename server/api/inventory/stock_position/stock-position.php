@@ -37,7 +37,6 @@ try {
         case 'position':
             $branch_id = $_GET['branch_id'] ?? null;
             $product_id = $_GET['product_id'] ?? null;
-            $company_id = $_GET['company_id'] ?? null;
             $inventory_type_id = $_GET['inventory_type_id'] ?? null;
             $vendor_id = $_GET['vendor_id'] ?? null;
             $stock_status = $_GET['stock_status'] ?? null;
@@ -47,13 +46,22 @@ try {
             $valuation_method = $_GET['valuation_method'] ?? 'AVCO';
             $show_base_units = isset($_GET['show_base_units']) && $_GET['show_base_units'] === 'true';
             
+            // Debug log
+            error_log('=== Stock Position Debug ===');
+            error_log('show_base_units parameter: ' . ($_GET['show_base_units'] ?? 'NOT SET'));
+            error_log('show_base_units boolean: ' . ($show_base_units ? 'TRUE' : 'FALSE'));
+            error_log('branch_id: ' . ($branch_id ?? 'NOT SET'));
+            error_log('product_id: ' . ($product_id ?? 'NOT SET'));
+            
             $allowed_methods = ['AVCO', 'FIFO', 'LIFO', 'TRADE_PRICE'];
             if (!in_array($valuation_method, $allowed_methods, true)) {
                 $valuation_method = 'AVCO';
             }
             
-            // Unit conversion factor
-            $conversionFactor = "COALESCE(CASE WHEN u.unit_scope = 'universal' THEN u.conversion_factor ELSE puc.conversion_factor END, 1)";
+            error_log('Query path: ' . ($show_base_units ? 'BASE UNITS' : 'ORIGINAL UNITS'));
+            
+            // Unit conversion factor - only apply if unit has a base_unit_id or product-specific conversion
+            $conversionFactor = "COALESCE(CASE WHEN u.base_unit_id IS NOT NULL AND u.unit_scope = 'universal' THEN u.conversion_factor WHEN puc.conversion_factor IS NOT NULL THEN puc.conversion_factor ELSE 1 END, 1)";
             
             // Unit cost calculation based on valuation method
             $unitCostCalc = $valuation_method === 'TRADE_PRICE' 
@@ -166,12 +174,6 @@ try {
             if ($inventory_type_id) {
                 $sql .= " AND sl.account_id = ?";
                 $params[] = $inventory_type_id;
-            }
-            
-            if ($company_id) {
-                $sql .= " AND (pi.company_id = ? OR si.company_id = ?)";
-                $params[] = $company_id;
-                $params[] = $company_id;
             }
             
             if ($show_base_units) {

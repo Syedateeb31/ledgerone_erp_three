@@ -159,7 +159,6 @@ async function loadStockPosition() {
     try {
         const branchInput = document.getElementById('branch').value;
         const product = document.getElementById('product').value;
-        const company = document.getElementById('company').value;
         const inventoryType = document.getElementById('inventory-type').value;
         const distribution = document.getElementById('distribution').value;
         const stockStatus = document.getElementById('stock-status').value;
@@ -202,10 +201,14 @@ async function loadStockPosition() {
             }
         }
         
+        console.log('=== Filter Debug ===');
+        console.log('Show Base Units Checkbox:', showBaseUnits);
+        console.log('Branch ID:', branchId);
+        console.log('Product ID:', productId);
+        
         let url = `${API_BASE}?action=position`;
         if (branchId) url += `&branch_id=${branchId}`;
         if (productId) url += `&product_id=${productId}`;
-        if (company) url += `&company_id=${company}`;
         if (inventoryType) url += `&inventory_type_id=${inventoryType}`;
         if (distribution) url += `&vendor_id=${distribution}`;
         if (stockStatus) url += `&stock_status=${stockStatus}`;
@@ -214,6 +217,8 @@ async function loadStockPosition() {
         if (toDate) url += `&to_date=${toDate}`;
         if (valuationMethod) url += `&valuation_method=${valuationMethod}`;
         if (showBaseUnits) url += `&show_base_units=true`;
+        
+        console.log('API URL:', url);
         
         const response = await fetch(url);
         const data = await response.json();
@@ -574,10 +579,8 @@ function updateBranchPaginationControls() {
 // Load Dashboard Stats
 async function loadDashboardStats() {
     try {
-        const company = document.getElementById('company').value;
         const valuationMethod = document.getElementById('valuation-method').value;
         let url = `${API_BASE}?action=stats`;
-        if (company) url += `&company_id=${company}`;
         if (valuationMethod) url += `&valuation_method=${valuationMethod}`;
         
         const response = await fetch(url);
@@ -689,22 +692,7 @@ async function loadDistributions() {
 
 // Load Companies
 async function loadCompanies() {
-    try {
-        const response = await fetch(`${API_BASE}?action=companies`);
-        const data = await response.json();
-        
-        if (data.success) {
-            const select = document.getElementById('company');
-            data.data.forEach(company => {
-                const option = document.createElement('option');
-                option.value = company.id;
-                option.textContent = company.company_name;
-                select.appendChild(option);
-            });
-        }
-    } catch (error) {
-        console.error('Error loading companies:', error);
-    }
+    // Removed - no longer needed
 }
 
 // DOMContentLoaded event handler
@@ -743,7 +731,6 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('clearPositionFilters').addEventListener('click', () => {
         document.getElementById('branch').value = '';
         document.getElementById('product').value = '';
-        document.getElementById('company').value = '';
         document.getElementById('inventory-type').value = '';
         document.getElementById('distribution').value = '';
         document.getElementById('stock-status').value = '';
@@ -942,7 +929,6 @@ document.addEventListener('DOMContentLoaded', () => {
     loadProducts();
     loadInventoryTypes();
     loadDistributions();
-    loadCompanies();
     loadStockPosition();
     
     // Expand/Collapse functionality

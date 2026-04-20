@@ -158,12 +158,7 @@ $currency_symbol = $currency['symbol'];
                         <input type="text" class="form-control" id="branch" list="branch-list" placeholder="All Branches">
                         <datalist id="branch-list"></datalist>
                     </div>
-                    <div class="form-group">
-                        <label class="form-label" for="company">Company</label>
-                        <select class="form-control" id="company">
-                            <option value="">All Companies</option>
-                        </select>
-                    </div>
+
                     <div class="form-group">
                         <label class="form-label" for="product">Product</label>
                         <input type="text" class="form-control" id="product" list="product-list" placeholder="All Products">
@@ -471,6 +466,6 @@ $currency_symbol = $currency['symbol'];
         </div>
     </main>
 
-    <script src="../../../assets/js/inventory/stock_position/stock-position.js"></script>
+    <script src="../../../assets/js/inventory/stock_position/stock-position.js?v=<?= time() ?>"></script>
 </body>
 </html>
