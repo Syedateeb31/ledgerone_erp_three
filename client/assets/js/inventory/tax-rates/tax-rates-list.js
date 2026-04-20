@@ -4,6 +4,7 @@ let currentFilters = {};
 window.addEventListener('load', function () {
     loadTaxRates();
     loadTaxRegimes();
+    loadCustomerTypes();
     
     // Event listeners
     document.getElementById('addNewBtn').addEventListener('click', openAddModal);
@@ -58,6 +59,26 @@ function loadTaxRates(page = 1) {
             console.error('Error:', error);
             tableBody.innerHTML = '<tr><td colspan="9" style="text-align: center; padding: 20px; color: red;">Error loading tax rates</td></tr>';
         });
+}
+
+function loadCustomerTypes() {
+    fetch('../../../../server/api/inventory/customer-types/customer-types-list.php')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.customer_types) {
+                const select = document.getElementById('customerTypeId');
+                if (select) {
+                    select.innerHTML = '<option value="">Select Customer Type</option>';
+                    data.customer_types.forEach(type => {
+                        const option = document.createElement('option');
+                        option.value = type.id;
+                        option.textContent = type.type_name;
+                        select.appendChild(option);
+                    });
+                }
+            }
+        })
+        .catch(error => console.error('Error loading customer types:', error));
 }
 
 function loadTaxRegimes() {
@@ -215,7 +236,7 @@ function editTaxRate(taxRateId) {
                 document.getElementById('ratePercentage').value = rate.rate_percentage || '';
                 document.getElementById('thresholdMin').value = rate.threshold_min || '';
                 document.getElementById('thresholdMax').value = rate.threshold_max || '';
-                document.getElementById('applicableTo').value = rate.applicable_to || 'all';
+                document.getElementById('customerTypeId').value = rate.customer_type_id || '';
                 document.getElementById('partyType').value = rate.party_type || '';
                 document.getElementById('deductedBy').value = rate.deducted_by || 'seller';
                 document.getElementById('currency').value = rate.currency || 'PKR';

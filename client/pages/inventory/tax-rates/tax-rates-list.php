@@ -179,13 +179,9 @@ if (!$user_id) {
 
                 <div class="form-row">
                     <div class="form-group">
-                        <label>Applicable To</label>
-                        <select id="applicableTo" name="applicable_to">
-                            <option value="all">All</option>
-                            <option value="registered_company">Registered Company</option>
-                            <option value="unregistered">Unregistered</option>
-                            <option value="manufacturer">Manufacturer</option>
-                            <option value="distributor">Distributor</option>
+                        <label>Customer Type</label>
+                        <select id="customerTypeId" name="customer_type_id">
+                            <option value="">Select Customer Type</option>
                         </select>
                     </div>
                 </div>

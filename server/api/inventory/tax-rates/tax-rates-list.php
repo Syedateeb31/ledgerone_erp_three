@@ -34,7 +34,8 @@ try {
     $sql = "
         SELECT id, tax_name, tax_type, transaction_type, rate_percentage, tax_authority, 
                is_active, effective_from, effective_to, is_adjustable, is_refundable,
-               (CASE WHEN tenant_id = 0 THEN 'System' ELSE 'Custom' END) as record_type
+               (CASE WHEN tenant_id = 0 THEN 'System' ELSE 'Custom' END) as record_type,
+               tenant_id
         FROM tax_rates
         WHERE (tenant_id = ? OR tenant_id = 0)
     ";
@@ -66,7 +67,7 @@ try {
     // Count total records
     $countSql = "
         SELECT COUNT(*) as total 
-        FROM tax_rates 
+        FROM tax_rates
         WHERE (tenant_id = ? OR tenant_id = 0)
     ";
     $countParams = [$tenant_id];

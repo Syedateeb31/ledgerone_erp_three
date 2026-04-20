@@ -30,7 +30,12 @@ try {
     $legal_section = $_POST['legal_section'] ?? '';
     $finance_act_year = $_POST['finance_act_year'] ?? date('Y');
     $tax_name = $_POST['tax_name'] ?? '';
-    $applicable_to = $_POST['applicable_to'] ?? 'all';
+    $customer_type_id = $_POST['customer_type_id'] ?? null;
+    if (!empty($customer_type_id)) {
+        $customer_type_id = (int)$customer_type_id;
+    } else {
+        $customer_type_id = null;
+    }
     $party_type = $_POST['party_type'] ?? '';
     $is_filer = isset($_POST['is_filer']) ? (int)$_POST['is_filer'] : 0;
     $rate_percentage = floatval($_POST['rate_percentage'] ?? 0);
@@ -63,7 +68,7 @@ try {
     $stmt = $pdo->prepare("
         INSERT INTO tax_rates (
             tenant_id, tax_authority, tax_type, transaction_type, legal_section, finance_act_year,
-            tax_name, applicable_to, party_type, is_filer, rate_percentage, threshold_min, threshold_max,
+            tax_name, customer_type_id, party_type, is_filer, rate_percentage, threshold_min, threshold_max,
             tax_regime_id, is_adjustable, is_refundable, is_final_tax, deducted_by, description,
             is_active, effective_from, effective_to, currency, created_by, created_at
         ) VALUES (
@@ -73,7 +78,7 @@ try {
     
     $stmt->execute([
         $tenant_id, $tax_authority, $tax_type, $transaction_type, $legal_section, $finance_act_year,
-        $tax_name, $applicable_to, $party_type, $is_filer, $rate_percentage, $threshold_min, $threshold_max,
+        $tax_name, $customer_type_id, $party_type, $is_filer, $rate_percentage, $threshold_min, $threshold_max,
         $tax_regime_id, $is_adjustable, $is_refundable, $is_final_tax, $deducted_by, $description,
         $is_active, $effective_from, $effective_to, $currency, $user_id
     ]);
