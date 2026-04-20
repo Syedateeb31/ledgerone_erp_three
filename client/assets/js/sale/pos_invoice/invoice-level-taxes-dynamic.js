@@ -5,7 +5,10 @@ window.invoiceLevelTaxRegimes = [];
  * Load invoice-level tax regimes for a customer
  */
 async function loadInvoiceLevelTaxRegimes(customerId) {
+    console.log('loadInvoiceLevelTaxRegimes called with customerId:', customerId);
+    
     if (!customerId) {
+        console.log('No customerId provided, clearing taxes');
         clearInvoiceLevelTaxes();
         return;
     }
@@ -13,12 +16,15 @@ async function loadInvoiceLevelTaxRegimes(customerId) {
     try {
         const response = await fetch(`../../../../server/api/sale/pos_invoice/get-invoice-level-taxes.php?customer_id=${customerId}`);
         const data = await response.json();
+        
+        console.log('Invoice-level taxes API response:', data);
 
         if (data.success && data.data && data.data.length > 0) {
             window.invoiceLevelTaxRegimes = data.data;
             console.log('Invoice-level tax regimes loaded:', window.invoiceLevelTaxRegimes);
             renderInvoiceLevelTaxColumns();
         } else {
+            console.log('No invoice-level tax regimes found for customer');
             clearInvoiceLevelTaxes();
         }
     } catch (error) {
@@ -66,13 +72,19 @@ function renderInvoiceLevelTaxColumns() {
  * Formula: Net Amount × (Rate % / 100) = Tax Amount
  */
 function calculateInvoiceLevelTaxes() {
+    console.log('calculateInvoiceLevelTaxes called. Regimes:', window.invoiceLevelTaxRegimes);
+    
     if (!window.invoiceLevelTaxRegimes || window.invoiceLevelTaxRegimes.length === 0) {
+        console.log('No invoice-level tax regimes found');
         return 0;
     }
 
     // Check if fields exist, if not render them
     const container = document.getElementById('invoiceLevelTaxesContainer');
+    console.log('Container found:', !!container, 'Children count:', container?.children.length);
+    
     if (container && container.children.length === 0) {
+        console.log('Rendering invoice-level tax columns');
         renderInvoiceLevelTaxColumns();
     }
 
