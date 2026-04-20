@@ -53,6 +53,11 @@ try {
                    AND tr_rate.is_active = 1
                    AND (tr_rate.effective_from IS NULL OR tr_rate.effective_from <= NOW())
                    AND (tr_rate.effective_to IS NULL OR tr_rate.effective_to >= NOW())
+                   AND (
+                       (tr_rate.customer_type_id = ? AND tr_rate.party_type = ? AND tr_rate.is_filer = ?)
+                       OR (tr_rate.customer_type_id = ? AND tr_rate.party_type = 'all')
+                       OR (tr_rate.party_type = 'all' AND tr_rate.customer_type_id IS NULL)
+                   )
                  LIMIT 1),
                 0
             ) as rate_percentage
@@ -64,7 +69,7 @@ try {
         ORDER BY tr.regime_name
     ");
     
-    $stmt->execute();
+    $stmt->execute([$customer_type_id, $party_type, $is_filer, $customer_type_id]);
     $taxRegimes = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
     echo json_encode(['success' => true, 'data' => $taxRegimes]);
