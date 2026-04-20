@@ -70,6 +70,12 @@ function calculateInvoiceLevelTaxes() {
         return 0;
     }
 
+    // Check if fields exist, if not render them
+    const container = document.getElementById('invoiceLevelTaxesContainer');
+    if (container && container.children.length === 0) {
+        renderInvoiceLevelTaxColumns();
+    }
+
     let netAmount = window.currentNetAmount;
     if (!netAmount || netAmount === 0) {
         netAmount = parseFloat(document.getElementById('netAmount')?.textContent) || 0;
