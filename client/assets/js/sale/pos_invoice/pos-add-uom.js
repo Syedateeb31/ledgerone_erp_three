@@ -453,6 +453,11 @@ function updateInvoiceSummaryDynamic() {
     if (remainingBalanceEl) {
         remainingBalanceEl.value = remainingBalance.toFixed(2);
     }
+    
+    // Calculate invoice-level taxes
+    if (typeof calculateInvoiceLevelTaxes === 'function') {
+        calculateInvoiceLevelTaxes();
+    }
 }
 
 // Load UOM group units
