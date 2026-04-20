@@ -231,14 +231,8 @@ if (!$user_id) {
                         <span class="summary-label" id="netAmountSummaryLabel">Net Amount</span>
                         <span class="summary-value" id="netAmount">0.00</span>
                     </div>
-                    <div class="summary-item">
-                        <span class="summary-label">Advance Income Tax %</span>
-                        <input type="number" id="withholdingTaxPercent" class="table-input" min="0" max="100" step="0.01" value="0" readonly tabindex="-1">
-                    </div>
-                    <div class="summary-item">
-                        <span class="summary-label" id="withholdingTaxAmountLabel">Advance Income Tax Amount</span>
-                        <span class="summary-value" id="withholdingTaxAmount">0.00</span>
-                    </div>
+                    <!-- Dynamic Invoice-Level Taxes will be inserted here -->
+                    <div id="invoiceLevelTaxesContainer"></div>
                     <div class="summary-item">
                         <span class="summary-label" id="netReceivableLabel">Net Receivable</span>
                         <span class="summary-value" id="netReceivable" style="color: var(--primary); font-size: 16px; font-weight: 700;">0.00</span>
@@ -813,6 +807,7 @@ if (!$user_id) {
 
     <script src="../../../assets/js/sale/pos_invoice/pos-add-uom.js?v=<?php echo time(); ?>&debug=1"></script>
     <script src="../../../assets/js/sale/pos_invoice/pos-add-scheme.js?v=<?php echo time(); ?>"></script>
+    <script src="../../../assets/js/sale/pos_invoice/invoice-level-taxes-dynamic.js?v=<?php echo time(); ?>"></script>
     <script src="../../../assets/js/sale/pos_invoice/pos-tax-calculation.js?v=<?php echo time(); ?>"></script>
     <script src="../../../assets/js/sale/pos_invoice/withholding-tax.js?v=<?php echo time(); ?>"></script>
     <script src="../../../assets/js/sale/pos_invoice/pos-add.js?v=<?php echo time(); ?>"></script>

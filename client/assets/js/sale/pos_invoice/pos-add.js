@@ -9,6 +9,9 @@ let saleOrdersData = [];
 let customersData = [];
 let productsData = [];
 
+// Initialize invoice-level tax regimes
+window.invoiceLevelTaxRegimes = [];
+
 // Cache for quick lookups
 const dataCache = {
     products: new Map(),
@@ -954,8 +957,15 @@ function initializePage(permissions) {
         if (e.target.classList.contains('dropdown-option') && e.target.closest('#customerCodeOptions')) {
             const customerId = e.target.getAttribute('data-value');
             if (customerId) {
+                console.log('Customer selected:', customerId);
                 fetchCustomerBalance(customerId);
                 loadSubAccounts(customerId);
+                
+                // Load invoice-level tax regimes for the selected customer
+                if (typeof loadInvoiceLevelTaxRegimes === 'function') {
+                    console.log('Calling loadInvoiceLevelTaxRegimes for customer:', customerId);
+                    loadInvoiceLevelTaxRegimes(customerId);
+                }
                 
                 // Recalculate tax for all products with the new customer
                 if (typeof loadTaxRatesForCustomer === 'function') {
@@ -1212,6 +1222,11 @@ function initializePage(permissions) {
                     if (qtyInput) qtyInput.dispatchEvent(new Event('input'));
                 }
                 
+                // Load invoice-level tax regimes for this customer
+                if (invoice.customer_id && typeof loadInvoiceLevelTaxRegimes === 'function') {
+                    await loadInvoiceLevelTaxRegimes(invoice.customer_id);
+                }
+                
                 updateInvoiceSummary();
 
                 // Update page title
@@ -1289,6 +1304,8 @@ function initializePage(permissions) {
                     const lastRow = itemsTable.rows[itemsTable.rows.length - 1];
                     itemIdToRowMap[item.id] = lastRow;
 
+                    console.log('Loading item:', item.product_name, 'net_amount:', item.net_amount);
+
                     lastRow.cells[1].querySelector('.search-input').value = item.product_name;
                     lastRow.cells[1].querySelector('.item-code').value = item.product_id;
                     lastRow.querySelector('.scheme-select').value = item.uom_id;
@@ -1300,7 +1317,12 @@ function initializePage(permissions) {
                     lastRow.querySelector('.tax-percent-cell input').value = item.tax_percent || 0;
                     lastRow.querySelector('.tax-amount-cell input').value = item.tax_amount || 0;
                     lastRow.querySelector('.foc-cell input').value = item.foc_quantity || 0;
-                    lastRow.querySelector('.net-cell input').value = item.net_amount;
+                    
+                    const netInput = lastRow.querySelector('.net-cell input');
+                    console.log('Net input element found:', !!netInput, 'Setting to:', item.net_amount);
+                    netInput.value = item.net_amount;
+                    console.log('Net input value after setting:', netInput.value);
+                    
                     lastRow.dataset.stockAffects = item.stock_affects || 1;
                     lastRow.dataset.invoiceAffects = item.invoice_affects || 1;
                     lastRow.dataset.productId = item.product_id;
@@ -1421,6 +1443,11 @@ function initializePage(permissions) {
                     // Load sub accounts for selected customer
                     loadSubAccounts(value);
 
+                    // Load invoice-level tax regimes for customer
+                    if (typeof loadInvoiceLevelTaxRegimes === 'function') {
+                        loadInvoiceLevelTaxRegimes(value);
+                    }
+
                     // Auto-populate sales officer if associated
                     const salesOfficerId = e.target.getAttribute('data-sales-officer');
                     if (salesOfficerId) {
@@ -1458,6 +1485,11 @@ function initializePage(permissions) {
                     // Store credit limit
                     const creditLimit = parseFloat(e.target.getAttribute('data-credit-limit')) || 0;
                     hiddenInput.setAttribute('data-credit-limit', creditLimit);
+
+                    // Load invoice-level tax regimes for customer
+                    if (typeof loadInvoiceLevelTaxRegimes === 'function') {
+                        loadInvoiceLevelTaxRegimes(value);
+                    }
 
                     // Load price history for all rows
                     loadPriceHistoryForAllRows();
@@ -2397,6 +2429,9 @@ function initializePage(permissions) {
             let totalNetAmountItems = 0;
             const rows = itemsTable.rows;
 
+            console.log('=== updateInvoiceSummary START ===');
+            console.log('Items table has', rows.length, 'rows');
+
             for (let i = 0; i < rows.length; i++) {
                 const row = rows[i];
 
@@ -2425,6 +2460,8 @@ function initializePage(permissions) {
                 });
 
                 if (netAmountInput && !row.classList.contains('child-row')) {
+                    const netVal = parseFloat(netAmountInput.value) || 0;
+                    console.log(`Row ${i}: netInput.value="${netAmountInput.value}" => parsed=${netVal}`);
                     totalQty += rowTotalQty;
                     totalSalePrice += parseFloat(salePriceInput?.value) || 0;
                     totalGrossAmount += parseFloat(grossAmountInput?.value) || 0;
@@ -2462,44 +2499,31 @@ function initializePage(permissions) {
             const shippingFees = shippingFeesEl ? parseFloat(shippingFeesEl.value) || 0 : 0;
             const netAmount = afterDiscount + shippingFees;
 
+            console.log('Summary: totalNetAmountItems =', totalNetAmountItems, 'netAmount =', netAmount);
+
+            // Store net amount FIRST before any calculations
+            window.currentNetAmount = netAmount;
+
+            // Update DOM element
             const netAmountEl = document.getElementById('netAmount');
             if (netAmountEl) netAmountEl.textContent = netAmount.toFixed(2);
 
-            // Calculate withholding tax
-            const withholdingTaxPercent = parseFloat(document.getElementById('withholdingTaxPercent')?.value) || 0;
-            const withholdingTaxAmount = netAmount * (withholdingTaxPercent / 100);
-            const withholdingTaxAmountEl = document.getElementById('withholdingTaxAmount');
-            const withholdingTaxPercentItem = document.getElementById('withholdingTaxPercent')?.closest('.summary-item');
-            const withholdingTaxAmountItem = withholdingTaxAmountEl?.closest('.summary-item');
-            const netReceivableEl = document.getElementById('netReceivable');
-            const netReceivableItem = netReceivableEl?.closest('.summary-item');
+            console.log('DOM netAmount element now contains:', netAmountEl?.textContent);
 
-            if (withholdingTaxPercent > 0) {
-                // Show WHT fields
-                if (withholdingTaxPercentItem) withholdingTaxPercentItem.style.display = '';
-                if (withholdingTaxAmountItem) withholdingTaxAmountItem.style.display = '';
-                if (netReceivableItem) netReceivableItem.style.display = '';
-
-                if (withholdingTaxAmountEl) {
-                    withholdingTaxAmountEl.textContent = withholdingTaxAmount.toFixed(2);
-                }
-
-                const netReceivable = netAmount - withholdingTaxAmount;
-                if (netReceivableEl) {
-                    netReceivableEl.textContent = netReceivable.toFixed(2);
-                }
-            } else {
-                // Hide WHT fields when 0
-                if (withholdingTaxPercentItem) withholdingTaxPercentItem.style.display = 'none';
-                if (withholdingTaxAmountItem) withholdingTaxAmountItem.style.display = 'none';
-                if (netReceivableItem) netReceivableItem.style.display = 'none';
+            // Call the existing invoice-level tax calculation function
+            // This will update tax displays and Net Receivable automatically
+            if (typeof calculateInvoiceLevelTaxes === 'function') {
+                calculateInvoiceLevelTaxes();
             }
+
+            console.log('=== updateInvoiceSummary END ===\n');
 
             // Auto-populate Amount Paid if auto mode is selected
             const autoFillYes = document.querySelector('input[name="autoFillAmountPaid"][value="yes"]');
             const amountPaidInput = document.getElementById('amountPaid');
             if (amountPaidInput && autoFillYes && autoFillYes.checked) {
-                amountPaidInput.value = netAmount.toFixed(2);
+                const netReceivableAmount = parseFloat(document.getElementById('netReceivable')?.textContent) || netAmount;
+                amountPaidInput.value = netReceivableAmount.toFixed(2);
             }
 
             updateRemainingBalance();
@@ -2513,8 +2537,8 @@ function initializePage(permissions) {
         if (creditLimit === 0) return;
 
         const previousBalance = parseFloat(document.getElementById('previousBalance').value.replace(/[^0-9.-]/g, '')) || 0;
-        const netAmount = parseFloat(document.getElementById('netAmount').textContent) || 0;
-        const total = previousBalance + netAmount;
+        const netReceivable = parseFloat(document.getElementById('netReceivable').textContent) || 0;
+        const total = previousBalance + netReceivable;
 
         if (total >= creditLimit) {
             alert(`Warning: Total amount (${total.toFixed(2)}) exceeds or equals customer credit limit (${creditLimit.toFixed(2)})`);
@@ -2523,10 +2547,95 @@ function initializePage(permissions) {
 
     // Update remaining balance
     function updateRemainingBalance() {
-        const netAmount = parseFloat(document.getElementById('netAmount').textContent) || 0;
+        const netReceivable = parseFloat(document.getElementById('netReceivable').textContent) || 0;
         const amountPaid = parseFloat(document.getElementById('amountPaid').value) || 0;
-        const remainingBalance = netAmount - amountPaid;
+        const remainingBalance = netReceivable - amountPaid;
         document.getElementById('remainingBalance').value = remainingBalance.toFixed(2);
+    }
+
+    // Load invoice-level tax regimes and display columns dynamically
+    async function loadInvoiceLevelTaxRegimes(customerId) {
+        try {
+            const response = await fetch(`../../../../server/api/sale/pos_invoice/get-invoice-level-taxes.php?customer_id=${customerId}`);
+            const data = await response.json();
+
+            console.log('Tax Regimes Response:', data);
+
+            if (!data.success) {
+                console.warn('Failed to load invoice-level taxes:', data.message);
+                window.invoiceLevelTaxRegimes = [];
+                return;
+            }
+
+            // Store tax regimes in window for use in calculations
+            window.invoiceLevelTaxRegimes = data.data || [];
+            console.log('Stored Tax Regimes:', window.invoiceLevelTaxRegimes);
+
+            // Clear previous dynamic tax columns
+            const container = document.getElementById('invoiceLevelTaxesContainer');
+            if (!container) {
+                console.error('invoiceLevelTaxesContainer not found!');
+                return;
+            }
+            container.innerHTML = '';
+
+            // Create columns for each invoice-level tax regime
+            if (window.invoiceLevelTaxRegimes.length > 0) {
+                window.invoiceLevelTaxRegimes.forEach(regime => {
+                    console.log('Creating elements for regime:', regime);
+                    
+                    // Tax % column
+                    const taxPercentItem = document.createElement('div');
+                    taxPercentItem.className = 'summary-item invoice-tax-item';
+                    taxPercentItem.dataset.taxRegimeId = regime.id;
+                    taxPercentItem.dataset.taxType = 'percent';
+                    taxPercentItem.innerHTML = `
+                        <span class="summary-label">${regime.regime_name} %</span>
+                        <span class="summary-value" id="invoiceTax_${regime.id}_percent">0.00</span>
+                    `;
+                    container.appendChild(taxPercentItem);
+
+                    // Tax Amount column
+                    const taxAmountItem = document.createElement('div');
+                    taxAmountItem.className = 'summary-item invoice-tax-item';
+                    taxAmountItem.dataset.taxRegimeId = regime.id;
+                    taxAmountItem.dataset.taxType = 'amount';
+                    taxAmountItem.innerHTML = `
+                        <span class="summary-label">${regime.regime_name} Amount</span>
+                        <span class="summary-value" id="invoiceTax_${regime.id}_amount">0.00</span>
+                    `;
+                    container.appendChild(taxAmountItem);
+                    
+                    // Verify element creation
+                    const amountEl = document.getElementById(`invoiceTax_${regime.id}_amount`);
+                    console.log(`Element invoiceTax_${regime.id}_amount exists:`, !!amountEl);
+                });
+                
+                // Recalculate if there are items in the invoice
+                // Defer using setTimeout(0) to ensure any pending calculations complete first
+                const itemsTableElement = document.getElementById('itemsTable');
+                if (itemsTableElement) {
+                    const tbody = itemsTableElement.getElementsByTagName('tbody')[0];
+                    if (tbody && tbody.rows && tbody.rows.length > 0) {
+                        console.log('Invoice has items. Calling updateInvoiceSummary to recalculate with new tax regimes');
+                        // Defer to next macrotask to allow current calculations to complete
+                        // Call updateInvoiceSummary which will calculate netAmount and then update tax display
+                        setTimeout(() => {
+                            console.log('Deferred call: Calling updateInvoiceSummary() to recalculate with tax regimes');
+                            updateInvoiceSummary();
+                        }, 0);
+                    } else {
+                        console.log('No items in invoice yet. Tax regimes are ready.');
+                    }
+                } else {
+                    console.log('Items table not found');
+                }
+            }
+
+        } catch (error) {
+            console.error('Error loading invoice-level taxes:', error);
+            window.invoiceLevelTaxRegimes = [];
+        }
     }
 
     // Add event listener for total discount percent
@@ -3146,6 +3255,7 @@ function saveInvoice(status = 'Posted') {
         totalDiscountPercent: parseFloat(document.getElementById('totalDiscountPercent')?.value) || 0,
         totalDiscountAmount: parseFloat(document.getElementById('totalDiscountAmount')?.value),
         netAmount: parseFloat(document.getElementById('netAmount').textContent),
+        netReceivable: parseFloat(document.getElementById('netReceivable').textContent),
         paymentMethod: document.getElementById('paymentMethod')?.value,
         bankAccountId: document.getElementById('bankAccount')?.value || null,
         amountPaid: parseFloat(document.getElementById('amountPaid')?.value) || 0,
@@ -3153,7 +3263,17 @@ function saveInvoice(status = 'Posted') {
         remainingBalance: parseFloat(document.getElementById('remainingBalance')?.value) || 0,
         remarks: document.getElementById('remarks')?.value,
         status: status,
-        items: []
+        items: [],
+        invoiceLevelTaxes: window.invoiceLevelTaxRegimes ? window.invoiceLevelTaxRegimes.map(regime => {
+            const percentEl = document.getElementById(`invoiceTax_${regime.id}_percent`);
+            const amountEl = document.getElementById(`invoiceTax_${regime.id}_amount`);
+            return {
+                regime_id: regime.id,
+                regime_name: regime.regime_name,
+                rate_percentage: parseFloat(regime.rate_percentage),
+                calculated_amount: parseFloat(amountEl?.textContent) || 0
+            };
+        }) : []
     };
 
     const urlParams = new URLSearchParams(window.location.search);
@@ -4634,8 +4754,39 @@ function initTableDropdownDynamic(container, row) {
             if (customerId && product.id) {
                 const taxCalc = await calculateProductTax(customerId, product.id, salePriceSetting);
                 if (taxCalc.success) {
-                    row.querySelector('.tax-percent-cell input').value = parseFloat(taxCalc.tax_rate).toFixed(2);
-                    row.querySelector('.tax-amount-cell input').value = '0.00';
+                    // Store application_level in row dataset
+                    const applicationLevel = taxCalc.application_level || 'item';
+                    row.dataset.applicationLevel = applicationLevel;
+                    row.dataset.taxRate = taxCalc.tax_rate;
+                    row.dataset.taxBase = taxCalc.tax_base;
+                    row.dataset.basePrice = taxCalc.base_price;
+                    row.dataset.formulaTemplate = taxCalc.formula_template;
+                    
+                    // Set Tax % based on application_level
+                    const taxPercentInput = row.querySelector('.tax-percent-cell input');
+                    const taxAmountInput = row.querySelector('.tax-amount-cell input');
+                    
+                    if (applicationLevel === 'invoice') {
+                        // Invoice-level tax: show 0 and make read-only
+                        taxPercentInput.value = '0.00';
+                        taxPercentInput.readOnly = true;
+                        taxPercentInput.disabled = false;
+                        taxPercentInput.style.backgroundColor = '#f0f0f0';
+                        taxPercentInput.style.cursor = 'not-allowed';
+                        taxPercentInput.style.opacity = '0.7';
+                        taxPercentInput.title = 'Tax applied at invoice level, not at item level';
+                        taxAmountInput.value = '0.00';
+                    } else {
+                        // Item-level tax: show the tax rate
+                        taxPercentInput.value = parseFloat(taxCalc.tax_rate).toFixed(2);
+                        taxPercentInput.readOnly = false;
+                        taxPercentInput.disabled = false;
+                        taxPercentInput.style.backgroundColor = '';
+                        taxPercentInput.style.cursor = 'auto';
+                        taxPercentInput.style.opacity = '1';
+                        taxPercentInput.title = '';
+                        taxAmountInput.value = '0.00';
+                    }
                 } else {
                     row.querySelector('.tax-percent-cell input').value = 0;
                     row.querySelector('.tax-amount-cell input').value = '0.00';

@@ -78,19 +78,43 @@ function evaluateFormula(formula, basePrice, rate) {
  * @param {number} taxRate - Tax rate percentage
  * @param {string} formula - Formula template for tax calculation
  * @param {number} basePrice - Trade price or MRP value
+ * @param {string} applicationLevel - 'item' or 'invoice'
  */
-function applyTaxToRow(row, taxRate, formula, basePrice) {
+function applyTaxToRow(row, taxRate, formula, basePrice, applicationLevel = 'item') {
     const taxAmount = evaluateFormula(formula, basePrice, taxRate);
     
     const taxPercentInput = row.querySelector('.tax-percent-cell input') || row.querySelector('[data-tax-percent]');
     const taxAmountInput = row.querySelector('.tax-amount-cell input') || row.querySelector('[data-tax-amount]');
     
-    if (taxPercentInput) {
-        taxPercentInput.value = parseFloat(taxRate).toFixed(2);
-    }
-    
-    if (taxAmountInput) {
-        taxAmountInput.value = parseFloat(taxAmount).toFixed(2);
+    // Apply tax based on application_level
+    if (applicationLevel === 'invoice') {
+        // Invoice-level tax: show 0 and disable editing
+        if (taxPercentInput) {
+            taxPercentInput.value = '0.00';
+            taxPercentInput.readOnly = true;
+            taxPercentInput.disabled = false;
+            taxPercentInput.style.backgroundColor = '#f0f0f0';
+            taxPercentInput.style.cursor = 'not-allowed';
+            taxPercentInput.style.opacity = '0.7';
+            taxPercentInput.title = 'Tax applied at invoice level, not at item level';
+        }
+        if (taxAmountInput) {
+            taxAmountInput.value = '0.00';
+        }
+    } else {
+        // Item-level tax: show the calculated tax
+        if (taxPercentInput) {
+            taxPercentInput.value = parseFloat(taxRate).toFixed(2);
+            taxPercentInput.readOnly = false;
+            taxPercentInput.disabled = false;
+            taxPercentInput.style.backgroundColor = '';
+            taxPercentInput.style.cursor = 'auto';
+            taxPercentInput.style.opacity = '1';
+            taxPercentInput.title = '';
+        }
+        if (taxAmountInput) {
+            taxAmountInput.value = parseFloat(taxAmount).toFixed(2);
+        }
     }
     
     return taxAmount;
@@ -120,7 +144,10 @@ async function loadTaxRatesForCustomer(customerId) {
         const taxResult = await calculateProductTax(customerId, productId, salePriceSetting);
         
         if (taxResult.success) {
-            applyTaxToRow(row, taxResult.tax_rate, taxResult.formula_template, taxResult.base_price);
+            const applicationLevel = taxResult.application_level || 'item';
+            row.dataset.applicationLevel = applicationLevel;
+            
+            applyTaxToRow(row, taxResult.tax_rate, taxResult.formula_template, taxResult.base_price, applicationLevel);
             
             // Recalculate row amounts
             if (typeof calculateRowAmounts === 'function') {
@@ -129,6 +156,11 @@ async function loadTaxRatesForCustomer(customerId) {
                 calculateRowAmounts(row, totalQty, price);
             }
         }
+    }
+
+    // Load invoice-level tax regimes for this customer
+    if (typeof loadInvoiceLevelTaxRegimes === 'function') {
+        await loadInvoiceLevelTaxRegimes(customerId);
     }
 }
 
@@ -141,15 +173,37 @@ async function loadTaxForNewProduct(row, customerId, productId) {
     
     if (taxResult.success) {
         const taxPercentInput = row.querySelector('.tax-percent-cell input') || row.querySelector('[data-tax-percent]');
-        if (taxPercentInput) {
-            taxPercentInput.value = parseFloat(taxResult.tax_rate).toFixed(2);
-        }
+        const applicationLevel = taxResult.application_level || 'item';
         
         // Store tax data in row dataset for formula-based calculation
         row.dataset.taxRate = taxResult.tax_rate;
         row.dataset.taxBase = taxResult.tax_base;
         row.dataset.basePrice = taxResult.base_price;
         row.dataset.formulaTemplate = taxResult.formula_template;
+        row.dataset.applicationLevel = applicationLevel;
+        
+        // Set Tax % based on application_level
+        if (taxPercentInput) {
+            if (applicationLevel === 'invoice') {
+                // For invoice-level tax, show 0 and make read-only
+                taxPercentInput.value = '0.00';
+                taxPercentInput.readOnly = true;
+                taxPercentInput.disabled = false;
+                taxPercentInput.style.backgroundColor = '#f0f0f0';
+                taxPercentInput.style.cursor = 'not-allowed';
+                taxPercentInput.style.opacity = '0.7';
+                taxPercentInput.title = 'Tax applied at invoice level, not at item level';
+            } else {
+                // For item-level tax, show the tax rate
+                taxPercentInput.value = parseFloat(taxResult.tax_rate).toFixed(2);
+                taxPercentInput.readOnly = false;
+                taxPercentInput.disabled = false;
+                taxPercentInput.style.backgroundColor = '';
+                taxPercentInput.style.cursor = 'auto';
+                taxPercentInput.style.opacity = '1';
+                taxPercentInput.title = '';
+            }
+        }
         
         // Trigger row recalculation to apply formula
         if (typeof calculateRowAmounts === 'function') {

@@ -191,9 +191,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
                 tenant_id, sale_invoice_id, product_id, uom_id,
                 quantity, sale_price, gross_amount, discount_percent,
                 discount_amount, trade_offer_percent, trade_offer_amount,
-                gst_percent, gst_amount, foc_quantity, net_amount, parent_row_id,
+                gst_percent, gst_amount, tax_percent, tax_amount, foc_quantity, net_amount, parent_row_id,
                 piece, carton, dozen, scheme, created_by, updated_by
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ");
 
         $itemIdMap = [];
@@ -217,6 +217,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
                 $item['tradeOfferAmount'] ?? 0.00,
                 $item['gstPercent'] ?? 0.00,
                 $item['gstAmount'] ?? 0.00,
+                $item['taxPercent'] ?? 0.00,
+                $item['taxAmount'] ?? 0.00,
                 $item['focQty'] ?? 0.00,
                 $item['netAmount'],
                 $parentRowId,

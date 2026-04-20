@@ -57,7 +57,7 @@ try {
     
     // Step 3: Get tax regime details
     $stmt = $pdo->prepare("
-        SELECT id, tax_base, formula_template 
+        SELECT id, tax_base, formula_template, application_level 
         FROM tax_regimes 
         WHERE id = ? AND is_active = 1
     ");
@@ -149,12 +149,14 @@ try {
     $taxRate = $stmt->fetch(PDO::FETCH_ASSOC);
     
     if (!$taxRate) {
+        $applicationLevel = $taxRegime['application_level'] ?? 'item';
         echo json_encode([
             'success' => true,
             'tax_rate' => 0,
             'tax_amount' => 0,
             'tax_name' => 'No applicable tax',
             'base_price' => $basePrice,
+            'application_level' => $applicationLevel,
             'message' => 'No tax rate found for this customer'
         ]);
         exit;
@@ -162,6 +164,7 @@ try {
     
     $ratePercentage = floatval($taxRate['rate_percentage']);
     $formulaTemplate = $taxRegime['formula_template'];
+    $applicationLevel = $taxRegime['application_level'] ?? 'item';
     
     // Step 5: Calculate tax using generic formula parser
     $taxAmount = calculateTaxFromFormula($formulaTemplate, $basePrice, $ratePercentage);
@@ -176,7 +179,8 @@ try {
         'is_registered' => $is_registered,
         'is_filer' => $is_filer,
         'formula_template' => $formulaTemplate,
-        'tax_base' => $taxBase
+        'tax_base' => $taxBase,
+        'application_level' => $applicationLevel
     ]);
 
 } catch (Exception $e) {

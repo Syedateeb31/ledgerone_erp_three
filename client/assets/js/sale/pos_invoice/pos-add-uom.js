@@ -282,27 +282,33 @@ function calculateRowAmounts(row, totalQty, price) {
     // After trade offer
     const afterTradeOffer = afterDiscount - tradeOfferAmt;
     
-    // Tax amount - use formula from backend if available, otherwise use simple percentage
+    // Check application level - only apply tax at item level if application_level is 'item'
+    const applicationLevel = row.dataset.applicationLevel || 'item';
     let taxAmt = 0;
-    const formulaTemplate = row.dataset.formulaTemplate;
-    const basePrice = parseFloat(row.dataset.basePrice);
-    const taxBase = row.dataset.taxBase;
     
-    if (formulaTemplate && !isNaN(basePrice) && basePrice > 0) {
-        // For MRP-based formulas (Third Schedule), formula calculates base price
-        // Tax = MRP - base_price
-        if (taxBase === 'mrp') {
-            const totalMrp = basePrice * totalQty;
-            const basePriceTotal = evaluateFormula(formulaTemplate, basePrice, taxPercent) * totalQty;
-            taxAmt = totalMrp - basePriceTotal;
+    if (applicationLevel === 'item') {
+        // Tax amount - use formula from backend if available, otherwise use simple percentage
+        const formulaTemplate = row.dataset.formulaTemplate;
+        const basePrice = parseFloat(row.dataset.basePrice);
+        const taxBase = row.dataset.taxBase;
+        
+        if (formulaTemplate && !isNaN(basePrice) && basePrice > 0) {
+            // For MRP-based formulas (Third Schedule), formula calculates base price
+            // Tax = MRP - base_price
+            if (taxBase === 'mrp') {
+                const totalMrp = basePrice * totalQty;
+                const basePriceTotal = evaluateFormula(formulaTemplate, basePrice, taxPercent) * totalQty;
+                taxAmt = totalMrp - basePriceTotal;
+            } else {
+                // For trade_price formulas (Standard GST), formula calculates tax directly
+                const taxPerUnit = evaluateFormula(formulaTemplate, basePrice, taxPercent);
+                taxAmt = taxPerUnit * totalQty;
+            }
         } else {
-            // For trade_price formulas (Standard GST), formula calculates tax directly
-            const taxPerUnit = evaluateFormula(formulaTemplate, basePrice, taxPercent);
-            taxAmt = taxPerUnit * totalQty;
+            taxAmt = afterTradeOffer * (taxPercent / 100);
         }
-    } else {
-        taxAmt = afterTradeOffer * (taxPercent / 100);
     }
+    // If application_level is 'invoice', tax is NOT applied here (will be applied at invoice level)
     
     row.querySelector('.tax-amount-cell input').value = taxAmt.toFixed(2);
     
