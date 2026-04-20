@@ -173,6 +173,10 @@
             <span>Customer:</span>
             <span id="customerName">Loading...</span>
         </div>
+        <div class="info-row" id="previousBalanceRow" style="display: none;">
+            <span>Prev Balance:</span>
+            <span id="previousBalance">0.00</span>
+        </div>
         <div class="info-row">
             <span>Branch:</span>
             <span id="branchName">Loading...</span>
@@ -329,6 +333,13 @@
             document.getElementById('invoiceNo').textContent = invoice.bill_no;
             document.getElementById('invoiceDate').textContent = new Date(invoice.sale_date).toLocaleDateString();
             document.getElementById('customerName').textContent = invoice.customer_name;
+            
+            // Show previous balance only if it exists and is non-zero
+            const previousBalance = parseFloat(invoice.previous_balance || 0);
+            if (previousBalance !== 0) {
+                document.getElementById('previousBalanceRow').style.display = 'flex';
+                document.getElementById('previousBalance').textContent = `${invoice.currency_symbol || ''}${previousBalance.toFixed(2)}`;
+            }
             
             const branchText = invoice.parent_branch_name ? 
                 `${invoice.branch_name} - ${invoice.parent_branch_name}` : 
