@@ -20,57 +20,64 @@ $tenant_id = $_SESSION['tenant_id'] ?? 1;
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     $action = $_GET['action'] ?? '';
 
-    if ($action === 'next_wastage_no') {
-        $stmt = $pdo->prepare("SELECT wastage_no FROM production_wastage WHERE tenant_id = ? ORDER BY id DESC LIMIT 1");
-        $stmt->execute([$tenant_id]);
-        $lastNo = $stmt->fetchColumn();
+    try {
+        if ($action === 'next_wastage_no') {
+            $stmt = $pdo->prepare("SELECT wastage_no FROM production_wastage WHERE tenant_id = ? ORDER BY id DESC LIMIT 1");
+            $stmt->execute([$tenant_id]);
+            $lastNo = $stmt->fetchColumn();
 
-        if ($lastNo && preg_match('/WE-(\d+)/', $lastNo, $matches)) {
-            $nextNum = intval($matches[1]) + 1;
-        } else {
-            $nextNum = 1;
+            if ($lastNo && preg_match('/WE-(\d+)/', $lastNo, $matches)) {
+                $nextNum = intval($matches[1]) + 1;
+            } else {
+                $nextNum = 1;
+            }
+
+            echo json_encode(['success' => true, 'wastage_no' => 'WE-' . str_pad($nextNum, 4, '0', STR_PAD_LEFT)]);
+            exit;
         }
 
-        echo json_encode(['success' => true, 'wastage_no' => 'WE-' . str_pad($nextNum, 4, '0', STR_PAD_LEFT)]);
+        if ($action === 'production_orders') {
+            $stmt = $pdo->prepare("
+                SELECT po.id, po.order_no, po.status, p.name as product_name
+                FROM production_orders po
+                JOIN products p ON po.product_id = p.id
+                WHERE po.tenant_id = ?
+                AND po.status IN ('In Progress', 'Completed')
+                ORDER BY po.created_at DESC
+            ");
+            $stmt->execute([$tenant_id]);
+            echo json_encode(['success' => true, 'data' => $stmt->fetchAll(PDO::FETCH_ASSOC)]);
+            exit;
+        }
+
+        if ($action === 'load_materials' && isset($_GET['po_id'])) {
+            $stmt = $pdo->prepare("
+                SELECT
+                    pom.material_id,
+                    pom.required_qty as ordered_qty,
+                    pom.uom_id,
+                    p.code as material_code,
+                    p.name as material_name,
+                    COALESCE(u.uom_name, 'N/A') as uom_name
+                FROM production_order_materials pom
+                JOIN products p ON pom.material_id = p.id
+                LEFT JOIN uom u ON pom.uom_id = u.id
+                WHERE pom.production_order_id = ?
+            ");
+            $stmt->execute([$_GET['po_id']]);
+            echo json_encode(['success' => true, 'data' => $stmt->fetchAll(PDO::FETCH_ASSOC)]);
+            exit;
+        }
+
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'Invalid action']);
+        exit;
+
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'Server error: ' . $e->getMessage()]);
         exit;
     }
-
-    if ($action === 'production_orders') {
-        $stmt = $pdo->prepare("
-            SELECT po.id, po.order_no, po.status, p.name as product_name
-            FROM production_orders po
-            JOIN products p ON po.product_id = p.id
-            WHERE po.tenant_id = ?
-            AND po.status IN ('In Progress', 'Completed')
-            ORDER BY po.created_at DESC
-        ");
-        $stmt->execute([$tenant_id]);
-        echo json_encode(['success' => true, 'data' => $stmt->fetchAll(PDO::FETCH_ASSOC)]);
-        exit;
-    }
-
-    if ($action === 'load_materials' && isset($_GET['po_id'])) {
-        $stmt = $pdo->prepare("
-            SELECT
-                pom.material_id,
-                pom.required_qty as ordered_qty,
-                pom.uom_id,
-                p.code as material_code,
-                p.name as material_name,
-                COALESCE(u.uom_name, 'N/A') as uom_name
-            FROM production_order_materials pom
-            JOIN products p ON pom.material_id = p.id
-            LEFT JOIN uom u ON pom.uom_id = u.id
-            WHERE pom.production_order_id = ?
-        ");
-        $stmt->execute([$_GET['po_id']]);
-        echo json_encode(['success' => true, 'data' => $stmt->fetchAll(PDO::FETCH_ASSOC)]);
-        exit;
-    }
-
-    http_response_code(400);
-    echo json_encode(['success' => false, 'message' => 'Invalid action']);
-    exit;
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
