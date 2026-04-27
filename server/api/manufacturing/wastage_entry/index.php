@@ -51,7 +51,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         }
 
         if ($action === 'load_materials' && isset($_GET['po_id'])) {
-            $stmt = $pdo->prepare("
+            $poId = $_GET['po_id'];
+
+            // Finished good from the production order
+            $fgStmt = $pdo->prepare("
+                SELECT
+                    po.product_id,
+                    po.order_qty,
+                    p.code as product_code,
+                    p.name as product_name,
+                    COALESCE(u.uom_name, 'N/A') as uom_name,
+                    p.default_unit_id as uom_id
+                FROM production_orders po
+                JOIN products p ON po.product_id = p.id
+                LEFT JOIN uom u ON p.default_unit_id = u.id
+                WHERE po.id = ? AND po.tenant_id = ?
+            ");
+            $fgStmt->execute([$poId, $tenant_id]);
+            $finishedGood = $fgStmt->fetch(PDO::FETCH_ASSOC);
+
+            // Raw materials
+            $matStmt = $pdo->prepare("
                 SELECT
                     pom.material_id,
                     pom.required_qty as ordered_qty,
@@ -64,8 +84,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 LEFT JOIN uom u ON pom.uom_id = u.id
                 WHERE pom.production_order_id = ?
             ");
-            $stmt->execute([$_GET['po_id']]);
-            echo json_encode(['success' => true, 'data' => $stmt->fetchAll(PDO::FETCH_ASSOC)]);
+            $matStmt->execute([$poId]);
+
+            echo json_encode([
+                'success'       => true,
+                'finished_good' => $finishedGood,
+                'materials'     => $matStmt->fetchAll(PDO::FETCH_ASSOC)
+            ]);
             exit;
         }
 
@@ -83,16 +108,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $data = json_decode(file_get_contents('php://input'), true);
 
-    $wastage_no         = $data['wastage_no'] ?? null;
+    $wastage_no          = $data['wastage_no'] ?? null;
     $production_order_id = $data['production_order_id'] ?? null;
-    $wastage_date       = $data['wastage_date'] ?? null;
-    $wastage_type       = $data['wastage_type'] ?? 'quantity';
-    $remarks            = $data['remarks'] ?? null;
-    $items              = $data['items'] ?? [];
+    $wastage_date        = $data['wastage_date'] ?? null;
+    $wastage_type        = $data['wastage_type'] ?? 'quantity';
+    $remarks             = $data['remarks'] ?? null;
+    $items               = $data['items'] ?? [];
 
-    if (!$wastage_no || !$production_order_id || !$wastage_date || empty($items)) {
+    // Finished good wastage (optional)
+    $fg_product_id    = $data['fg_product_id'] ?? null;
+    $fg_uom_id        = $data['fg_uom_id'] ?? null;
+    $fg_wastage_input = isset($data['fg_wastage_input']) ? floatval($data['fg_wastage_input']) : 0;
+    $fg_wastage_qty   = isset($data['fg_wastage_qty'])   ? floatval($data['fg_wastage_qty'])   : 0;
+
+    if (!$wastage_no || !$production_order_id || !$wastage_date) {
         http_response_code(400);
         echo json_encode(['success' => false, 'message' => 'Missing required fields']);
+        exit;
+    }
+
+    if (empty($items) && $fg_wastage_qty <= 0) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'Please enter wastage for at least one material or the finished good']);
         exit;
     }
 
@@ -102,7 +139,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-    // Get branch_id from the production order for stock_ledger
+    // Get branch_id and product info from the production order
     $poStmt = $pdo->prepare("SELECT branch_id FROM production_orders WHERE id = ? AND tenant_id = ?");
     $poStmt->execute([$production_order_id, $tenant_id]);
     $po = $poStmt->fetch(PDO::FETCH_ASSOC);
@@ -118,47 +155,81 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         $pdo->beginTransaction();
 
+        // Insert wastage header (with FG columns)
         $stmt = $pdo->prepare("
             INSERT INTO production_wastage
-            (tenant_id, wastage_no, production_order_id, wastage_date, wastage_type, remarks, created_by)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            (tenant_id, wastage_no, production_order_id, wastage_date, wastage_type,
+             fg_wastage_type, fg_wastage_input, fg_wastage_qty, remarks, created_by)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ");
-        $stmt->execute([$tenant_id, $wastage_no, $production_order_id, $wastage_date, $wastage_type, $remarks, $user_id]);
+        $stmt->execute([
+            $tenant_id,
+            $wastage_no,
+            $production_order_id,
+            $wastage_date,
+            $wastage_type,
+            $fg_wastage_qty > 0 ? $wastage_type : null,
+            $fg_wastage_qty > 0 ? $fg_wastage_input : null,
+            $fg_wastage_qty > 0 ? $fg_wastage_qty : null,
+            $remarks,
+            $user_id
+        ]);
         $wastage_id = $pdo->lastInsertId();
 
-        $itemStmt = $pdo->prepare("
-            INSERT INTO production_wastage_items
-            (wastage_id, material_id, uom_id, ordered_qty, wastage_input, wastage_qty)
-            VALUES (?, ?, ?, ?, ?, ?)
-        ");
+        // Raw material items + stock movements (account 116)
+        if (!empty($items)) {
+            $itemStmt = $pdo->prepare("
+                INSERT INTO production_wastage_items
+                (wastage_id, material_id, uom_id, ordered_qty, wastage_input, wastage_qty)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ");
+            $stockStmt = $pdo->prepare("
+                INSERT INTO stock_ledger
+                (tenant_id, account_id, branch_id, product_id, reference_table, reference_id,
+                 qty_out, unit_cost, unit_id, transaction_type, transaction_date, created_at)
+                VALUES (?, 116, ?, ?, 'production_wastage', ?, ?, 0, ?, 'WASTAGE', ?, NOW())
+            ");
 
-        $stockStmt = $pdo->prepare("
-            INSERT INTO stock_ledger
-            (tenant_id, account_id, branch_id, product_id, reference_table, reference_id,
-             qty_out, unit_cost, unit_id, transaction_type, transaction_date, created_at)
-            VALUES (?, 116, ?, ?, 'production_wastage', ?, ?, 0, ?, 'WASTAGE', ?, NOW())
-        ");
+            foreach ($items as $item) {
+                $wastage_qty = floatval($item['wastage_qty'] ?? 0);
+                if ($wastage_qty <= 0) continue;
 
-        foreach ($items as $item) {
-            $wastage_qty = floatval($item['wastage_qty'] ?? 0);
-            if ($wastage_qty <= 0) continue;
+                $itemStmt->execute([
+                    $wastage_id,
+                    $item['material_id'],
+                    $item['uom_id'],
+                    $item['ordered_qty'],
+                    $item['wastage_input'],
+                    $wastage_qty
+                ]);
 
-            $itemStmt->execute([
-                $wastage_id,
-                $item['material_id'],
-                $item['uom_id'],
-                $item['ordered_qty'],
-                $item['wastage_input'],
-                $wastage_qty
-            ]);
+                $stockStmt->execute([
+                    $tenant_id,
+                    $branch_id,
+                    $item['material_id'],
+                    $wastage_id,
+                    $wastage_qty,
+                    $item['uom_id'],
+                    $wastage_date
+                ]);
+            }
+        }
 
-            $stockStmt->execute([
+        // Finished good wastage stock movement (account 117)
+        if ($fg_wastage_qty > 0 && $fg_product_id && $fg_uom_id) {
+            $fgStockStmt = $pdo->prepare("
+                INSERT INTO stock_ledger
+                (tenant_id, account_id, branch_id, product_id, reference_table, reference_id,
+                 qty_out, unit_cost, unit_id, transaction_type, transaction_date, created_at)
+                VALUES (?, 117, ?, ?, 'production_wastage', ?, ?, 0, ?, 'WASTAGE_FG', ?, NOW())
+            ");
+            $fgStockStmt->execute([
                 $tenant_id,
                 $branch_id,
-                $item['material_id'],
+                $fg_product_id,
                 $wastage_id,
-                $wastage_qty,
-                $item['uom_id'],
+                $fg_wastage_qty,
+                $fg_uom_id,
                 $wastage_date
             ]);
         }

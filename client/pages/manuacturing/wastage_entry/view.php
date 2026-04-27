@@ -81,24 +81,45 @@ $base_url = $protocol . '://' . $host . '/ledgerone_erp';
                     </div>
                 </div>
 
-                <div class="section-title" style="margin-top: 24px;">Wastage Items</div>
+                <!-- Finished Good Wastage -->
+                <div id="fgSection" style="display:none; margin-top:24px;">
+                    <div class="section-title">Finished Good Wastage</div>
+                    <div class="table-responsive">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Finished Good</th>
+                                    <th>Order Qty</th>
+                                    <th>UOM</th>
+                                    <th id="fgInputHeader">Wastage Input</th>
+                                    <th>Wastage Qty</th>
+                                </tr>
+                            </thead>
+                            <tbody id="fgTable"></tbody>
+                        </table>
+                    </div>
+                </div>
 
-                <div class="table-responsive">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>#</th>
-                                <th>Material</th>
-                                <th>Ordered Qty</th>
-                                <th>UOM</th>
-                                <th id="inputHeader">Wastage Input</th>
-                                <th>Wastage Qty</th>
-                            </tr>
-                        </thead>
-                        <tbody id="itemsTable">
-                            <tr><td colspan="6" style="text-align:center; padding:32px;">Loading...</td></tr>
-                        </tbody>
-                    </table>
+                <!-- Raw Material Wastage -->
+                <div id="materialsSection" style="display:none; margin-top:24px;">
+                    <div class="section-title">Raw Material Wastage</div>
+                    <div class="table-responsive">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Material</th>
+                                    <th>Ordered Qty</th>
+                                    <th>UOM</th>
+                                    <th id="inputHeader">Wastage Input</th>
+                                    <th>Wastage Qty</th>
+                                </tr>
+                            </thead>
+                            <tbody id="itemsTable">
+                                <tr><td colspan="6" style="text-align:center; padding:32px;">Loading...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>

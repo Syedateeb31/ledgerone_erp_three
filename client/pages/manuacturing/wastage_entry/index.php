@@ -73,25 +73,57 @@ $base_url = $protocol . '://' . $host . '/ledgerone_erp';
                     </div>
                 </div>
 
-                <div class="section-title">Material Wastage</div>
+                <!-- Finished Good Wastage -->
+                <div id="fgSection" style="display:none;">
+                    <div class="section-title">Finished Good Wastage</div>
+                    <div class="table-responsive">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Finished Good</th>
+                                    <th>Order Qty</th>
+                                    <th>UOM</th>
+                                    <th id="fgInputHeader">Wastage Qty</th>
+                                    <th>Wastage Qty (Calculated)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="fgTable"></tbody>
+                        </table>
+                    </div>
+                </div>
 
-                <div class="table-responsive">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Material</th>
-                                <th>Ordered Qty</th>
-                                <th>UOM</th>
-                                <th id="wastageInputHeader">Wastage Qty</th>
-                                <th>Wastage Qty (Calculated)</th>
-                            </tr>
-                        </thead>
-                        <tbody id="materialsTable">
-                            <tr>
-                                <td colspan="5" class="empty-state">Select a production order and click "Load Materials"</td>
-                            </tr>
-                        </tbody>
-                    </table>
+                <!-- Raw Material Wastage -->
+                <div id="materialsSection" style="display:none;">
+                    <div class="section-title">Raw Material Wastage</div>
+                    <div class="table-responsive">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Material</th>
+                                    <th>Ordered Qty</th>
+                                    <th>UOM</th>
+                                    <th id="wastageInputHeader">Wastage Qty</th>
+                                    <th>Wastage Qty (Calculated)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="materialsTable">
+                                <tr>
+                                    <td colspan="5" class="empty-state">Select a production order and click "Load Materials"</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Placeholder when nothing loaded yet -->
+                <div id="emptyPlaceholder">
+                    <div class="table-responsive">
+                        <table>
+                            <tbody>
+                                <tr><td colspan="5" class="empty-state">Select a production order and click "Load Materials"</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
 
                 <div class="form-actions">
