@@ -58,8 +58,8 @@
             return;
         }
 
-        finishedGood    = data.finished_good;
-        loadedMaterials = data.materials;
+        finishedGood    = data.finished_good || null;
+        loadedMaterials = data.materials || data.data || [];
 
         document.getElementById('emptyPlaceholder').style.display = 'none';
 
