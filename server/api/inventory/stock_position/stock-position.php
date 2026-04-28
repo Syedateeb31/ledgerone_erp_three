@@ -107,7 +107,7 @@ try {
                         LEFT JOIN product_uom_conversions puc ON p.id = puc.product_id AND sl.unit_id = puc.uom_id
                         LEFT JOIN purchase_invoice pi ON sl.reference_table = 'purchase_invoice' AND sl.reference_id = pi.id
                         LEFT JOIN sale_invoice si ON sl.reference_table = 'sale_invoice' AND sl.reference_id = si.id
-                        WHERE sl.tenant_id = ? AND p.product_type = 'physical'";
+                        WHERE sl.tenant_id = ? AND p.product_type = 'physical' AND sl.account_id IS NOT NULL";
             } else {
                 // Show in original units, group by unit_id
                 $sql = "SELECT 
@@ -146,7 +146,7 @@ try {
                         LEFT JOIN product_uom_conversions puc ON p.id = puc.product_id AND sl.unit_id = puc.uom_id
                         LEFT JOIN purchase_invoice pi ON sl.reference_table = 'purchase_invoice' AND sl.reference_id = pi.id
                         LEFT JOIN sale_invoice si ON sl.reference_table = 'sale_invoice' AND sl.reference_id = si.id
-                        WHERE sl.tenant_id = ? AND p.product_type = 'physical'";
+                        WHERE sl.tenant_id = ? AND p.product_type = 'physical' AND sl.account_id IS NOT NULL";
             }
             
             $params = [$from_date, $from_date, $from_date, $from_date, $to_date, $to_date, $from_date, $from_date, $to_date, $to_date, $tenant_id];
@@ -535,7 +535,10 @@ try {
             break;
             
         case 'detailed-ledger':
-            $company_id = $_GET['company_id'] ?? null;
+            $branchId = $_GET['branch_id'] ?? null;
+            $productId = $_GET['product_id'] ?? null;
+            $fromDate = $_GET['from_date'] ?? null;
+            $toDate = $_GET['to_date'] ?? null;
             
             $sql = "SELECT 
                         sl.id,
@@ -557,10 +560,24 @@ try {
             
             $params = [$tenant_id];
             
-            if ($company_id) {
-                $sql .= " AND (pi.company_id = ? OR si.company_id = ?)";
-                $params[] = $company_id;
-                $params[] = $company_id;
+            if ($branchId) {
+                $sql .= " AND sl.branch_id = ?";
+                $params[] = $branchId;
+            }
+            
+            if ($productId) {
+                $sql .= " AND sl.product_id = ?";
+                $params[] = $productId;
+            }
+            
+            if ($fromDate) {
+                $sql .= " AND sl.transaction_date >= ?";
+                $params[] = $fromDate;
+            }
+            
+            if ($toDate) {
+                $sql .= " AND sl.transaction_date <= ?";
+                $params[] = $toDate;
             }
             
             $sql .= " ORDER BY sl.transaction_date ASC, sl.id ASC";
@@ -575,7 +592,7 @@ try {
             
             // Error log for debugging
             error_log('=== Detailed Ledger Query Debug ===');
-            error_log('Tenant: ' . $tenant_id . ', Company Filter: ' . ($company_id ?? 'NONE'));
+            error_log('Tenant: ' . $tenant_id . ', Branch: ' . ($branchId ?? 'ALL') . ', Product: ' . ($productId ?? 'ALL'));
             error_log('SQL: ' . $sql);
             error_log('Params: ' . json_encode($params));
             error_log('Total Rows Returned: ' . count($ledger));

@@ -40,6 +40,20 @@ $stmt = $pdo->prepare("
 ");
 $stmt->execute([$id]);
 $products = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+$stmt = $pdo->prepare("
+    SELECT 
+        pcm.*,
+        p.code as material_code,
+        p.name as material_name,
+        u.uom_name
+    FROM production_completion_materials pcm
+    JOIN products p ON pcm.material_id = p.id
+    LEFT JOIN uom u ON pcm.uom_id = u.id
+    WHERE pcm.production_completion_id = ?
+");
+$stmt->execute([$id]);
+$materials = $stmt->fetchAll(PDO::FETCH_ASSOC);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -136,6 +150,38 @@ $products = $stmt->fetchAll(PDO::FETCH_ASSOC);
             <tr class="total-row">
                 <td colspan="6" style="text-align: right;">Total Cost:</td>
                 <td><?php echo number_format($completion['total_cost'], 2); ?></td>
+            </tr>
+        </tbody>
+    </table>
+
+    <h3 style="margin-bottom: 10px; margin-top: 30px;">WIP Materials Consumed</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>Material</th>
+                <th>Consumed Qty</th>
+                <th>UOM</th>
+                <th>Unit Cost</th>
+                <th>Total Cost</th>
+            </tr>
+        </thead>
+        <tbody>
+            <?php 
+            $totalMaterialCost = 0;
+            foreach ($materials as $m): 
+                $totalMaterialCost += $m['total_cost'];
+            ?>
+            <tr>
+                <td><?php echo $m['material_code'] . ' - ' . $m['material_name']; ?></td>
+                <td><?php echo number_format($m['consumed_qty'], 4); ?></td>
+                <td><?php echo $m['uom_name']; ?></td>
+                <td><?php echo number_format($m['unit_cost'], 2); ?></td>
+                <td><?php echo number_format($m['total_cost'], 2); ?></td>
+            </tr>
+            <?php endforeach; ?>
+            <tr class="total-row">
+                <td colspan="4" style="text-align: right;">Total Material Cost:</td>
+                <td><?php echo number_format($totalMaterialCost, 2); ?></td>
             </tr>
         </tbody>
     </table>

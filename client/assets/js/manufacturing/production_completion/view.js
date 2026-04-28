@@ -104,6 +104,53 @@
                     </table>
                 </div>
             </div>
+
+            <div class="detail-section">
+                <div class="section-title">WIP Materials Consumed</div>
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Material</th>
+                                <th>Consumed Qty</th>
+                                <th>UOM</th>
+                                <th>Unit Cost</th>
+                                <th>Total Cost</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+        `;
+
+        if (completion.materials && completion.materials.length > 0) {
+            let totalMaterialCost = 0;
+            completion.materials.forEach(m => {
+                totalMaterialCost += parseFloat(m.total_cost);
+                html += `
+                    <tr>
+                        <td><strong>${m.material_code} - ${m.material_name}</strong></td>
+                        <td>${parseFloat(m.consumed_qty).toFixed(4)}</td>
+                        <td>${m.uom_name}</td>
+                        <td>${parseFloat(m.unit_cost).toFixed(2)}</td>
+                        <td><strong>${parseFloat(m.total_cost).toFixed(2)}</strong></td>
+                    </tr>
+                `;
+            });
+
+            html += `
+                <tr class="total-row">
+                    <td colspan="4" style="text-align:right;">Total Material Cost:</td>
+                    <td><strong>${totalMaterialCost.toFixed(2)}</strong></td>
+                </tr>
+            `;
+        } else {
+            html += '<tr><td colspan="5" style="text-align:center;">No materials found</td></tr>';
+        }
+
+        html += `
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         `;
 
         document.getElementById('completionDetails').innerHTML = html;

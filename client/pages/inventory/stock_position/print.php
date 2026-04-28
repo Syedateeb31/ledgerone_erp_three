@@ -25,7 +25,8 @@ $user = $user_stmt->fetch(PDO::FETCH_ASSOC);
 // Get filters from URL
 $branch_id = $_GET['branch_id'] ?? null;
 $product_id = $_GET['product_id'] ?? null;
-$company_id = $_GET['company_id'] ?? null;
+$inventory_type_id = $_GET['inventory_type_id'] ?? null;
+$stock_status = $_GET['stock_status'] ?? null;
 $status = $_GET['status'] ?? null;
 $stock_level = $_GET['stock_level'] ?? null;
 $from_date = $_GET['from_date'] ?? null;
@@ -34,14 +35,14 @@ $valuation_method = $_GET['valuation_method'] ?? 'AVCO';
 $report_type = $_GET['type'] ?? 'position';
 
 // Get company name if company_id is provided
-$company_name = 'All Companies';
-if ($company_id) {
-    $company_name_sql = "SELECT company_name FROM companies WHERE id = ? AND tenant_id = ?";
-    $company_name_stmt = $pdo->prepare($company_name_sql);
-    $company_name_stmt->execute([$company_id, $tenant_id]);
-    $company_result = $company_name_stmt->fetch(PDO::FETCH_ASSOC);
-    if ($company_result) {
-        $company_name = $company_result['company_name'];
+$inventory_type_name = 'All Inventory Types';
+if ($inventory_type_id) {
+    $type_sql = "SELECT name FROM accounts WHERE id = ? AND tenant_id = ?";
+    $type_stmt = $pdo->prepare($type_sql);
+    $type_stmt->execute([$inventory_type_id, $tenant_id]);
+    $type_result = $type_stmt->fetch(PDO::FETCH_ASSOC);
+    if ($type_result) {
+        $inventory_type_name = $type_result['name'];
     }
 }
 ?>
@@ -178,7 +179,8 @@ if ($company_id) {
         <strong>Filters Applied:</strong>
         Branch: <?= $branch_id ? 'Selected' : 'All Branches' ?> | 
         Product: <?= $product_id ? 'Selected' : 'All Products' ?> | 
-        Company: <?= htmlspecialchars($company_name) ?> | 
+        Inventory Type: <?= htmlspecialchars($inventory_type_name) ?> | 
+        Stock Status: <?= $stock_status ? ucfirst($stock_status) : 'All' ?> | 
         Status: <?= $status ?: 'All Statuses' ?> | 
         Stock Level: <?= $stock_level === 'zero-or-less' ? 'Stock = 0 or Less' : ($stock_level === 'greater-than-zero' ? 'Stock > 0' : 'All Levels') ?> | 
         Period: <?= $from_date && $to_date ? date('M d, Y', strtotime($from_date)) . ' to ' . date('M d, Y', strtotime($to_date)) : 'All Dates' ?> | 
@@ -267,7 +269,8 @@ if ($company_id) {
                 
                 if (urlParams.get('branch_id')) url += `&branch_id=${urlParams.get('branch_id')}`;
                 if (urlParams.get('product_id')) url += `&product_id=${urlParams.get('product_id')}`;
-                if (urlParams.get('company_id')) url += `&company_id=${urlParams.get('company_id')}`;
+                if (urlParams.get('inventory_type_id')) url += `&inventory_type_id=${urlParams.get('inventory_type_id')}`;
+                if (urlParams.get('stock_status')) url += `&stock_status=${urlParams.get('stock_status')}`;
                 if (urlParams.get('status')) url += `&status=${urlParams.get('status')}`;
                 if (urlParams.get('from_date')) url += `&from_date=${urlParams.get('from_date')}`;
                 if (urlParams.get('to_date')) url += `&to_date=${urlParams.get('to_date')}`;

@@ -89,6 +89,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             ");
             $stmt->execute([$id]);
             $completion['products'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            // Get consumed materials
+            $stmt = $pdo->prepare("
+                SELECT 
+                    pcm.*,
+                    p.code as material_code,
+                    p.name as material_name,
+                    u.uom_name
+                FROM production_completion_materials pcm
+                JOIN products p ON pcm.material_id = p.id
+                LEFT JOIN uom u ON pcm.uom_id = u.id
+                WHERE pcm.production_completion_id = ?
+            ");
+            $stmt->execute([$id]);
+            $completion['materials'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
         }
         
         echo json_encode(['success' => true, 'data' => $completion]);
@@ -120,6 +135,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
             
             // Delete stock ledger entries (WIP OUT and Finished Goods IN)
             $stmt = $pdo->prepare("DELETE FROM stock_ledger WHERE reference_table = 'production_completions' AND reference_id = ?");
+            $stmt->execute([$id]);
+            
+            // Delete completion materials
+            $stmt = $pdo->prepare("DELETE FROM production_completion_materials WHERE production_completion_id = ?");
             $stmt->execute([$id]);
             
             // Delete completed products

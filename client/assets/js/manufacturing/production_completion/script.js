@@ -4,8 +4,10 @@
     let products = [];
     let branchId = null;
     let productionOrderId = null;
+    let isEditMode = EDIT_ID !== null;
 
     async function loadNextCompletionNo() {
+        if (isEditMode) return; // Skip in edit mode
         const res = await fetch(API_URL + '?action=next_completion_no');
         const data = await res.json();
         if (data.success) {
@@ -13,8 +15,13 @@
         }
     }
 
-    async function loadProductionOrders() {
-        const res = await fetch(API_URL + '?action=production_orders');
+    async function loadProductionOrders(editPoId = null) {
+        let url = API_URL + '?action=production_orders';
+        if (editPoId) {
+            url += `&edit_po_id=${editPoId}`;
+        }
+        
+        const res = await fetch(url);
         const data = await res.json();
         if (data.success) {
             const select = document.getElementById('productionOrderId');
@@ -25,6 +32,10 @@
                 opt.textContent = `${po.order_no} - ${po.product_name} (${po.status})`;
                 select.appendChild(opt);
             });
+            
+            if (isEditMode) {
+                select.disabled = true; // Disable in edit mode
+            }
         }
     }
 
@@ -48,7 +59,36 @@
         }
     }
 
-    async function loadProducts(poId) {
+    async function loadExistingCompletion() {
+        try {
+            const res = await fetch(BASE_URL + `/server/api/manufacturing/production_completion/list.php?action=view&id=${EDIT_ID}`);
+            const data = await res.json();
+            
+            if (data.success && data.data) {
+                const completion = data.data;
+                
+                // Store the production order ID first
+                productionOrderId = completion.production_order_id;
+                branchId = completion.branch_id;
+                
+                // Reload production orders with the edit parameter
+                await loadProductionOrders(completion.production_order_id);
+                
+                // Now populate the form
+                document.getElementById('completionNo').value = completion.completion_no;
+                document.getElementById('productionOrderId').value = completion.production_order_id;
+                document.getElementById('branchName').value = completion.branch_name;
+                document.getElementById('machineName').value = completion.machine_name || '-';
+                document.getElementById('completeDate').value = completion.complete_date;
+                
+                await loadProducts(completion.production_order_id, completion.products);
+            }
+        } catch (err) {
+            alert('Error loading completion data');
+        }
+    }
+
+    async function loadProducts(poId, existingProducts = null) {
         try {
             const res = await fetch(API_URL + `?action=products&po_id=${poId}`);
             const text = await res.text();
@@ -59,6 +99,19 @@
             
             if (data.success) {
                 products = data.data;
+                
+                // If editing, merge existing completed quantities
+                if (existingProducts) {
+                    products.forEach(prod => {
+                        const existing = existingProducts.find(ep => 
+                            ep.product_id === prod.product_id && ep.uom_id === prod.uom_id
+                        );
+                        if (existing) {
+                            prod.existing_completed_qty = parseFloat(existing.completed_qty);
+                        }
+                    });
+                }
+                
                 renderProducts(products);
                 calculateTotals();
             } else {
@@ -104,6 +157,7 @@
             // Each unit gets its own row
             product.units.forEach((prod, unitIdx) => {
                 const remaining = parseFloat(prod.order_qty) - parseFloat(prod.completed_qty || 0);
+                const defaultQty = isEditMode && prod.existing_completed_qty ? prod.existing_completed_qty : remaining;
                 
                 products[globalIdx] = prod;
                 
@@ -115,19 +169,19 @@
                         <td rowspan="${product.units.length}" style="font-weight:600; vertical-align:middle; border-right:2px solid #E5E7EB;">${product.code}<br>${product.name}</td>
                         <td>${prod.order_qty}</td>
                         <td>${remaining.toFixed(2)}</td>
-                        <td><input type="number" class="complete-qty" data-idx="${globalIdx}" step="0.01" min="0" max="${remaining}" value="${remaining}" required style="width:80px;"></td>
+                        <td><input type="number" class="complete-qty" data-idx="${globalIdx}" step="0.01" min="0" max="${remaining + (prod.existing_completed_qty || 0)}" value="${defaultQty}" required style="width:80px;"></td>
                         <td>${prod.uom_name || 'N/A'}</td>
                         <td class="unit-cost-${globalIdx}">${parseFloat(prod.unit_cost).toFixed(2)}</td>
-                        <td class="total-cost-${globalIdx}">${(remaining * prod.unit_cost).toFixed(2)}</td>
+                        <td class="total-cost-${globalIdx}">${(defaultQty * prod.unit_cost).toFixed(2)}</td>
                     `;
                 } else {
                     row.innerHTML = `
                         <td>${prod.order_qty}</td>
                         <td>${remaining.toFixed(2)}</td>
-                        <td><input type="number" class="complete-qty" data-idx="${globalIdx}" step="0.01" min="0" max="${remaining}" value="${remaining}" required style="width:80px;"></td>
+                        <td><input type="number" class="complete-qty" data-idx="${globalIdx}" step="0.01" min="0" max="${remaining + (prod.existing_completed_qty || 0)}" value="${defaultQty}" required style="width:80px;"></td>
                         <td>${prod.uom_name || 'N/A'}</td>
                         <td class="unit-cost-${globalIdx}">${parseFloat(prod.unit_cost).toFixed(2)}</td>
-                        <td class="total-cost-${globalIdx}">${(remaining * prod.unit_cost).toFixed(2)}</td>
+                        <td class="total-cost-${globalIdx}">${(defaultQty * prod.unit_cost).toFixed(2)}</td>
                     `;
                 }
                 
@@ -236,16 +290,21 @@
             products: completedProducts
         };
         
+        if (isEditMode) {
+            payload.completion_id = EDIT_ID;
+        }
+        
         try {
+            const method = isEditMode ? 'PUT' : 'POST';
             const res = await fetch(API_URL, {
-                method: 'POST',
+                method: method,
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify(payload)
             });
             const data = await res.json();
             
             if (data.success) {
-                alert('Production completed successfully!');
+                alert(isEditMode ? 'Production completion updated successfully!' : 'Production completed successfully!');
                 window.location.href = 'list.php';
             } else {
                 alert('Error: ' + data.message);
@@ -272,9 +331,19 @@
     document.getElementById('completeBtn').addEventListener('click', completeProduction);
     document.getElementById('cancelBtn').addEventListener('click', () => window.location.href = 'list.php');
 
-    const today = new Date().toISOString().split('T')[0];
-    document.getElementById('completeDate').value = today;
+    async function init() {
+        const today = new Date().toISOString().split('T')[0];
+        if (!isEditMode) {
+            document.getElementById('completeDate').value = today;
+        }
 
-    loadNextCompletionNo();
-    loadProductionOrders();
+        await loadNextCompletionNo();
+        await loadProductionOrders();
+        
+        if (isEditMode) {
+            await loadExistingCompletion();
+        }
+    }
+
+    init();
 })();

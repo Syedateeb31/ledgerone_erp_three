@@ -221,7 +221,7 @@ function renderPermissionsTree(permissions) {
         'Sale': ['Sale Order', 'Sale Invoice', 'Meter Invoice', 'POS Invoice', 'Sale Reports', 'Daily Sale Report', 'Sale Return'],
         'Purchase': ['Purchase Order', 'New Purchase', 'Purchase Tax Invoice', 'Purchase Reports', 'Purchase Return'],
         'Inventory': ['New Product', 'Stock Adjustment', 'Stock Transfer', 'Stock Position', 'Inward Gatepass', 'Outward Gatepass'],
-        'Manufacturing': ['Bill of Materials (BOM)', 'Unit Measurement', 'Machine Setup', 'Production Order', 'WIP Management', 'Production Completion', 'Production Expenses'],
+        'Manufacturing': ['Bill of Materials (BOM)', 'Unit Measurement', 'Machine Setup', 'Production Order', 'WIP Management', 'Production Completion', 'Production Expenses', 'Production Wastage', 'Production Report'],
         'Vouchers': ['Receive Voucher', 'Payment Voucher', 'Expense Voucher', 'Journal Entry', 'Cash Opening'],
         'Banking': ['New Bank', 'Post Dated Cheques (PDCs)'],
         'Rent Management': ['Issue Rent', 'Rent List'],
@@ -231,10 +231,10 @@ function renderPermissionsTree(permissions) {
         'Master Setup': ['Branch Setup', 'Territory Setup', 'Rate List Setup', 'Tax Rates Setup', 'Tax Regimes Setup'],
         'System Setup': ['Company Profile', 'Admin Panel', 'Currency Setup', 'Software Info']
     };
-    
+
     const subPermissions = ['Add', 'Edit', 'Delete'];
     const noSubPermCategories = ['Dashboard', 'Financial Reports'];
-    const noSubPermForms = ['Sale Reports', 'Purchase Reports', 'Stock Position', 'Software Info', 'Company Profile', 'Employees Ledger', 'Post Dated Cheques (PDCs)', 'Daily Sale Report', 'Bill of Materials (BOM)'];
+    const noSubPermForms = ['Sale Reports', 'Purchase Reports', 'Stock Position', 'Software Info', 'Company Profile', 'Employees Ledger', 'Post Dated Cheques (PDCs)', 'Daily Sale Report', 'Bill of Materials (BOM)', 'Production Wastage', 'Production Report'];
     
     // Create permission lookup map
     const permMap = {};
@@ -675,7 +675,7 @@ function openAddPermissionModal() {
         'Sale': ['Sale Order', 'Sale Invoice', 'Meter Invoice', 'POS Invoice', 'Sale Reports', 'Daily Sale Report', 'Sale Return'],
         'Purchase': ['Purchase Order', 'New Purchase', 'Purchase Tax Invoice', 'Purchase Reports', 'Purchase Return'],
         'Inventory': ['New Product', 'Stock Adjustment', 'Stock Transfer', 'Stock Position', 'Inward Gatepass', 'Outward Gatepass'],
-        'Manufacturing': ['Bill of Materials (BOM)', 'Unit Measurement', 'Machine Setup', 'Production Order', 'WIP Management', 'Production Completion', 'Production Expenses'],
+        'Manufacturing': ['Bill of Materials (BOM)', 'Unit Measurement', 'Machine Setup', 'Production Order', 'WIP Management', 'Production Completion', 'Production Expenses', 'Production Wastage', 'Production Report'],
         'Vouchers': ['Receive Voucher', 'Payment Voucher', 'Expense Voucher', 'Journal Entry', 'Cash Opening'],
         'Banking': ['New Bank', 'Post Dated Cheques (PDCs)'],
         'Rent Management': ['Issue Rent', 'Rent List'],

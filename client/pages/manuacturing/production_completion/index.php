@@ -17,13 +17,14 @@ if (strpos($host, 'unisensystems.com') !== false) {
 } else {
     $base_url = $protocol . '://' . $host . '/ledgerone_erp';
 }
+$edit_id = $_GET['id'] ?? null;
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Production Completion</title>
+    <title><?php echo $edit_id ? 'Edit' : 'New'; ?> Production Completion</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600&display=swap" rel="stylesheet">
@@ -35,7 +36,7 @@ if (strpos($host, 'unisensystems.com') !== false) {
         <div class="completion-container">
             <div class="card">
                 <div class="card-header">
-                    <h2>Production Completion</h2>
+                    <h2><?php echo $edit_id ? 'Edit' : 'New'; ?> Production Completion</h2>
                 </div>
 
                 <div class="form-section">
@@ -107,7 +108,7 @@ if (strpos($host, 'unisensystems.com') !== false) {
 
                 <div class="form-actions">
                     <button class="btn btn-secondary" id="cancelBtn">Cancel</button>
-                    <button class="btn btn-primary" id="completeBtn">Complete Production</button>
+                    <button class="btn btn-primary" id="completeBtn"><?php echo $edit_id ? 'Update' : 'Complete'; ?> Production</button>
                 </div>
             </div>
         </div>
@@ -115,7 +116,8 @@ if (strpos($host, 'unisensystems.com') !== false) {
 
     <script>
         const BASE_URL = '<?php echo $base_url; ?>';
+        const EDIT_ID = <?php echo $edit_id ? $edit_id : 'null'; ?>;
     </script>
-    <script src="../../../assets/js/manufacturing/production_completion/script.js"></script>
+    <script src="../../../assets/js/manufacturing/production_completion/script.js?v=<?php echo time(); ?>"></script>
 </body>
 </html>

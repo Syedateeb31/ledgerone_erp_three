@@ -23,7 +23,7 @@ $stmt->execute([$user_id, $tenant_id]);
 $role_id = $stmt->fetchColumn();
 
 // Check Dashboard permission
-$hasPermission = hasPermission($pdo, $role_id, 'Dashboard', 'dashboard');
+$hasPermission = hasPermission($pdo, $role_id, 'Dashboard', 'dashboard', $tenant_id);
 
 // Get date filters
 $dateFrom = $_GET['date_from'] ?? null;
