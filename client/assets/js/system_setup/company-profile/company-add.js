@@ -5,8 +5,25 @@ document.addEventListener('DOMContentLoaded', function() {
     const successNotification = document.getElementById('success-notification');
     const errorNotification = document.getElementById('error-notification');
     
-
+    // Load countries on page load
+    loadCountries();
     
+    function loadCountries() {
+        fetch('../../../../server/api/inventory/countries/countries-list.php')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.countries) {
+                    const countrySelect = document.getElementById('country_id');
+                    data.countries.forEach(country => {
+                        const option = document.createElement('option');
+                        option.value = country.id;
+                        option.textContent = country.country_name;
+                        countrySelect.appendChild(option);
+                    });
+                }
+            })
+            .catch(error => console.error('Error loading countries:', error));
+    }
     // Logo upload preview
     logoInput.addEventListener('change', function() {
         const file = this.files[0];
@@ -81,6 +98,7 @@ document.addEventListener('DOMContentLoaded', function() {
         formData.append('phone', document.getElementById('phone').value);
         formData.append('website', document.getElementById('website').value);
         formData.append('address', document.getElementById('address').value);
+        formData.append('country_id', document.getElementById('country_id').value);
         formData.append('country', document.getElementById('country').value);
         formData.append('state', document.getElementById('state').value);
         formData.append('city', document.getElementById('city').value);

@@ -35,6 +35,11 @@ if (!$user_id) {
                     <input type="text" id="searchInput" placeholder="Search by regime name or code..." class="search-input">
                 </div>
                 <div class="form-group">
+                    <select id="countryFilter" class="filter-select">
+                        <option value="">All Countries</option>
+                    </select>
+                </div>
+                <div class="form-group">
                     <select id="taxAuthorityFilter" class="filter-select">
                         <option value="">All Authorities</option>
                         <option value="FBR">FBR</option>
@@ -65,6 +70,7 @@ if (!$user_id) {
                     <tr>
                         <th>Regime Name</th>
                         <th>Code</th>
+                        <th>Country</th>
                         <th>Authority</th>
                         <th>Tax Base</th>
                         <th>Stage</th>

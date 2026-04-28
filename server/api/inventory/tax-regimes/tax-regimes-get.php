@@ -31,9 +31,10 @@ try {
     }
     
     $stmt = $pdo->prepare("
-        SELECT *
-        FROM tax_regimes
-        WHERE id = ? AND (tenant_id = ? OR tenant_id = 0)
+        SELECT tr.*, c.country_name
+        FROM tax_regimes tr
+        LEFT JOIN countries c ON tr.country_id = c.id
+        WHERE tr.id = ? AND (tr.tenant_id = ? OR tr.tenant_id = 0)
     ");
     $stmt->execute([$regime_id, $tenant_id]);
     $taxRegime = $stmt->fetch(PDO::FETCH_ASSOC);

@@ -24,6 +24,7 @@ if (!$user_id || !$tenant_id) {
 
 try {
     $search = $_GET['search'] ?? '';
+    $country_id = $_GET['country_id'] ?? '';
     $tax_authority = $_GET['tax_authority'] ?? '';
     $status = $_GET['status'] ?? '';
     $page = max(1, (int)($_GET['page'] ?? 1));
@@ -31,53 +32,64 @@ try {
     $offset = ($page - 1) * $limit;
     
     $sql = "
-        SELECT id, regime_name, regime_code, country_id, tax_authority, tax_base, applies_at_stage,
-               is_active, effective_from, effective_to,
-               (CASE WHEN tenant_id = 0 THEN 'System' ELSE 'Custom' END) as record_type,
-               tenant_id
-        FROM tax_regimes
-        WHERE (tenant_id = ? OR tenant_id = 0)
+        SELECT tr.id, tr.regime_name, tr.regime_code, tr.country_id, c.country_name, tr.tax_authority, tr.tax_base, tr.applies_at_stage,
+               tr.is_active, tr.effective_from, tr.effective_to,
+               (CASE WHEN tr.tenant_id = 0 THEN 'System' ELSE 'Custom' END) as record_type,
+               tr.tenant_id
+        FROM tax_regimes tr
+        LEFT JOIN countries c ON tr.country_id = c.id
+        WHERE (tr.tenant_id = ? OR tr.tenant_id = 0)
     ";
     
     $params = [$tenant_id];
     
     if ($search) {
-        $sql .= " AND (regime_name LIKE ? OR regime_code LIKE ?)";
+        $sql .= " AND (tr.regime_name LIKE ? OR tr.regime_code LIKE ?)";
         $params[] = "%$search%";
         $params[] = "%$search%";
     }
     
+    if ($country_id) {
+        $sql .= " AND tr.country_id = ?";
+        $params[] = $country_id;
+    }
+    
     if ($tax_authority) {
-        $sql .= " AND tax_authority = ?";
+        $sql .= " AND tr.tax_authority = ?";
         $params[] = $tax_authority;
     }
     
     if ($status !== '') {
         $active = ($status === 'active') ? 1 : 0;
-        $sql .= " AND is_active = ?";
+        $sql .= " AND tr.is_active = ?";
         $params[] = $active;
     }
     
     // Count total records
     $countSql = "
         SELECT COUNT(*) as total 
-        FROM tax_regimes
-        WHERE (tenant_id = ? OR tenant_id = 0)
+        FROM tax_regimes tr
+        LEFT JOIN countries c ON tr.country_id = c.id
+        WHERE (tr.tenant_id = ? OR tr.tenant_id = 0)
     ";
     $countParams = [$tenant_id];
     
     if ($search) {
-        $countSql .= " AND (regime_name LIKE ? OR regime_code LIKE ?)";
+        $countSql .= " AND (tr.regime_name LIKE ? OR tr.regime_code LIKE ?)";
         $countParams[] = "%$search%";
         $countParams[] = "%$search%";
     }
+    if ($country_id) {
+        $countSql .= " AND tr.country_id = ?";
+        $countParams[] = $country_id;
+    }
     if ($tax_authority) {
-        $countSql .= " AND tax_authority = ?";
+        $countSql .= " AND tr.tax_authority = ?";
         $countParams[] = $tax_authority;
     }
     if ($status !== '') {
         $active = ($status === 'active') ? 1 : 0;
-        $countSql .= " AND is_active = ?";
+        $countSql .= " AND tr.is_active = ?";
         $countParams[] = $active;
     }
     
@@ -87,7 +99,7 @@ try {
     $totalPages = ceil($totalRecords / $limit);
     
     // Get paginated records
-    $sql .= " ORDER BY effective_from DESC, regime_name ASC LIMIT $limit OFFSET $offset";
+    $sql .= " ORDER BY tr.effective_from DESC, tr.regime_name ASC LIMIT $limit OFFSET $offset";
     
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);

@@ -7,11 +7,17 @@ function loadCountries() {
         .then(data => {
             if (data.success && data.countries) {
                 const countrySelect = document.getElementById('countryId');
+                const countryFilter = document.getElementById('countryFilter');
                 data.countries.forEach(country => {
                     const option = document.createElement('option');
                     option.value = country.id;
                     option.textContent = country.country_name;
                     countrySelect.appendChild(option);
+                    
+                    const filterOption = document.createElement('option');
+                    filterOption.value = country.id;
+                    filterOption.textContent = country.country_name;
+                    countryFilter.appendChild(filterOption);
                 });
             }
         })
@@ -28,6 +34,7 @@ window.addEventListener('load', function () {
     document.getElementById('taxRegimeForm').addEventListener('submit', handleFormSubmit);
     
     document.getElementById('searchInput').addEventListener('input', debounce(applyFilters, 500));
+    document.getElementById('countryFilter').addEventListener('change', applyFilters);
     document.getElementById('taxAuthorityFilter').addEventListener('change', applyFilters);
     document.getElementById('statusFilter').addEventListener('change', applyFilters);
     document.getElementById('resetFilters').addEventListener('click', resetFilters);
@@ -50,6 +57,7 @@ function loadTaxRegimes(page = 1) {
     let url = `../../../../server/api/inventory/tax-regimes/tax-regimes-list.php?page=${page}`;
     
     if (currentFilters.search) url += `&search=${encodeURIComponent(currentFilters.search)}`;
+    if (currentFilters.country_id) url += `&country_id=${encodeURIComponent(currentFilters.country_id)}`;
     if (currentFilters.tax_authority) url += `&tax_authority=${encodeURIComponent(currentFilters.tax_authority)}`;
     if (currentFilters.status !== undefined) url += `&status=${currentFilters.status}`;
     
@@ -62,13 +70,13 @@ function loadTaxRegimes(page = 1) {
                 displayTaxRegimes(data.tax_regimes);
                 displayPagination(data.pagination);
             } else {
-                tableBody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 20px;">No tax regimes found</td></tr>';
+                tableBody.innerHTML = '<tr><td colspan="9" style="text-align: center; padding: 20px;">No tax regimes found</td></tr>';
             }
         })
         .catch(error => {
             loadingSpinner.style.display = 'none';
             console.error('Error:', error);
-            tableBody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 20px; color: red;">Error loading tax regimes</td></tr>';
+            tableBody.innerHTML = '<tr><td colspan="9" style="text-align: center; padding: 20px; color: red;">Error loading tax regimes</td></tr>';
         });
 }
 
@@ -88,6 +96,7 @@ function displayTaxRegimes(taxRegimes) {
         row.innerHTML = `
             <td><strong>${regime.regime_name}</strong></td>
             <td>${regime.regime_code}</td>
+            <td>${regime.country_name || 'N/A'}</td>
             <td>${regime.tax_authority}</td>
             <td>${regime.tax_base}</td>
             <td>${regime.applies_at_stage}</td>
@@ -146,6 +155,7 @@ function displayPagination(pagination) {
 function applyFilters() {
     currentFilters = {
         search: document.getElementById('searchInput').value,
+        country_id: document.getElementById('countryFilter').value,
         tax_authority: document.getElementById('taxAuthorityFilter').value,
         status: document.getElementById('statusFilter').value || undefined
     };
@@ -154,6 +164,7 @@ function applyFilters() {
 
 function resetFilters() {
     document.getElementById('searchInput').value = '';
+    document.getElementById('countryFilter').value = '';
     document.getElementById('taxAuthorityFilter').value = '';
     document.getElementById('statusFilter').value = '';
     currentFilters = {};
