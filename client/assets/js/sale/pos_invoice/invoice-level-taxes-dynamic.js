@@ -3,9 +3,11 @@ window.invoiceLevelTaxRegimes = [];
 
 /**
  * Load invoice-level tax regimes for a customer
+ * @param {number} customerId - Customer ID
+ * @param {number} companyId - Company ID (optional, for country filtering)
  */
-async function loadInvoiceLevelTaxRegimes(customerId) {
-    console.log('loadInvoiceLevelTaxRegimes called with customerId:', customerId);
+async function loadInvoiceLevelTaxRegimes(customerId, companyId = null) {
+    console.log('loadInvoiceLevelTaxRegimes called with customerId:', customerId, 'companyId:', companyId);
     
     if (!customerId) {
         console.log('No customerId provided, clearing taxes');
@@ -14,7 +16,12 @@ async function loadInvoiceLevelTaxRegimes(customerId) {
     }
 
     try {
-        const response = await fetch(`../../../../server/api/sale/pos_invoice/get-invoice-level-taxes.php?customer_id=${customerId}`);
+        let url = `../../../../server/api/sale/pos_invoice/get-invoice-level-taxes.php?customer_id=${customerId}`;
+        if (companyId) {
+            url += `&company_id=${companyId}`;
+        }
+        
+        const response = await fetch(url);
         const data = await response.json();
         
         console.log('Invoice-level taxes API response:', data);
