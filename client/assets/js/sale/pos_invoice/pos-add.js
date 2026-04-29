@@ -964,7 +964,8 @@ function initializePage(permissions) {
                 // Load invoice-level tax regimes for the selected customer
                 if (typeof loadInvoiceLevelTaxRegimes === 'function') {
                     console.log('Calling loadInvoiceLevelTaxRegimes for customer:', customerId);
-                    loadInvoiceLevelTaxRegimes(customerId);
+                    const companyId = document.getElementById('company')?.value;
+                    loadInvoiceLevelTaxRegimes(customerId, companyId);
                 }
                 
                 // Recalculate tax for all products with the new customer
@@ -1224,7 +1225,8 @@ function initializePage(permissions) {
                 
                 // Load invoice-level tax regimes for this customer
                 if (invoice.customer_id && typeof loadInvoiceLevelTaxRegimes === 'function') {
-                    await loadInvoiceLevelTaxRegimes(invoice.customer_id);
+                    const companyId = document.getElementById('company')?.value;
+                    await loadInvoiceLevelTaxRegimes(invoice.customer_id, companyId);
                 }
                 
                 updateInvoiceSummary();
@@ -1445,7 +1447,8 @@ function initializePage(permissions) {
 
                     // Load invoice-level tax regimes for customer
                     if (typeof loadInvoiceLevelTaxRegimes === 'function') {
-                        loadInvoiceLevelTaxRegimes(value);
+                        const companyId = document.getElementById('company')?.value;
+                        loadInvoiceLevelTaxRegimes(value, companyId);
                     }
 
                     // Auto-populate sales officer if associated
@@ -1488,7 +1491,8 @@ function initializePage(permissions) {
 
                     // Load invoice-level tax regimes for customer
                     if (typeof loadInvoiceLevelTaxRegimes === 'function') {
-                        loadInvoiceLevelTaxRegimes(value);
+                        const companyId = document.getElementById('company')?.value;
+                        loadInvoiceLevelTaxRegimes(value, companyId);
                     }
 
                     // Load price history for all rows
@@ -1508,6 +1512,13 @@ function initializePage(permissions) {
                 // Save company selection
                 if (hiddenInputId === 'company') {
                     localStorage.setItem('lastSelectedCompany', value);
+                    
+                    // Reload invoice-level taxes when company changes (country filter)
+                    const customerId = document.getElementById('customerCode')?.value;
+                    if (customerId && typeof loadInvoiceLevelTaxRegimes === 'function') {
+                        console.log('Company changed, reloading invoice-level taxes for company:', value);
+                        loadInvoiceLevelTaxRegimes(customerId, value);
+                    }
                 }
 
                 // Hide options
@@ -2554,9 +2565,13 @@ function initializePage(permissions) {
     }
 
     // Load invoice-level tax regimes and display columns dynamically
-    async function loadInvoiceLevelTaxRegimes(customerId) {
+    async function loadInvoiceLevelTaxRegimes(customerId, companyId = null) {
         try {
-            const response = await fetch(`../../../../server/api/sale/pos_invoice/get-invoice-level-taxes.php?customer_id=${customerId}`);
+            let url = `../../../../server/api/sale/pos_invoice/get-invoice-level-taxes.php?customer_id=${customerId}`;
+            if (companyId) {
+                url += `&company_id=${companyId}`;
+            }
+            const response = await fetch(url);
             const data = await response.json();
 
             console.log('Tax Regimes Response:', data);
