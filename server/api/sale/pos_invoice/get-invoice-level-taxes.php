@@ -55,10 +55,11 @@ try {
     // Get invoice-level tax regimes with proper filtering
     // Use subquery to get the best matching tax rate for each regime
     $baseQuery = "
-        SELECT 
+        SELECT
             tr.id,
             tr.regime_code,
             tr.regime_name,
+            tr.is_tax_inclusive,
             COALESCE(
                 (SELECT tr_rate.rate_percentage 
                  FROM tax_rates tr_rate 

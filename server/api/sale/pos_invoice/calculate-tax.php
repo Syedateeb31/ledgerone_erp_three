@@ -57,8 +57,8 @@ try {
     
     // Step 3: Get tax regime details
     $stmt = $pdo->prepare("
-        SELECT id, tax_base, formula_template, application_level 
-        FROM tax_regimes 
+        SELECT id, tax_base, formula_template, application_level, is_tax_inclusive
+        FROM tax_regimes
         WHERE id = ? AND is_active = 1
     ");
     $stmt->execute([$product['tax_regime_id']]);
@@ -165,10 +165,19 @@ try {
     $ratePercentage = floatval($taxRate['rate_percentage']);
     $formulaTemplate = $taxRegime['formula_template'];
     $applicationLevel = $taxRegime['application_level'] ?? 'item';
-    
-    // Step 5: Calculate tax using generic formula parser
-    $taxAmount = calculateTaxFromFormula($formulaTemplate, $basePrice, $ratePercentage);
-    
+    $isTaxInclusive = (int)($taxRegime['is_tax_inclusive'] ?? 0);
+
+    // Step 5: Calculate tax amount
+    // Inclusive: tax is embedded in the price — extract it via back-calculation
+    // Exclusive: tax is added on top — evaluate the formula template
+    if ($isTaxInclusive) {
+        $taxAmount = $ratePercentage > 0
+            ? $basePrice * $ratePercentage / (100 + $ratePercentage)
+            : 0;
+    } else {
+        $taxAmount = calculateTaxFromFormula($formulaTemplate, $basePrice, $ratePercentage);
+    }
+
     echo json_encode([
         'success' => true,
         'tax_rate' => $ratePercentage,
@@ -180,7 +189,8 @@ try {
         'is_filer' => $is_filer,
         'formula_template' => $formulaTemplate,
         'tax_base' => $taxBase,
-        'application_level' => $applicationLevel
+        'application_level' => $applicationLevel,
+        'is_tax_inclusive' => $isTaxInclusive
     ]);
 
 } catch (Exception $e) {

@@ -103,14 +103,20 @@ function calculateInvoiceLevelTaxes() {
     console.log('Calculating invoice-level taxes. Net Amount:', netAmount);
 
     let totalInvoiceTax = 0;
+    let totalExclusiveTax = 0;
 
     window.invoiceLevelTaxRegimes.forEach(regime => {
         const ratePercent = parseFloat(regime.rate_percentage) || 0;
-        const taxAmount = netAmount * (ratePercent / 100);
+        const isTaxInclusive = regime.is_tax_inclusive == 1;
 
-        console.log(`${regime.regime_name}: ${ratePercent}% of ${netAmount} = ${taxAmount}`);
+        // Inclusive: tax is a portion already inside netAmount — back-calculate
+        // Exclusive: tax is added on top of netAmount
+        const taxAmount = isTaxInclusive
+            ? (ratePercent > 0 ? netAmount * ratePercent / (100 + ratePercent) : 0)
+            : netAmount * (ratePercent / 100);
 
-        // Update display
+        console.log(`${regime.regime_name} (${isTaxInclusive ? 'inclusive' : 'exclusive'}): ${ratePercent}% → ${taxAmount}`);
+
         const percentEl = document.getElementById(`invoiceTax_${regime.id}_percent`);
         const amountEl = document.getElementById(`invoiceTax_${regime.id}_amount`);
 
@@ -118,12 +124,13 @@ function calculateInvoiceLevelTaxes() {
         if (amountEl) amountEl.textContent = taxAmount.toFixed(2);
 
         totalInvoiceTax += taxAmount;
+        if (!isTaxInclusive) totalExclusiveTax += taxAmount;
     });
 
-    // Update Net Receivable: Net Amount + Total Invoice-Level Taxes
+    // Only exclusive taxes increase what the customer owes; inclusive taxes are already in netAmount
     const netReceivableEl = document.getElementById('netReceivable');
     if (netReceivableEl) {
-        const netReceivable = netAmount + totalInvoiceTax;
+        const netReceivable = netAmount + totalExclusiveTax;
         netReceivableEl.textContent = netReceivable.toFixed(2);
         console.log('Net Receivable updated:', netReceivable);
     }
