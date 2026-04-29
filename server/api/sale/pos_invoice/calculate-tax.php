@@ -69,25 +69,28 @@ try {
         exit;
     }
     
+    $isTaxInclusive = (int)($taxRegime['is_tax_inclusive'] ?? 0);
+
     // Determine the base price to use for tax calculation based on tax_base from regime
     $basePrice = 0;
     $taxBase = $taxRegime['tax_base'];
-    
+
     if ($taxBase === 'mrp') {
         $basePrice = floatval($product['mrp']);
     } else {
         $basePrice = floatval($product['trade_price']);
     }
-    
+
     if (!$basePrice) {
         echo json_encode(['success' => false, 'message' => 'Base price (' . $taxBase . ') is not set for this product', 'tax_rate' => 0, 'tax_amount' => 0]);
         http_response_code(400);
         exit;
     }
-    
-    // Check if sale_price_setting matches tax_base
+
+    // For inclusive-tax regimes the base price is always derived from tax_base (e.g. MRP),
+    // independent of the invoice's sale_price_setting, so no mismatch is possible.
     $salePriceSetting = $_GET['sale_price_setting'] ?? 'trade_price';
-    if ($taxBase !== $salePriceSetting) {
+    if (!$isTaxInclusive && $taxBase !== $salePriceSetting) {
         echo json_encode([
             'success' => false,
             'message' => 'Tax regime requires ' . $taxBase . ' but invoice is using ' . $salePriceSetting,
@@ -165,7 +168,6 @@ try {
     $ratePercentage = floatval($taxRate['rate_percentage']);
     $formulaTemplate = $taxRegime['formula_template'];
     $applicationLevel = $taxRegime['application_level'] ?? 'item';
-    $isTaxInclusive = (int)($taxRegime['is_tax_inclusive'] ?? 0);
 
     // Step 5: Calculate tax amount
     // Inclusive: tax is embedded in the price — extract it via back-calculation
