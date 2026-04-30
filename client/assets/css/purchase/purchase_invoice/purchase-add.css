@@ -282,6 +282,10 @@ tbody tr:hover {
   gap: 20px;
 }
 
+#invoiceLevelTaxesContainer {
+  display: contents;
+}
+
 .summary-item {
   display: flex;
   flex-direction: column;

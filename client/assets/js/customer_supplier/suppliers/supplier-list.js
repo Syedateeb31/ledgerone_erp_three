@@ -235,6 +235,22 @@ document.addEventListener('DOMContentLoaded', function () {
             document.getElementById('editOpeningCredit').value = supplier.opening_credit_amount || 0;
             document.getElementById('editAitPercent').value = supplier.ait_percent || 0;
             document.getElementById('editBlacklist').checked = supplier.is_blacklisted == 1;
+            document.getElementById('editIsSalesTaxRegistered').checked = supplier.is_sales_tax_registered == 1;
+            document.getElementById('editStrn').value = supplier.strn || '';
+            document.getElementById('editIsFiler').checked = supplier.is_filer == 1;
+            document.getElementById('editNtn').value = supplier.ntn || '';
+            
+            // Show/hide taxation fields
+            document.getElementById('editStrnGroup').style.display = supplier.is_sales_tax_registered == 1 ? 'flex' : 'none';
+            document.getElementById('editNtnGroup').style.display = supplier.is_filer == 1 ? 'flex' : 'none';
+            
+            // Add event listeners for taxation checkboxes
+            document.getElementById('editIsSalesTaxRegistered').addEventListener('change', function() {
+                document.getElementById('editStrnGroup').style.display = this.checked ? 'flex' : 'none';
+            });
+            document.getElementById('editIsFiler').addEventListener('change', function() {
+                document.getElementById('editNtnGroup').style.display = this.checked ? 'flex' : 'none';
+            });
             
             // Load companies
             fetch('../../../../server/api/customer_supplier/suppliers/get-companies.php')
@@ -410,6 +426,10 @@ document.addEventListener('DOMContentLoaded', function () {
                 openingCredit: document.getElementById('editOpeningCredit').value || 0,
                 aitPercent: document.getElementById('editAitPercent').value || 0,
                 blacklist: document.getElementById('editBlacklist').checked,
+                isSalesTaxRegistered: document.getElementById('editIsSalesTaxRegistered').checked,
+                strn: document.getElementById('editStrn').value.trim(),
+                isFiler: document.getElementById('editIsFiler').checked,
+                ntn: document.getElementById('editNtn').value.trim(),
                 subAccounts: subAccounts
             };
             

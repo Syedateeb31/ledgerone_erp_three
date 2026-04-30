@@ -156,8 +156,8 @@ if (!$user_id) {
                                 <th width="8%"><span id="discountAmountLabel">Disc Amt</span></th>
                                 <th width="5%">TO %</th>
                                 <th width="8%">TO Amt</th>
-                                <th width="5%">GST %</th>
-                                <th width="8%">GST Amt</th>
+                                <th width="5%"><span id="taxPercentLabel">Tax %</span></th>
+                                <th width="8%"><span id="taxAmountLabel">Tax Amt</span></th>
                                 <th width="5%">FOC Qty</th>
                                 <th width="8%"><span id="netAmountLabel">Net Amount</span></th>
                                 <th width="4%">Actions</th>
@@ -177,7 +177,7 @@ if (!$user_id) {
                                 <th></th>
                                 <th id="totalTradeOfferAmountItems">0.00</th>
                                 <th></th>
-                                <th id="totalGSTAmountItems">0.00</th>
+                                <th id="totalTaxAmountItems">0.00</th>
                                 <th id="totalFOCQty">0.00</th>
                                 <th id="totalNetAmountItems">0.00</th>
                                 <th></th>
@@ -208,14 +208,6 @@ if (!$user_id) {
                         <input type="number" id="totalDiscountAmount" class="table-input" min="0" step="0.01" value="0">
                     </div>
                     <div class="summary-item">
-                        <span class="summary-label">GST %</span>
-                        <input type="number" id="totalGSTPercent" class="table-input" min="0" max="100" step="0.01" value="0">
-                    </div>
-                    <div class="summary-item">
-                        <span class="summary-label" id="totalGSTAmountLabel">GST Amount</span>
-                        <input type="number" id="totalGSTAmount" class="table-input" min="0" step="0.01" value="0">
-                    </div>
-                    <div class="summary-item">
                         <span class="summary-label" id="shippingFeesLabel">Shipping Fees</span>
                         <div style="display: flex; flex-direction: column; gap: 8px; width: 100%;">
                             <input type="number" id="shippingFees" class="table-input" min="0" step="0.01" value="0" placeholder="Enter shipping fees">
@@ -234,6 +226,12 @@ if (!$user_id) {
                     <div class="summary-item">
                         <span class="summary-label" id="netAmountSummaryLabel">Net Amount</span>
                         <span class="summary-value" id="netAmount">0.00</span>
+                    </div>
+                    <!-- Dynamic Invoice-Level Taxes will be inserted here -->
+                    <div id="invoiceLevelTaxesContainer"></div>
+                    <div class="summary-item">
+                        <span class="summary-label" id="netReceivableLabel">Net Receivable</span>
+                        <span class="summary-value" id="netReceivable" style="color: var(--primary); font-size: 16px; font-weight: 700;">0.00</span>
                     </div>
                 </div>
             </div>
@@ -286,7 +284,7 @@ if (!$user_id) {
             </div>
             <div class="form-group">
                 <label>
-                    <input type="checkbox" id="enableTaxation"> Enable Taxation
+                    <input type="checkbox" id="enableTaxation"> Enable Tax % and Tax Amt
                 </label>
             </div>
             <div class="form-group">
@@ -343,7 +341,10 @@ if (!$user_id) {
         </div>
     </div>
 
+    <script src="../../../assets/js/purchase/purchase_invoice/purchase-tax-calculation.js?v=<?php echo time(); ?>"></script>
     <script src="../../../assets/js/purchase/purchase_invoice/purchase-add-uom.js?v=<?php echo time(); ?>"></script>
+    <script src="../../../assets/js/purchase/purchase_invoice/invoice-level-taxes-dynamic.js?v=<?php echo time(); ?>"></script>
+    <script src="../../../assets/js/purchase/purchase_invoice/purchase-tax-integration.js?v=<?php echo time(); ?>"></script>
     <script src="../../../assets/js/purchase/purchase_invoice/purchase-add.js?v=<?php echo time(); ?>"></script>
 </body>
 </html>

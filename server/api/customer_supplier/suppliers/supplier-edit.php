@@ -64,6 +64,10 @@ try {
                 opening_credit_amount = ?, 
                 ait_percent = ?, 
                 is_blacklisted = ?, 
+                is_sales_tax_registered = ?,
+                strn = ?,
+                is_filer = ?,
+                ntn = ?,
                 updated_by = ?, 
                 updated_at = CURRENT_TIMESTAMP 
                 WHERE id = ? AND tenant_id = ?";
@@ -82,6 +86,10 @@ try {
             floatval($input['openingCredit'] ?? 0),
             floatval($input['aitPercent'] ?? 0),
             isset($input['blacklist']) && $input['blacklist'] === true ? 1 : 0,
+            isset($input['isSalesTaxRegistered']) && $input['isSalesTaxRegistered'] === true ? 1 : 0,
+            !empty($input['strn']) ? trim($input['strn']) : null,
+            isset($input['isFiler']) && $input['isFiler'] === true ? 1 : 0,
+            !empty($input['ntn']) ? trim($input['ntn']) : null,
             $user_id,
             $supplier_id,
             $tenant_id

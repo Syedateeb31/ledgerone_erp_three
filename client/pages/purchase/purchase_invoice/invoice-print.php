@@ -197,8 +197,8 @@
                     <th width="10%" class="text-right">Disc Amt</th>
                     <th width="7%" class="text-right">TO %</th>
                     <th width="10%" class="text-right">TO Amt</th>
-                    <th width="7%" class="text-right">GST %</th>
-                    <th width="10%" class="text-right">GST Amt</th>
+                    <th width="5%" class="text-right">Tax %</th>
+                    <th width="10%" class="text-right">Tax Amt</th>
                     <th width="7%" class="text-right">FOC Qty</th>
                     <th width="12%" class="text-right">Net Amt</th>
                 </tr>
@@ -240,11 +240,11 @@
                     <td class="text-right" id="discountAmount">0.00</td>
                 </tr>
                 <tr id="gstPercentRow">
-                    <td>GST (%):</td>
+                    <td>Tax (%):</td>
                     <td class="text-right" id="gstPercent">0.00%</td>
                 </tr>
                 <tr id="gstAmountRow">
-                    <td>GST Amount:</td>
+                    <td>Tax Amount:</td>
                     <td class="text-right" id="gstAmount">0.00</td>
                 </tr>
                 <tr id="shippingFeesRow">
@@ -444,8 +444,8 @@
                     <td class="text-right" style="display: ${enableInlineCashDiscountAmount ? '' : 'none'}">${currencySymbol} ${parseFloat(item.discount_amount).toFixed(2)}</td>
                     <td class="text-right" style="display: ${enableTradeOffer ? '' : 'none'}">${parseFloat(item.trade_offer_percent || 0).toFixed(2)}%</td>
                     <td class="text-right" style="display: ${enableTradeOfferAmount ? '' : 'none'}">${currencySymbol} ${parseFloat(item.trade_offer_amount || 0).toFixed(2)}</td>
-                    <td class="text-right" style="display: ${enableTaxation ? '' : 'none'}">${parseFloat(item.gst_percent || 0).toFixed(2)}%</td>
-                    <td class="text-right" style="display: ${enableTaxation ? '' : 'none'}">${currencySymbol} ${parseFloat(item.gst_amount || 0).toFixed(2)}</td>
+                    <td class="text-right" style="display: ${enableTaxation ? '' : 'none'}">${parseFloat(item.tax_percent || 0).toFixed(2)}%</td>
+                    <td class="text-right" style="display: ${enableTaxation ? '' : 'none'}">${currencySymbol} ${parseFloat(item.tax_amount || 0).toFixed(2)}</td>
                     <td class="text-right" style="display: ${enableFOC ? '' : 'none'}">${parseFloat(item.foc_quantity || 0).toFixed(2)}</td>
                     <td class="text-right">${currencySymbol} ${parseFloat(item.net_amount).toFixed(2)}</td>
                 `;
@@ -473,8 +473,8 @@
             document.getElementById('totalBill').textContent = `${currencySymbol} ${parseFloat(invoice.total_bill).toFixed(2)}`;
             document.getElementById('discountPercent').textContent = parseFloat(invoice.total_discount_percent).toFixed(2) + '%';
             document.getElementById('discountAmount').textContent = `${currencySymbol} ${parseFloat(invoice.total_discount_amount).toFixed(2)}`;
-            document.getElementById('gstPercent').textContent = parseFloat(invoice.total_gst_percent || 0).toFixed(2) + '%';
-            document.getElementById('gstAmount').textContent = `${currencySymbol} ${parseFloat(invoice.total_gst_amount || 0).toFixed(2)}`;
+            document.getElementById('gstPercent').textContent = parseFloat(invoice.total_tax_percent || 0).toFixed(2) + '%';
+            document.getElementById('gstAmount').textContent = `${currencySymbol} ${parseFloat(invoice.total_tax_amount || 0).toFixed(2)}`;
             
             // Display shipping fees with +/- indicator
             const shippingFeesType = invoice.shipping_fees_type || 'add';
