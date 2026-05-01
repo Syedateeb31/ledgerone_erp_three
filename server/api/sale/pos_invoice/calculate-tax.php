@@ -104,11 +104,9 @@ try {
     
     // Determine party type and registration status
     $is_registered = $customer['is_sales_tax_registered'] == 1 ? 'registered_company' : 'unregistered';
-    $is_filer = $customer['is_filer'] ?? 0;
     
     // Step 4: Query tax_rates with filters
-    // For item-level taxes (application_level = 'item'), ignore is_filer
-    // For invoice-level taxes (application_level = 'invoice'), use is_filer
+    // For item-level taxes, ignore is_filer - only check customer_type_id and party_type
     $stmt = $pdo->prepare("
         SELECT 
             tr.id,
@@ -121,17 +119,24 @@ try {
             AND tr.is_active = 1
             AND tr.transaction_type = 'sale'
             AND (
-                -- If customer_type_id is NULL, it applies to all customer types
-                -- Just check party_type
-                (tr.customer_type_id IS NULL AND tr.party_type = 'all')
+                -- Match specific customer_type_id with specific party_type
+                (tr.customer_type_id = ? AND tr.party_type = ?)
                 OR
-                -- If customer_type_id is specified, match it
+                -- Match specific customer_type_id with 'all' party_type
                 (tr.customer_type_id = ? AND tr.party_type = 'all')
+                OR
+                -- Match NULL customer_type_id (all customers) with specific party_type
+                (tr.customer_type_id IS NULL AND tr.party_type = ?)
+                OR
+                -- Match NULL customer_type_id (all customers) with 'all' party_type
+                (tr.customer_type_id IS NULL AND tr.party_type = 'all')
             )
         ORDER BY 
             CASE 
-                WHEN tr.customer_type_id = ? THEN 0
-                ELSE 1
+                WHEN tr.customer_type_id = ? AND tr.party_type = ? THEN 0
+                WHEN tr.customer_type_id = ? AND tr.party_type = 'all' THEN 1
+                WHEN tr.customer_type_id IS NULL AND tr.party_type = ? THEN 2
+                ELSE 3
             END,
             tr.rate_percentage DESC
         LIMIT 1
@@ -140,7 +145,13 @@ try {
     $stmt->execute([
         $product['tax_regime_id'],
         $customer['customer_type_id'],
-        $customer['customer_type_id']
+        $is_registered,
+        $customer['customer_type_id'],
+        $is_registered,
+        $customer['customer_type_id'],
+        $is_registered,
+        $customer['customer_type_id'],
+        $is_registered
     ]);
     
     $taxRate = $stmt->fetch(PDO::FETCH_ASSOC);
