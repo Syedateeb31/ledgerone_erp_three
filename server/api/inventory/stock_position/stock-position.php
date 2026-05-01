@@ -70,7 +70,7 @@ try {
             
             if ($show_base_units) {
                 // Convert to base units and group by product/branch/account/base_unit
-                $sql = "SELECT 
+                $sql = "SELECT
                             p.id as product_id,
                             p.name as product_name,
                             p.parent_product_id,
@@ -85,13 +85,13 @@ try {
                             COALESCE(u.base_unit_id, u.id) as unit_id,
                             p.min_stock_level,
                             p.max_stock_level,
-                            COALESCE(SUM(CASE WHEN ? IS NULL OR sl.transaction_date < ? THEN 
+                            COALESCE(SUM(CASE WHEN ? IS NULL OR sl.transaction_date < ? THEN
                                 (sl.qty_in * {$conversionFactor}) - (sl.qty_out * {$conversionFactor})
                             ELSE 0 END), 0) as opening_balance,
-                            COALESCE(SUM(CASE WHEN (? IS NULL OR sl.transaction_date >= ?) AND (? IS NULL OR sl.transaction_date <= ?) THEN 
+                            COALESCE(SUM(CASE WHEN (? IS NULL OR sl.transaction_date >= ?) AND (? IS NULL OR sl.transaction_date <= ?) THEN
                                 sl.qty_in * {$conversionFactor}
                             ELSE 0 END), 0) as total_qty_in,
-                            COALESCE(SUM(CASE WHEN (? IS NULL OR sl.transaction_date >= ?) AND (? IS NULL OR sl.transaction_date <= ?) THEN 
+                            COALESCE(SUM(CASE WHEN (? IS NULL OR sl.transaction_date >= ?) AND (? IS NULL OR sl.transaction_date <= ?) THEN
                                 sl.qty_out * {$conversionFactor}
                             ELSE 0 END), 0) as total_qty_out,
                             COALESCE(SUM((sl.qty_in * {$conversionFactor}) - (sl.qty_out * {$conversionFactor})), 0) as current_stock,
@@ -108,78 +108,125 @@ try {
                         LEFT JOIN purchase_invoice pi ON sl.reference_table = 'purchase_invoice' AND sl.reference_id = pi.id
                         LEFT JOIN sale_invoice si ON sl.reference_table = 'sale_invoice' AND sl.reference_id = si.id
                         WHERE sl.tenant_id = ? AND p.product_type = 'physical' AND sl.account_id IS NOT NULL";
-            } else {
-                // Show in original units, group by unit_id
-                $sql = "SELECT 
-                            p.id as product_id,
-                            p.name as product_name,
-                            p.parent_product_id,
-                            pp.name as parent_product_name,
-                            COALESCE(b.branch_name, 'No Branch') as branch_name,
-                            COALESCE(b.branch_type, '') as branch_type,
-                            pb.branch_name as parent_branch_name,
-                            COALESCE(u.uom_name, 'L') as unit_symbol,
-                            COALESCE(a.name, 'Trading Inventory') as account_name,
-                            sl.branch_id,
-                            sl.account_id,
-                            sl.unit_id,
-                            p.min_stock_level,
-                            p.max_stock_level,
-                            COALESCE(SUM(CASE WHEN ? IS NULL OR sl.transaction_date < ? THEN 
-                                sl.qty_in - sl.qty_out
-                            ELSE 0 END), 0) as opening_balance,
-                            COALESCE(SUM(CASE WHEN (? IS NULL OR sl.transaction_date >= ?) AND (? IS NULL OR sl.transaction_date <= ?) THEN 
-                                sl.qty_in
-                            ELSE 0 END), 0) as total_qty_in,
-                            COALESCE(SUM(CASE WHEN (? IS NULL OR sl.transaction_date >= ?) AND (? IS NULL OR sl.transaction_date <= ?) THEN 
-                                sl.qty_out
-                            ELSE 0 END), 0) as total_qty_out,
-                            COALESCE(SUM(sl.qty_in - sl.qty_out), 0) as current_stock,
-                            {$unitCostCalc} as unit_cost
-                        FROM stock_ledger sl
-                        JOIN products p ON sl.product_id = p.id AND sl.tenant_id = p.tenant_id
-                        LEFT JOIN products pp ON p.parent_product_id = pp.id
-                        LEFT JOIN branches b ON sl.branch_id = b.id
-                        LEFT JOIN branches pb ON b.parent_branch_id = pb.id
-                        LEFT JOIN accounts a ON sl.account_id = a.id
-                        LEFT JOIN uom u ON sl.unit_id = u.id
-                        LEFT JOIN product_uom_conversions puc ON p.id = puc.product_id AND sl.unit_id = puc.uom_id
-                        LEFT JOIN purchase_invoice pi ON sl.reference_table = 'purchase_invoice' AND sl.reference_id = pi.id
-                        LEFT JOIN sale_invoice si ON sl.reference_table = 'sale_invoice' AND sl.reference_id = si.id
-                        WHERE sl.tenant_id = ? AND p.product_type = 'physical' AND sl.account_id IS NOT NULL";
-            }
-            
-            $params = [$from_date, $from_date, $from_date, $from_date, $to_date, $to_date, $from_date, $from_date, $to_date, $to_date, $tenant_id];
-            
-            if ($branch_id) {
-                $sql .= " AND sl.branch_id = ?";
-                $params[] = $branch_id;
-            }
-            
-            if ($product_id) {
-                $sql .= " AND p.id = ?";
-                $params[] = $product_id;
-            }
-            
-            if ($vendor_id) {
-                $sql .= " AND p.vendor_id = ?";
-                $params[] = $vendor_id;
-            }
-            
-            if ($stock_status) {
-                $sql .= " AND sl.stock_status = ?";
-                $params[] = $stock_status;
-            }
-            
-            if ($inventory_type_id) {
-                $sql .= " AND sl.account_id = ?";
-                $params[] = $inventory_type_id;
-            }
-            
-            if ($show_base_units) {
+
+                $params = [$from_date, $from_date, $from_date, $from_date, $to_date, $to_date, $from_date, $from_date, $to_date, $to_date, $tenant_id];
+
+                if ($branch_id) { $sql .= " AND sl.branch_id = ?"; $params[] = $branch_id; }
+                if ($product_id) { $sql .= " AND p.id = ?"; $params[] = $product_id; }
+                if ($vendor_id) { $sql .= " AND p.vendor_id = ?"; $params[] = $vendor_id; }
+                if ($stock_status) { $sql .= " AND sl.stock_status = ?"; $params[] = $stock_status; }
+                if ($inventory_type_id) { $sql .= " AND sl.account_id = ?"; $params[] = $inventory_type_id; }
+
                 $sql .= " GROUP BY p.id, sl.branch_id, sl.account_id, COALESCE(u.base_unit_id, u.id) ORDER BY COALESCE(p.parent_product_id, p.id), p.parent_product_id IS NULL DESC, p.name";
+
             } else {
-                $sql .= " GROUP BY p.id, sl.branch_id, sl.account_id, sl.unit_id ORDER BY COALESCE(p.parent_product_id, p.id), p.parent_product_id IS NULL DESC, p.name";
+                // Show in original units with proportional distribution to prevent negative stock.
+                // Deductions recorded in base units (e.g. FOC in Pieces) are distributed across all
+                // unit types proportionally based on each unit's share of total incoming base units.
+                // This may produce fractional quantities (e.g. 1.5 Cartons) but never negative values.
+                $conversionFactor2 = "COALESCE(CASE WHEN u2.base_unit_id IS NOT NULL AND u2.unit_scope = 'universal' THEN u2.conversion_factor WHEN puc2.conversion_factor IS NOT NULL THEN puc2.conversion_factor ELSE 1 END, 1)";
+
+                $filterSub = ""; $filterAgg = "";
+                $filterParamsSub = []; $filterParamsAgg = [];
+
+                if ($branch_id) {
+                    $filterSub .= " AND sl.branch_id = ?"; $filterAgg .= " AND sl2.branch_id = ?";
+                    $filterParamsSub[] = $branch_id; $filterParamsAgg[] = $branch_id;
+                }
+                if ($product_id) {
+                    $filterSub .= " AND p.id = ?"; $filterAgg .= " AND p2.id = ?";
+                    $filterParamsSub[] = $product_id; $filterParamsAgg[] = $product_id;
+                }
+                if ($vendor_id) {
+                    $filterSub .= " AND p.vendor_id = ?"; $filterAgg .= " AND p2.vendor_id = ?";
+                    $filterParamsSub[] = $vendor_id; $filterParamsAgg[] = $vendor_id;
+                }
+                if ($stock_status) {
+                    $filterSub .= " AND sl.stock_status = ?"; $filterAgg .= " AND sl2.stock_status = ?";
+                    $filterParamsSub[] = $stock_status; $filterParamsAgg[] = $stock_status;
+                }
+                if ($inventory_type_id) {
+                    $filterSub .= " AND sl.account_id = ?"; $filterAgg .= " AND sl2.account_id = ?";
+                    $filterParamsSub[] = $inventory_type_id; $filterParamsAgg[] = $inventory_type_id;
+                }
+
+                $sql = "SELECT
+                            sub.product_id, sub.product_name, sub.parent_product_id, sub.parent_product_name,
+                            sub.branch_name, sub.branch_type, sub.parent_branch_name, sub.unit_symbol,
+                            sub.account_name, sub.branch_id, sub.account_id, sub.unit_id,
+                            sub.min_stock_level, sub.max_stock_level,
+                            sub.total_qty_in, sub.total_qty_out, sub.unit_cost,
+                            COALESCE(
+                                (sub.unit_base_in_total / NULLIF(agg.total_base_in, 0)) * agg.total_base_opening / NULLIF(sub.unit_cf, 0),
+                            0) as opening_balance,
+                            GREATEST(0, COALESCE(
+                                (sub.unit_base_in_total / NULLIF(agg.total_base_in, 0)) * agg.total_base_closing / NULLIF(sub.unit_cf, 0),
+                            0)) as current_stock
+                        FROM (
+                            SELECT
+                                p.id as product_id,
+                                p.name as product_name,
+                                p.parent_product_id,
+                                pp.name as parent_product_name,
+                                COALESCE(b.branch_name, 'No Branch') as branch_name,
+                                COALESCE(b.branch_type, '') as branch_type,
+                                pb.branch_name as parent_branch_name,
+                                COALESCE(u.uom_name, 'L') as unit_symbol,
+                                COALESCE(a.name, 'Trading Inventory') as account_name,
+                                sl.branch_id,
+                                sl.account_id,
+                                sl.unit_id,
+                                p.min_stock_level,
+                                p.max_stock_level,
+                                COALESCE(SUM(sl.qty_in * {$conversionFactor}), 0) as unit_base_in_total,
+                                COALESCE(AVG({$conversionFactor}), 1) as unit_cf,
+                                COALESCE(SUM(CASE WHEN (? IS NULL OR sl.transaction_date >= ?) AND (? IS NULL OR sl.transaction_date <= ?) THEN sl.qty_in ELSE 0 END), 0) as total_qty_in,
+                                COALESCE(SUM(CASE WHEN (? IS NULL OR sl.transaction_date >= ?) AND (? IS NULL OR sl.transaction_date <= ?) THEN sl.qty_out ELSE 0 END), 0) as total_qty_out,
+                                {$unitCostCalc} as unit_cost
+                            FROM stock_ledger sl
+                            JOIN products p ON sl.product_id = p.id AND sl.tenant_id = p.tenant_id
+                            LEFT JOIN products pp ON p.parent_product_id = pp.id
+                            LEFT JOIN branches b ON sl.branch_id = b.id
+                            LEFT JOIN branches pb ON b.parent_branch_id = pb.id
+                            LEFT JOIN accounts a ON sl.account_id = a.id
+                            LEFT JOIN uom u ON sl.unit_id = u.id
+                            LEFT JOIN product_uom_conversions puc ON p.id = puc.product_id AND sl.unit_id = puc.uom_id
+                            LEFT JOIN purchase_invoice pi ON sl.reference_table = 'purchase_invoice' AND sl.reference_id = pi.id
+                            LEFT JOIN sale_invoice si ON sl.reference_table = 'sale_invoice' AND sl.reference_id = si.id
+                            WHERE sl.tenant_id = ? AND p.product_type = 'physical' AND sl.account_id IS NOT NULL{$filterSub}
+                            GROUP BY p.id, sl.branch_id, sl.account_id, sl.unit_id
+                        ) sub
+                        JOIN (
+                            SELECT
+                                sl2.product_id, sl2.branch_id, sl2.account_id,
+                                COALESCE(SUM(sl2.qty_in * {$conversionFactor2}), 0) as total_base_in,
+                                COALESCE(SUM((sl2.qty_in - sl2.qty_out) * {$conversionFactor2}), 0) as total_base_closing,
+                                COALESCE(SUM(CASE WHEN ? IS NULL OR sl2.transaction_date < ? THEN
+                                    (sl2.qty_in - sl2.qty_out) * {$conversionFactor2}
+                                ELSE 0 END), 0) as total_base_opening
+                            FROM stock_ledger sl2
+                            JOIN products p2 ON sl2.product_id = p2.id AND sl2.tenant_id = p2.tenant_id
+                            LEFT JOIN uom u2 ON sl2.unit_id = u2.id
+                            LEFT JOIN product_uom_conversions puc2 ON p2.id = puc2.product_id AND sl2.unit_id = puc2.uom_id
+                            WHERE sl2.tenant_id = ? AND p2.product_type = 'physical' AND sl2.account_id IS NOT NULL{$filterAgg}
+                            GROUP BY sl2.product_id, sl2.branch_id, sl2.account_id
+                        ) agg ON sub.product_id = agg.product_id AND sub.branch_id = agg.branch_id AND sub.account_id = agg.account_id
+                        ORDER BY COALESCE(sub.parent_product_id, sub.product_id), sub.parent_product_id IS NULL DESC, sub.product_name";
+
+                $params = [
+                    // sub: total_qty_in period filter
+                    $from_date, $from_date, $to_date, $to_date,
+                    // sub: total_qty_out period filter
+                    $from_date, $from_date, $to_date, $to_date,
+                    // sub: WHERE tenant_id
+                    $tenant_id,
+                ];
+                $params = array_merge($params, $filterParamsSub, [
+                    // agg: opening balance date filter
+                    $from_date, $from_date,
+                    // agg: WHERE tenant_id
+                    $tenant_id,
+                ], $filterParamsAgg);
             }
             
             $stmt = $pdo->prepare($sql);
