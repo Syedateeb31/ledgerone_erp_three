@@ -104,9 +104,11 @@ try {
     
     // Determine party type and registration status
     $is_registered = $customer['is_sales_tax_registered'] == 1 ? 'registered_company' : 'unregistered';
+    $is_filer = $customer['is_filer'] ?? 0;
     
     // Step 4: Query tax_rates with filters
-    // For item-level taxes, ignore is_filer (only use customer_type_id and party_type)
+    // For item-level taxes (application_level = 'item'), ignore is_filer
+    // For invoice-level taxes (application_level = 'invoice'), use is_filer
     $stmt = $pdo->prepare("
         SELECT 
             tr.id,
@@ -119,15 +121,16 @@ try {
             AND tr.is_active = 1
             AND tr.transaction_type = 'sale'
             AND (
-                -- First priority: specific customer type with all party type
-                (tr.customer_type_id = ? AND tr.party_type = 'all')
-                OR
-                -- Second priority: 'all' customer type with all party type
+                -- If customer_type_id is NULL, it applies to all customer types
+                -- Just check party_type
                 (tr.customer_type_id IS NULL AND tr.party_type = 'all')
+                OR
+                -- If customer_type_id is specified, match it
+                (tr.customer_type_id = ? AND tr.party_type = 'all')
             )
         ORDER BY 
             CASE 
-                WHEN tr.customer_type_id = ? AND tr.party_type = 'all' THEN 0
+                WHEN tr.customer_type_id = ? THEN 0
                 ELSE 1
             END,
             tr.rate_percentage DESC
@@ -179,7 +182,6 @@ try {
         'tax_type' => $taxRate['tax_type'],
         'base_price' => $basePrice,
         'is_registered' => $is_registered,
-        'is_filer' => $is_filer,
         'formula_template' => $formulaTemplate,
         'tax_base' => $taxBase,
         'application_level' => $applicationLevel,
