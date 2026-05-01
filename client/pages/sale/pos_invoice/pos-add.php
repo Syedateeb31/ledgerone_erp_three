@@ -369,7 +369,7 @@ if (!$user_id) {
 
     <!-- Invoice Settings Modal -->
     <div class="modal" id="invoiceSettingsModal">
-        <div class="modal-content">
+        <div class="modal-content" style="max-width: 600px; max-height: 90vh; overflow-y: auto;">
             <h3 class="modal-title">Invoice Settings</h3>
             <div style="margin: 20px 0;">
                 <div style="margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid var(--border-default);">
