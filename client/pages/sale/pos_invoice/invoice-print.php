@@ -357,7 +357,7 @@
                 <p id="companyEmail">Loading...</p>
             </div>
             <div class="invoice-details">
-                <h2>SALE INVOICE</h2>
+                <h2 id="invoiceTypeHeading">SALE INVOICE</h2>
                 <p><strong>Invoice #:</strong> <span id="invoiceNo">Loading...</span></p>
                 <p><strong>Date:</strong> <span id="invoiceDate">Loading...</span></p>
             </div>
@@ -538,6 +538,11 @@
         const enableTaxation = localStorage.getItem('enableTaxation') === 'true';
         const enableFOC = localStorage.getItem('enableFOC') === 'true';
         const enableShippingFees = localStorage.getItem('enableShippingFees') === 'true';
+
+        // Update invoice heading based on taxation setting
+        if (enableTaxation) {
+            document.getElementById('invoiceTypeHeading').textContent = 'SALES TAX INVOICE';
+        }
 
         // Get totals layout preference
         const totalsLayout = localStorage.getItem('totalsLayout') || 'vertical';
