@@ -104,10 +104,9 @@ try {
     
     // Determine party type and registration status
     $is_registered = $customer['is_sales_tax_registered'] == 1 ? 'registered_company' : 'unregistered';
-    $is_filer = $customer['is_filer'] ?? 0;
     
     // Step 4: Query tax_rates with filters
-    // Priority order: registered/unregistered > is_filer > party_type (all)
+    // For item-level taxes, ignore is_filer (only use customer_type_id and party_type)
     $stmt = $pdo->prepare("
         SELECT 
             tr.id,
@@ -120,20 +119,16 @@ try {
             AND tr.is_active = 1
             AND tr.transaction_type = 'sale'
             AND (
-                -- First priority: specific customer type
-                (tr.customer_type_id = ? AND tr.is_filer = ?)
-                OR
-                -- Second priority: registered/unregistered with all party type
+                -- First priority: specific customer type with all party type
                 (tr.customer_type_id = ? AND tr.party_type = 'all')
                 OR
-                -- Third priority: 'all' customer type with all party type
+                -- Second priority: 'all' customer type with all party type
                 (tr.customer_type_id IS NULL AND tr.party_type = 'all')
             )
         ORDER BY 
             CASE 
-                WHEN tr.customer_type_id = ? AND tr.is_filer = ? THEN 0
-                WHEN tr.customer_type_id = ? AND tr.party_type = 'all' THEN 1
-                ELSE 2
+                WHEN tr.customer_type_id = ? AND tr.party_type = 'all' THEN 0
+                ELSE 1
             END,
             tr.rate_percentage DESC
         LIMIT 1
@@ -142,10 +137,6 @@ try {
     $stmt->execute([
         $product['tax_regime_id'],
         $customer['customer_type_id'],
-        $is_filer,
-        $customer['customer_type_id'],
-        $customer['customer_type_id'],
-        $is_filer,
         $customer['customer_type_id']
     ]);
     
