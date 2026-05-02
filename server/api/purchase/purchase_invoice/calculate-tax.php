@@ -44,32 +44,7 @@ try {
         exit;
     }
     
-    // Get supplier info
-    $supplierStmt = $pdo->prepare("
-        SELECT 
-            is_sales_tax_registered,
-            is_filer
-        FROM suppliers 
-        WHERE id = ? AND tenant_id = ?
-    ");
-    $supplierStmt->execute([$supplier_id, $tenant_id]);
-    $supplier = $supplierStmt->fetch(PDO::FETCH_ASSOC);
-    
-    if (!$supplier) {
-        echo json_encode([
-            'success' => false,
-            'tax_rate' => 0,
-            'tax_amount' => 0,
-            'message' => 'Supplier not found'
-        ]);
-        exit;
-    }
-    
-    $is_registered = $supplier['is_sales_tax_registered'] ?? 0;
-    $is_filer = $supplier['is_filer'] ?? 0;
-    $party_type = $is_registered ? 'registered_company' : 'unregistered';
-    
-    // Get tax regime details - removed application_level filter for now
+    // Get tax regime details
     $regimeStmt = $pdo->prepare("
         SELECT 
             id,
@@ -95,7 +70,7 @@ try {
         exit;
     }
     
-    // Get applicable tax rate - removed party_type and is_filer filtering
+    // Get applicable tax rate
     $rateStmt = $pdo->prepare("
         SELECT rate_percentage 
         FROM tax_rates 
@@ -107,23 +82,12 @@ try {
     $rateStmt->execute([$regime['id']]);
     $taxRate = $rateStmt->fetch(PDO::FETCH_ASSOC);
     
-    // Debug: Log all tax rates for this regime
-    $debugStmt = $pdo->prepare("SELECT * FROM tax_rates WHERE tax_regime_id = ?");
-    $debugStmt->execute([$regime['id']]);
-    $allRates = $debugStmt->fetchAll(PDO::FETCH_ASSOC);
-    
     if (!$taxRate) {
         echo json_encode([
             'success' => false,
             'tax_rate' => 0,
             'tax_amount' => 0,
-            'message' => 'No applicable tax rate found for this supplier and product combination',
-            'debug' => [
-                'party_type' => $party_type,
-                'is_filer' => $is_filer,
-                'regime_id' => $regime['id'],
-                'all_rates_for_regime' => $allRates
-            ]
+            'message' => 'No applicable tax rate found for this product'
         ]);
         exit;
     }

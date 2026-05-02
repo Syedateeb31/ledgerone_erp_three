@@ -1695,14 +1695,11 @@ document.addEventListener('DOMContentLoaded', function () {
     // Add event listener for total discount amount
     document.getElementById('totalDiscountAmount').addEventListener('input', updateInvoiceSummaryDynamic);
 
-    // Add event listener for total tax percent
-    document.getElementById('totalTaxPercent').addEventListener('input', updateInvoiceSummaryDynamic);
-
-    // Add event listener for total tax amount
-    document.getElementById('totalTaxAmount').addEventListener('input', updateInvoiceSummaryDynamic);
-
     // Add event listener for shipping fees
-    document.getElementById('shippingFees').addEventListener('input', updateInvoiceSummaryDynamic);
+    const shippingFeesEl = document.getElementById('shippingFees');
+    if (shippingFeesEl) {
+        shippingFeesEl.addEventListener('input', updateInvoiceSummaryDynamic);
+    }
 
     // Add event listener for supplier selection to load invoice-level taxes
     document.getElementById('supplierCode').addEventListener('change', function() {
