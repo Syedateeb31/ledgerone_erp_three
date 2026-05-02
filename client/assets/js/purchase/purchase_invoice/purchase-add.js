@@ -391,7 +391,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         if (symbol) {
             // Update table headers
-            document.getElementById('purchasePriceLabel').textContent = `Purchase Price (${symbol})`;
+            document.getElementById('purchasePriceLabel').textContent = `Trade Price (TP) (${symbol})`;
             document.getElementById('grossAmountLabel').textContent = `Gross Amount (${symbol})`;
             document.getElementById('discountAmountLabel').textContent = `Discount Amount (${symbol})`;
             document.getElementById('netAmountLabel').textContent = `Net Amount (${symbol})`;

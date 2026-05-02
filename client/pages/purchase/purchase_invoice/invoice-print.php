@@ -191,7 +191,7 @@
                     <th width="5%">#</th>
                     <th width="30%">Product</th>
                     <th width="15%">Quantities</th>
-                    <th width="10%" class="text-right">Unit Price</th>
+                    <th width="10%" class="text-right">Trade Price</th>
                     <th width="10%" class="text-right">Gross Amt</th>
                     <th width="7%" class="text-right">Disc %</th>
                     <th width="10%" class="text-right">Disc Amt</th>

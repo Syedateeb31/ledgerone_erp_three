@@ -15,28 +15,6 @@ if (!$tenant_id || !$supplier_id) {
 }
 
 try {
-    // Get supplier info
-    $suppStmt = $pdo->prepare("
-        SELECT 
-            is_sales_tax_registered,
-            is_filer
-        FROM suppliers
-        WHERE id = ? AND tenant_id = ?
-    ");
-    $suppStmt->execute([$supplier_id, $tenant_id]);
-    $supplier = $suppStmt->fetch(PDO::FETCH_ASSOC);
-    
-    if (!$supplier) {
-        echo json_encode(['success' => true, 'data' => []]);
-        exit;
-    }
-    
-    $is_registered = $supplier['is_sales_tax_registered'] ?? 0;
-    $is_filer = $supplier['is_filer'] ?? 0;
-    
-    // Determine party_type based on registration status
-    $party_type = $is_registered ? 'registered_company' : 'unregistered';
-    
     // Get company country_id if company_id is provided
     $company_country_id = null;
     if ($company_id) {
@@ -50,8 +28,7 @@ try {
         $company_country_id = $company['country_id'] ?? null;
     }
     
-    // Get invoice-level tax regimes with proper filtering
-    // Use subquery to get the best matching tax rate for each regime
+    // Get invoice-level tax regimes - removed party_type and is_filer filtering
     $baseQuery = "
         SELECT 
             tr.id,
@@ -64,11 +41,6 @@ try {
                    AND tr_rate.is_active = 1
                    AND (tr_rate.effective_from IS NULL OR tr_rate.effective_from <= NOW())
                    AND (tr_rate.effective_to IS NULL OR tr_rate.effective_to >= NOW())
-                   AND (
-                       (tr_rate.party_type = ? AND tr_rate.is_filer = ?)
-                       OR (tr_rate.party_type = 'all')
-                   )
-                 ORDER BY CASE WHEN tr_rate.party_type = 'all' THEN 1 ELSE 0 END
                  LIMIT 1),
                 0
             ) as rate_percentage
@@ -88,7 +60,7 @@ try {
     
     $stmt = $pdo->prepare($baseQuery);
     
-    $params = [$party_type, $is_filer];
+    $params = [];
     if ($company_country_id) {
         $params[] = $company_country_id;
     }

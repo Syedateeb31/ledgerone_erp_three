@@ -150,7 +150,7 @@ if (!$user_id) {
                                 <th width="4%">S#</th>
                                 <th width="20%">Product Code / Name</th>
                                 <!-- Dynamic unit columns will be inserted here -->
-                                <th width="8%"><span id="purchasePriceLabel">Purchase Price</span></th>
+                                <th width="8%"><span id="purchasePriceLabel">Trade Price (TP)</span></th>
                                 <th width="8%"><span id="grossAmountLabel">Gross Amount</span></th>
                                 <th width="5%">Disc %</th>
                                 <th width="8%"><span id="discountAmountLabel">Disc Amt</span></th>

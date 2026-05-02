@@ -95,9 +95,7 @@ try {
         exit;
     }
     
-    // Get applicable tax rate with proper filtering
-    // Filter by: transaction_type = 'purchase' and is_active = 1
-    // party_type 'all' matches any supplier
+    // Get applicable tax rate - removed party_type and is_filer filtering
     $rateStmt = $pdo->prepare("
         SELECT rate_percentage 
         FROM tax_rates 
