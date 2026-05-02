@@ -157,10 +157,18 @@ try {
                             sub.min_stock_level, sub.max_stock_level,
                             sub.total_qty_in, sub.total_qty_out, sub.unit_cost,
                             COALESCE(
-                                (sub.unit_base_in_total / NULLIF(agg.total_base_in, 0)) * agg.total_base_opening / NULLIF(sub.unit_cf, 0),
+                                CASE WHEN sub.unit_cf <= 1 THEN
+                                    ROUND((sub.unit_base_in_total / NULLIF(agg.total_base_in, 0)) * agg.total_base_opening)
+                                ELSE
+                                    (sub.unit_base_in_total / NULLIF(agg.total_base_in, 0)) * agg.total_base_opening / NULLIF(sub.unit_cf, 0)
+                                END,
                             0) as opening_balance,
                             GREATEST(0, COALESCE(
-                                (sub.unit_base_in_total / NULLIF(agg.total_base_in, 0)) * agg.total_base_closing / NULLIF(sub.unit_cf, 0),
+                                CASE WHEN sub.unit_cf <= 1 THEN
+                                    ROUND((sub.unit_base_in_total / NULLIF(agg.total_base_in, 0)) * agg.total_base_closing)
+                                ELSE
+                                    (sub.unit_base_in_total / NULLIF(agg.total_base_in, 0)) * agg.total_base_closing / NULLIF(sub.unit_cf, 0)
+                                END,
                             0)) as current_stock
                         FROM (
                             SELECT
