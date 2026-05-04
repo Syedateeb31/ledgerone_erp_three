@@ -582,6 +582,47 @@ document.getElementById('activateBtn').addEventListener('click', async function 
     }
 });
 
+// Start Trial
+document.getElementById('trialBtn').addEventListener('click', async function () {
+    if (!subscriptionState.tenantId) {
+        alert('Invalid session. Please register again.');
+        window.location.href = 'register.html';
+        return;
+    }
+
+    if (!confirm('Start your 14-day free trial?\n\nNo credit card required.\nFull access to all features.')) {
+        return;
+    }
+
+    const originalText = this.innerHTML;
+    this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Activating Trial...';
+    this.disabled = true;
+
+    try {
+        const response = await fetch('../../../server/api/auth/activate-trial.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tenant_id: subscriptionState.tenantId })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            alert('Trial activated! You have 14 days of full access.');
+            window.location.href = 'login.html';
+        } else {
+            alert('Trial activation failed: ' + result.message);
+            this.innerHTML = originalText;
+            this.disabled = false;
+        }
+    } catch (error) {
+        console.error('Trial error:', error);
+        alert('Connection error. Please try again.');
+        this.innerHTML = originalText;
+        this.disabled = false;
+    }
+});
+
 // Back button
 document.getElementById('backBtn').addEventListener('click', function () {
     if (confirm('Are you sure you want to go back? Your subscription selections will be saved.')) {
