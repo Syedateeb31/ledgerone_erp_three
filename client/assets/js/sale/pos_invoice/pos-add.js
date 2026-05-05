@@ -9,9 +9,6 @@ let saleOrdersData = [];
 let customersData = [];
 let productsData = [];
 
-// Initialize invoice-level tax regimes
-window.invoiceLevelTaxRegimes = [];
-
 // Cache for quick lookups
 const dataCache = {
     products: new Map(),
@@ -39,6 +36,44 @@ const defaultShortcuts = {
 };
 
 let shortcuts = { ...defaultShortcuts };
+
+// Helper function to update FOC Unit ID based on selected units
+function updateFOCUnitId(row, focInput) {
+    const uomDataStr = row.dataset.productUomData;
+    if (!uomDataStr) return;
+    
+    const uomDetails = JSON.parse(uomDataStr);
+    
+    // Find the first unit with quantity > 0
+    const unitInputs = row.querySelectorAll('.unit-input');
+    let selectedUnitData = null;
+    
+    for (let input of unitInputs) {
+        const qty = parseFloat(input.value) || 0;
+        if (qty > 0) {
+            const selectedUnitId = parseInt(input.dataset.unitId);
+            selectedUnitData = uomDetails.find(u => u.id === selectedUnitId);
+            break;
+        }
+    }
+    
+    // Determine the base unit ID
+    if (selectedUnitData) {
+        if (selectedUnitData.isBase) {
+            // If the selected unit IS the base unit, use its ID
+            focInput.dataset.baseUnitId = selectedUnitData.id;
+        } else {
+            // If the selected unit is NOT the base unit, use its baseUnitId
+            focInput.dataset.baseUnitId = selectedUnitData.baseUnitId || selectedUnitData.id;
+        }
+    } else {
+        // Fallback: find any base unit
+        const baseUnit = uomDetails.find(u => u.isBase);
+        if (baseUnit) {
+            focInput.dataset.baseUnitId = baseUnit.id;
+        }
+    }
+}
 
 document.addEventListener('DOMContentLoaded', function () {
     // Check permissions
@@ -111,10 +146,12 @@ function initializePage(permissions) {
     // Save Invoice Settings
     const saveInvoiceSettingsBtn = document.getElementById('saveInvoiceSettingsBtn');
     if (saveInvoiceSettingsBtn) {
-        saveInvoiceSettingsBtn.addEventListener('click', function () {
+        saveInvoiceSettingsBtn.addEventListener('click', async function () {
             saveInvoiceSettings();
             document.getElementById('invoiceSettingsModal').style.display = 'none';
             applyInvoiceSettings();
+            // Apply product filter changes
+            await applyProductFilterOnLoad();
         });
     }
 
@@ -321,6 +358,9 @@ function initializePage(permissions) {
 
         // Apply invoice settings
         applyInvoiceSettings();
+
+        // Apply product filter on page load
+        applyProductFilterOnLoad();
 
         if (isEditMode) {
             loadInvoiceData(editId);
@@ -682,6 +722,13 @@ function initializePage(permissions) {
 
     function showBalanceNotification(balance) {
         hideBalanceNotification();
+        
+        // Store balance in hidden input field
+        const previousBalanceInput = document.getElementById('previousBalance');
+        if (previousBalanceInput) {
+            previousBalanceInput.value = balance;
+        }
+        
         const notification = document.createElement('div');
         notification.id = 'balanceNotification';
         notification.style.cssText = `
@@ -803,6 +850,46 @@ function initializePage(permissions) {
     async function loadProductsLocal() {
         await loadProducts();
     }
+    
+    // Load products filtered by Sales Officer
+    async function loadProductsByOfficer(officerId) {
+        try {
+            const response = await fetch(`../../../../server/api/sale/pos_invoice/get-products-by-sales-officer.php?sales_officer_id=${officerId}`);
+            const data = await response.json();
+            if (data.success) {
+                productsData = data.products;
+                dataCache.products.clear();
+                productsData.forEach(product => {
+                    dataCache.products.set(product.id, product);
+                });
+            }
+        } catch (error) {
+            console.error('Error loading products by officer:', error);
+        }
+    }
+
+    // Refresh all product dropdowns in existing rows
+    function refreshAllProductDropdowns() {
+        const itemsTable = document.getElementById('itemsTable');
+        const tbody = itemsTable.getElementsByTagName('tbody')[0];
+        const rows = tbody.rows;
+        
+        for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
+            const searchInput = row.cells[1]?.querySelector('.search-input');
+            if (searchInput && searchInput.dropdownOptions) {
+                const codeOptionsHtml = productsData.map(product => {
+                    const codes = [];
+                    if (product.qr_code) codes.push(product.qr_code);
+                    if (product.barcode) codes.push(product.barcode);
+                    const codeDisplay = codes.length > 0 ? ` (${codes.join(' - ')})` : '';
+                    const photoHtml = product.photo ? `<img src="../../../assets/uploads/products/${product.photo}" alt="${product.name}" style="width: 30px; height: 30px; object-fit: cover; margin-right: 8px; border-radius: 4px;">` : '';
+                    return `<div class="dropdown-option" data-product='${JSON.stringify(product)}' style="display: flex; align-items: center;">${photoHtml}${product.code} - ${product.name}${codeDisplay}</div>`;
+                }).join('');
+                searchInput.dropdownOptions.innerHTML = codeOptionsHtml;
+            }
+        }
+    }
 
     // Load UOM from API
     async function loadUOM() {
@@ -863,6 +950,19 @@ function initializePage(permissions) {
                     option2.value = employee.id;
                     option2.textContent = `${employee.employee_id} - ${employee.full_name}`;
                     supplierManSelect.appendChild(option2);
+                });
+                
+                // Add change listener to Sales Officer
+                salesOfficerSelect.addEventListener('change', async function() {
+                    const productFilter = localStorage.getItem('productFilter') || 'all';
+                    
+                    if (productFilter === 'sales_officer' && this.value) {
+                        await loadProductsByOfficer(this.value);
+                        refreshAllProductDropdowns();
+                    } else {
+                        await loadProducts();
+                        refreshAllProductDropdowns();
+                    }
                 });
 
                 // Set last selected sales officer
@@ -936,16 +1036,6 @@ function initializePage(permissions) {
                     ? `Dr ${balance.toFixed(2)}`
                     : `Cr ${Math.abs(balance).toFixed(2)}`;
                 showBalanceNotification(balanceText);
-                
-                // Store balance in hidden field
-                let prevBalanceEl = document.getElementById('previousBalance');
-                if (!prevBalanceEl) {
-                    prevBalanceEl = document.createElement('input');
-                    prevBalanceEl.type = 'hidden';
-                    prevBalanceEl.id = 'previousBalance';
-                    document.getElementById('invoiceForm').appendChild(prevBalanceEl);
-                }
-                prevBalanceEl.value = balanceText;
             }
         } catch (error) {
             console.error('Error fetching customer balance:', error);
@@ -957,21 +1047,8 @@ function initializePage(permissions) {
         if (e.target.classList.contains('dropdown-option') && e.target.closest('#customerCodeOptions')) {
             const customerId = e.target.getAttribute('data-value');
             if (customerId) {
-                console.log('Customer selected:', customerId);
                 fetchCustomerBalance(customerId);
                 loadSubAccounts(customerId);
-                
-                // Load invoice-level tax regimes for the selected customer
-                if (typeof loadInvoiceLevelTaxRegimes === 'function') {
-                    console.log('Calling loadInvoiceLevelTaxRegimes for customer:', customerId);
-                    const companyId = document.getElementById('company')?.value;
-                    loadInvoiceLevelTaxRegimes(customerId, companyId);
-                }
-                
-                // Recalculate tax for all products with the new customer
-                if (typeof loadTaxRatesForCustomer === 'function') {
-                    loadTaxRatesForCustomer(customerId);
-                }
             }
         }
     });
@@ -1147,12 +1224,18 @@ function initializePage(permissions) {
                     if (discAmountInput) discAmountInput.value = item.discount_amount;
                     const toAmountInput = lastRow.querySelector('.to-amount-cell input');
                     if (toAmountInput) toAmountInput.value = item.trade_offer_amount || 0;
-                    const taxPercentInput = lastRow.querySelector('.tax-percent-cell input');
-                    if (taxPercentInput) taxPercentInput.value = item.tax_percent || 0;
-                    const taxAmountInput = lastRow.querySelector('.tax-amount-cell input');
-                    if (taxAmountInput) taxAmountInput.value = item.tax_amount || 0;
+                    const gstPercentInput = lastRow.querySelector('.gst-percent-cell input');
+                    if (gstPercentInput) gstPercentInput.value = item.gst_percent || 0;
+                    const gstAmountInput = lastRow.querySelector('.gst-amount-cell input');
+                    if (gstAmountInput) gstAmountInput.value = item.gst_amount || 0;
                     const focInput = lastRow.querySelector('.foc-cell input');
-                    if (focInput) focInput.value = item.foc_quantity || 0;
+                    if (focInput) {
+                        focInput.value = item.foc_quantity || 0;
+                        // Update FOC unit ID based on the first unit with quantity
+                        if (parseFloat(focInput.value) > 0) {
+                            updateFOCUnitId(lastRow, focInput);
+                        }
+                    }
                     const netInput = lastRow.querySelector('.net-cell input');
                     if (netInput) netInput.value = item.net_amount;
                     
@@ -1201,6 +1284,7 @@ function initializePage(permissions) {
                 // Update summary
                 document.getElementById('totalDiscountPercent').value = invoice.total_discount_percent;
                 document.getElementById('totalDiscountAmount').value = invoice.total_discount_amount;
+                document.getElementById('shippingFees').value = invoice.shipping_fees || 0;
                 document.getElementById('paymentMethod').value = invoice.payment_method || '';
 
                 // Show bank account if payment method is bank_transfer
@@ -1221,12 +1305,6 @@ function initializePage(permissions) {
                 for (let i = 0; i < rows.length; i++) {
                     const qtyInput = rows[i].cells[3]?.querySelector('input');
                     if (qtyInput) qtyInput.dispatchEvent(new Event('input'));
-                }
-                
-                // Load invoice-level tax regimes for this customer
-                if (invoice.customer_id && typeof loadInvoiceLevelTaxRegimes === 'function') {
-                    const companyId = document.getElementById('company')?.value;
-                    await loadInvoiceLevelTaxRegimes(invoice.customer_id, companyId);
                 }
                 
                 updateInvoiceSummary();
@@ -1306,25 +1384,20 @@ function initializePage(permissions) {
                     const lastRow = itemsTable.rows[itemsTable.rows.length - 1];
                     itemIdToRowMap[item.id] = lastRow;
 
-                    console.log('Loading item:', item.product_name, 'net_amount:', item.net_amount);
-
                     lastRow.cells[1].querySelector('.search-input').value = item.product_name;
                     lastRow.cells[1].querySelector('.item-code').value = item.product_id;
-                    lastRow.querySelector('.scheme-select').value = item.uom_id;
+                    lastRow.cells[2].querySelector('select').value = item.uom_id;
+                    
+                    // Use class selectors for dynamic columns
                     lastRow.querySelector('.price-cell input').value = item.sale_price;
                     lastRow.querySelector('.gross-cell input').value = item.gross_amount;
                     lastRow.querySelector('.disc-percent-cell input').value = item.discount_percent || 0;
                     lastRow.querySelector('.disc-amount-cell input').value = item.discount_amount || 0;
                     lastRow.querySelector('.to-amount-cell input').value = item.trade_offer_amount || 0;
-                    lastRow.querySelector('.tax-percent-cell input').value = item.tax_percent || 0;
-                    lastRow.querySelector('.tax-amount-cell input').value = item.tax_amount || 0;
+                    lastRow.querySelector('.gst-percent-cell input').value = item.gst_percent || 0;
+                    lastRow.querySelector('.gst-amount-cell input').value = item.gst_amount || 0;
                     lastRow.querySelector('.foc-cell input').value = item.foc_quantity || 0;
-                    
-                    const netInput = lastRow.querySelector('.net-cell input');
-                    console.log('Net input element found:', !!netInput, 'Setting to:', item.net_amount);
-                    netInput.value = item.net_amount;
-                    console.log('Net input value after setting:', netInput.value);
-                    
+                    lastRow.querySelector('.net-cell input').value = item.net_amount;
                     lastRow.dataset.stockAffects = item.stock_affects || 1;
                     lastRow.dataset.invoiceAffects = item.invoice_affects || 1;
                     lastRow.dataset.productId = item.product_id;
@@ -1445,16 +1518,12 @@ function initializePage(permissions) {
                     // Load sub accounts for selected customer
                     loadSubAccounts(value);
 
-                    // Load invoice-level tax regimes for customer
-                    if (typeof loadInvoiceLevelTaxRegimes === 'function') {
-                        const companyId = document.getElementById('company')?.value;
-                        loadInvoiceLevelTaxRegimes(value, companyId);
-                    }
-
                     // Auto-populate sales officer if associated
                     const salesOfficerId = e.target.getAttribute('data-sales-officer');
                     if (salesOfficerId) {
                         document.getElementById('salesOfficer').value = salesOfficerId;
+                        // Trigger change event to filter products
+                        document.getElementById('salesOfficer').dispatchEvent(new Event('change'));
                     }
 
                     // Auto-populate supplier man if associated
@@ -1489,12 +1558,6 @@ function initializePage(permissions) {
                     const creditLimit = parseFloat(e.target.getAttribute('data-credit-limit')) || 0;
                     hiddenInput.setAttribute('data-credit-limit', creditLimit);
 
-                    // Load invoice-level tax regimes for customer
-                    if (typeof loadInvoiceLevelTaxRegimes === 'function') {
-                        const companyId = document.getElementById('company')?.value;
-                        loadInvoiceLevelTaxRegimes(value, companyId);
-                    }
-
                     // Load price history for all rows
                     loadPriceHistoryForAllRows();
                 }
@@ -1512,13 +1575,6 @@ function initializePage(permissions) {
                 // Save company selection
                 if (hiddenInputId === 'company') {
                     localStorage.setItem('lastSelectedCompany', value);
-                    
-                    // Reload invoice-level taxes when company changes (country filter)
-                    const customerId = document.getElementById('customerCode')?.value;
-                    if (customerId && typeof loadInvoiceLevelTaxRegimes === 'function') {
-                        console.log('Company changed, reloading invoice-level taxes for company:', value);
-                        loadInvoiceLevelTaxRegimes(customerId, value);
-                    }
                 }
 
                 // Hide options
@@ -1760,28 +1816,26 @@ function initializePage(permissions) {
         tradeOfferAmount.value = '0.00';
         cell12.appendChild(tradeOfferAmount);
 
-        // Tax % (input)
+        // GST % (input)
         const cell13 = row.insertCell(13);
-        const taxPercent = document.createElement('input');
-        taxPercent.type = 'number';
-        taxPercent.className = 'table-input';
-        taxPercent.min = '0';
-        taxPercent.max = '100';
-        taxPercent.step = '0.01';
-        taxPercent.value = '0';
-        taxPercent.className = 'table-input tax-percent-cell';
-        cell13.appendChild(taxPercent);
+        const gstPercent = document.createElement('input');
+        gstPercent.type = 'number';
+        gstPercent.className = 'table-input';
+        gstPercent.min = '0';
+        gstPercent.max = '100';
+        gstPercent.step = '0.01';
+        gstPercent.value = '0';
+        cell13.appendChild(gstPercent);
 
-        // Tax Amount (input)
+        // GST Amount (input)
         const cell14 = row.insertCell(14);
-        const taxAmount = document.createElement('input');
-        taxAmount.type = 'number';
-        taxAmount.className = 'table-input';
-        taxAmount.min = '0';
-        taxAmount.step = '0.01';
-        taxAmount.value = '0.00';
-        taxAmount.className = 'table-input tax-amount-cell';
-        cell14.appendChild(taxAmount);
+        const gstAmount = document.createElement('input');
+        gstAmount.type = 'number';
+        gstAmount.className = 'table-input';
+        gstAmount.min = '0';
+        gstAmount.step = '0.01';
+        gstAmount.value = '0.00';
+        cell14.appendChild(gstAmount);
 
         // FOC Qty (input)
         const cell15 = row.insertCell(15);
@@ -1791,6 +1845,14 @@ function initializePage(permissions) {
         focQty.min = '0';
         focQty.step = '0.01';
         focQty.value = '0';
+        focQty.dataset.baseUnitId = '';
+        focQty.addEventListener('input', function() {
+            // When FOC Qty is entered, determine and store the base unit ID
+            const product = dataCache.products.get(parseInt(row.dataset.productId));
+            if (product && this.value && parseFloat(this.value) > 0) {
+                updateFOCUnitId(row, focQty);
+            }
+        });
         cell15.appendChild(focQty);
 
         // Apply settings to new row
@@ -1891,8 +1953,8 @@ function initializePage(permissions) {
         discountAmount.addEventListener('input', calculateRowFromAmount);
         tradeOfferDiscount.addEventListener('input', calculateRow);
         tradeOfferAmount.addEventListener('input', calculateRowFromTradeOfferAmount);
-        taxPercent.addEventListener('input', calculateRow);
-        taxAmount.addEventListener('input', calculateRowFromTaxAmount);
+        gstPercent.addEventListener('input', calculateRow);
+        gstAmount.addEventListener('input', calculateRowFromGstAmount);
 
         // Enter key navigation for faster workflow
         qtyInput.addEventListener('keydown', function (e) {
@@ -2161,7 +2223,7 @@ function initializePage(permissions) {
             updateInvoiceSummary();
         }
 
-        function calculateRowFromTaxAmount() {
+        function calculateRowFromGstAmount() {
             // Delegate to global calculateRowAmounts from pos-add-uom.js
             if (typeof calculateRowAmounts === 'function') {
                 // Calculate total quantity from dynamic unit inputs
@@ -2182,7 +2244,7 @@ function initializePage(permissions) {
             const price = parseFloat(priceInput.value) || 0;
             const discountPct = parseFloat(discountPercent.value) || 0;
             const tradeOfferPct = parseFloat(tradeOfferDiscount.value) || 0;
-            const taxAmt = parseFloat(taxAmount.value) || 0;
+            const gstAmt = parseFloat(gstAmount.value) || 0;
 
             const gross = qty * price;
             grossAmount.value = gross.toFixed(2);
@@ -2196,13 +2258,13 @@ function initializePage(permissions) {
             const tradeOfferAmt = afterDiscount * (tradeOfferPct / 100);
             tradeOfferAmount.value = tradeOfferAmt.toFixed(2);
 
-            // Calculate Tax percentage from amount
+            // Calculate GST percentage from amount
             const afterTradeOffer = afterDiscount - tradeOfferAmt;
-            const taxPct = afterTradeOffer > 0 ? (taxAmt / afterTradeOffer) * 100 : 0;
-            taxPercent.value = taxPct.toFixed(2);
+            const gstPct = afterTradeOffer > 0 ? (gstAmt / afterTradeOffer) * 100 : 0;
+            gstPercent.value = gstPct.toFixed(2);
 
             // Calculate net amount
-            const net = afterTradeOffer + taxAmt;
+            const net = afterTradeOffer + gstAmt;
             netAmount.value = net.toFixed(2);
 
             // Update invoice summary
@@ -2316,14 +2378,18 @@ function initializePage(permissions) {
                     row.dataset.productMrp = product.mrp || 0;
                     row.dataset.salesTaxType = product.sales_tax_type || 'TP';
 
+                    // Get and store product UOM details for FOC unit ID extraction
+                    const uomDetails = await getProductUOMDetails(product);
+                    row.dataset.productUomData = JSON.stringify(uomDetails);
+                    recalculateMaxColumns();
+
                     // Show Add Variants button if product has children
                     checkAndShowVariantsButton(row, value);
                 }
 
                 // Fetch price from rate_list_items or fallback to product
                 const customerId = document.getElementById('customerCode').value;
-                const salePriceSetting = localStorage.getItem('salePriceSetting') || 'trade_price';
-                const priceType = salePriceSetting === 'mrp' ? 'mrp' : 'tp';
+                const priceType = document.querySelector('input[name="priceType"]:checked')?.value || 'tp';
                 let price = priceType === 'mrp' ? (parseFloat(mrp) || 0) : (parseFloat(tp) || 0);
                 let rateListQty = 0;
                 let focQty = 0;
@@ -2347,14 +2413,18 @@ function initializePage(permissions) {
                     }
                 }
 
-                row.cells[7].querySelector('input').value = price;
+                row.querySelector('.price-cell input').value = price;
                 if (unitId) {
                     row.cells[2].querySelector('select').value = unitId;
                     row.cells[2].querySelector('select').dataset.previousValue = unitId;
                 }
 
                 setTimeout(() => {
-                    row.cells[4].querySelector('input').select();
+                    // Focus on the first unit input field if available
+                    const firstUnitInput = row.querySelector('.unit-input');
+                    if (firstUnitInput) {
+                        firstUnitInput.select();
+                    }
                 }, 10);
 
                 const enableCashDiscountPercent = localStorage.getItem('enableCashDiscountPercent') === 'true';
@@ -2364,7 +2434,7 @@ function initializePage(permissions) {
 
                 if (product) {
                     if (enableCashDiscountPercent && product.default_discount) {
-                        row.cells[9].querySelector('input').value = product.default_discount;
+                        row.querySelector('.disc-percent-cell input').value = product.default_discount;
                     }
                     if (enableTradeOfferDiscount && product.trade_offer_discount) {
                         row.cells[11].querySelector('input').value = product.trade_offer_discount;
@@ -2431,17 +2501,17 @@ function initializePage(permissions) {
         requestAnimationFrame(() => {
             let totalBill = 0;
             let totalQty = 0;
+            let totalPcs = 0;
+            let totalCtn = 0;
+            let totalDz = 0;
             let totalSalePrice = 0;
             let totalGrossAmount = 0;
             let totalDiscountAmountItems = 0;
             let totalTradeOfferAmount = 0;
-            let totalTaxAmount = 0;
+            let totalGstAmount = 0;
             let totalFocQty = 0;
             let totalNetAmountItems = 0;
             const rows = itemsTable.rows;
-
-            console.log('=== updateInvoiceSummary START ===');
-            console.log('Items table has', rows.length, 'rows');
 
             for (let i = 0; i < rows.length; i++) {
                 const row = rows[i];
@@ -2456,29 +2526,31 @@ function initializePage(permissions) {
                     continue;
                 }
 
-                const salePriceInput = rows[i].querySelector('.price-cell input');
-                const grossAmountInput = rows[i].querySelector('.gross-cell input');
-                const discountAmountInput = rows[i].querySelector('.disc-amount-cell input');
-                const tradeOfferAmountInput = rows[i].querySelector('.to-amount-cell input');
-                const taxAmountInput = rows[i].querySelector('.tax-amount-cell input');
-                const focQtyInput = rows[i].querySelector('.foc-cell input');
-                const netAmountInput = rows[i].querySelector('.net-cell input');
-                const unitInputs = rows[i].querySelectorAll('.unit-input');
-                
-                let rowTotalQty = 0;
-                unitInputs.forEach(input => {
-                    rowTotalQty += parseFloat(input.value) || 0;
-                });
+                // Use class selectors instead of hardcoded indices
+                const unitInputs = row.querySelectorAll('.unit-input');
+                const salePriceInput = row.querySelector('.price-cell input');
+                const grossAmountInput = row.querySelector('.gross-cell input');
+                const discountAmountInput = row.querySelector('.disc-amount-cell input');
+                const tradeOfferAmountInput = row.querySelector('.to-amount-cell input');
+                const gstAmountInput = row.querySelector('.gst-amount-cell input');
+                const focQtyInput = row.querySelector('.foc-cell input');
+                const netAmountInput = row.querySelector('.net-cell input');
 
                 if (netAmountInput && !row.classList.contains('child-row')) {
-                    const netVal = parseFloat(netAmountInput.value) || 0;
-                    console.log(`Row ${i}: netInput.value="${netAmountInput.value}" => parsed=${netVal}`);
-                    totalQty += rowTotalQty;
+                    // Calculate total quantity from all unit inputs
+                    let rowQty = 0;
+                    unitInputs.forEach(input => {
+                        const qty = parseFloat(input.value) || 0;
+                        const cf = parseFloat(input.dataset.conversionFactor) || 1;
+                        rowQty += qty * cf;
+                    });
+                    
+                    totalQty += rowQty;
                     totalSalePrice += parseFloat(salePriceInput?.value) || 0;
                     totalGrossAmount += parseFloat(grossAmountInput?.value) || 0;
                     totalDiscountAmountItems += parseFloat(discountAmountInput?.value) || 0;
                     totalTradeOfferAmount += parseFloat(tradeOfferAmountInput?.value) || 0;
-                    totalTaxAmount += parseFloat(taxAmountInput?.value) || 0;
+                    totalGstAmount += parseFloat(gstAmountInput?.value) || 0;
                     totalFocQty += parseFloat(focQtyInput?.value) || 0;
                     totalNetAmountItems += parseFloat(netAmountInput?.value) || 0;
                     totalBill += parseFloat(netAmountInput?.value) || 0;
@@ -2486,14 +2558,27 @@ function initializePage(permissions) {
             }
 
             // Batch DOM updates
-            document.getElementById('totalSalePrice').textContent = totalSalePrice.toFixed(2);
-            document.getElementById('totalGrossAmount').textContent = totalGrossAmount.toFixed(2);
-            document.getElementById('totalDiscountAmountItems').textContent = totalDiscountAmountItems.toFixed(2);
-            document.getElementById('totalTradeOfferAmount').textContent = totalTradeOfferAmount.toFixed(2);
-            document.getElementById('totalTaxAmount').textContent = totalTaxAmount.toFixed(2);
-            document.getElementById('totalFocQty').textContent = totalFocQty.toFixed(2);
-            document.getElementById('totalNetAmountItems').textContent = totalNetAmountItems.toFixed(2);
-            document.getElementById('totalBill').textContent = totalNetAmountItems.toFixed(2);
+            const elementsToUpdate = {
+                'totalQty': totalQty.toFixed(2),
+                'totalPcs': totalPcs.toFixed(2),
+                'totalCtn': totalCtn.toFixed(2),
+                'totalDz': totalDz.toFixed(2),
+                'totalSalePrice': totalSalePrice.toFixed(2),
+                'totalGrossAmount': totalGrossAmount.toFixed(2),
+                'totalDiscountAmountItems': totalDiscountAmountItems.toFixed(2),
+                'totalTradeOfferAmount': totalTradeOfferAmount.toFixed(2),
+                'totalGstAmount': totalGstAmount.toFixed(2),
+                'totalFocQty': totalFocQty.toFixed(2),
+                'totalNetAmountItems': totalNetAmountItems.toFixed(2),
+                'totalBill': totalNetAmountItems.toFixed(2)
+            };
+
+            for (const [elementId, value] of Object.entries(elementsToUpdate)) {
+                const element = document.getElementById(elementId);
+                if (element) {
+                    element.textContent = value;
+                }
+            }
 
             let invoiceDiscountAmount = parseFloat(document.getElementById('totalDiscountAmount').value) || 0;
             const invoiceDiscountPercent = parseFloat(document.getElementById('totalDiscountPercent').value) || 0;
@@ -2510,31 +2595,44 @@ function initializePage(permissions) {
             const shippingFees = shippingFeesEl ? parseFloat(shippingFeesEl.value) || 0 : 0;
             const netAmount = afterDiscount + shippingFees;
 
-            console.log('Summary: totalNetAmountItems =', totalNetAmountItems, 'netAmount =', netAmount);
-
-            // Store net amount FIRST before any calculations
-            window.currentNetAmount = netAmount;
-
-            // Update DOM element
             const netAmountEl = document.getElementById('netAmount');
             if (netAmountEl) netAmountEl.textContent = netAmount.toFixed(2);
 
-            console.log('DOM netAmount element now contains:', netAmountEl?.textContent);
+            // Calculate withholding tax
+            const withholdingTaxPercent = parseFloat(document.getElementById('withholdingTaxPercent')?.value) || 0;
+            const withholdingTaxAmount = netAmount * (withholdingTaxPercent / 100);
+            const withholdingTaxAmountEl = document.getElementById('withholdingTaxAmount');
+            const withholdingTaxPercentItem = document.getElementById('withholdingTaxPercent')?.closest('.summary-item');
+            const withholdingTaxAmountItem = withholdingTaxAmountEl?.closest('.summary-item');
+            const netReceivableEl = document.getElementById('netReceivable');
+            const netReceivableItem = netReceivableEl?.closest('.summary-item');
 
-            // Call the existing invoice-level tax calculation function
-            // This will update tax displays and Net Receivable automatically
-            if (typeof calculateInvoiceLevelTaxes === 'function') {
-                calculateInvoiceLevelTaxes();
+            if (withholdingTaxPercent > 0) {
+                // Show WHT fields
+                if (withholdingTaxPercentItem) withholdingTaxPercentItem.style.display = '';
+                if (withholdingTaxAmountItem) withholdingTaxAmountItem.style.display = '';
+                if (netReceivableItem) netReceivableItem.style.display = '';
+
+                if (withholdingTaxAmountEl) {
+                    withholdingTaxAmountEl.textContent = withholdingTaxAmount.toFixed(2);
+                }
+
+                const netReceivable = netAmount - withholdingTaxAmount;
+                if (netReceivableEl) {
+                    netReceivableEl.textContent = netReceivable.toFixed(2);
+                }
+            } else {
+                // Hide WHT fields when 0
+                if (withholdingTaxPercentItem) withholdingTaxPercentItem.style.display = 'none';
+                if (withholdingTaxAmountItem) withholdingTaxAmountItem.style.display = 'none';
+                if (netReceivableItem) netReceivableItem.style.display = 'none';
             }
-
-            console.log('=== updateInvoiceSummary END ===\n');
 
             // Auto-populate Amount Paid if auto mode is selected
             const autoFillYes = document.querySelector('input[name="autoFillAmountPaid"][value="yes"]');
             const amountPaidInput = document.getElementById('amountPaid');
             if (amountPaidInput && autoFillYes && autoFillYes.checked) {
-                const netReceivableAmount = parseFloat(document.getElementById('netReceivable')?.textContent) || netAmount;
-                amountPaidInput.value = netReceivableAmount.toFixed(2);
+                amountPaidInput.value = netAmount.toFixed(2);
             }
 
             updateRemainingBalance();
@@ -2548,8 +2646,8 @@ function initializePage(permissions) {
         if (creditLimit === 0) return;
 
         const previousBalance = parseFloat(document.getElementById('previousBalance').value.replace(/[^0-9.-]/g, '')) || 0;
-        const netReceivable = parseFloat(document.getElementById('netReceivable').textContent) || 0;
-        const total = previousBalance + netReceivable;
+        const netAmount = parseFloat(document.getElementById('netAmount').textContent) || 0;
+        const total = previousBalance + netAmount;
 
         if (total >= creditLimit) {
             alert(`Warning: Total amount (${total.toFixed(2)}) exceeds or equals customer credit limit (${creditLimit.toFixed(2)})`);
@@ -2558,99 +2656,10 @@ function initializePage(permissions) {
 
     // Update remaining balance
     function updateRemainingBalance() {
-        const netReceivable = parseFloat(document.getElementById('netReceivable').textContent) || 0;
+        const netAmount = parseFloat(document.getElementById('netAmount').textContent) || 0;
         const amountPaid = parseFloat(document.getElementById('amountPaid').value) || 0;
-        const remainingBalance = netReceivable - amountPaid;
+        const remainingBalance = netAmount - amountPaid;
         document.getElementById('remainingBalance').value = remainingBalance.toFixed(2);
-    }
-
-    // Load invoice-level tax regimes and display columns dynamically
-    async function loadInvoiceLevelTaxRegimes(customerId, companyId = null) {
-        try {
-            let url = `../../../../server/api/sale/pos_invoice/get-invoice-level-taxes.php?customer_id=${customerId}`;
-            if (companyId) {
-                url += `&company_id=${companyId}`;
-            }
-            const response = await fetch(url);
-            const data = await response.json();
-
-            console.log('Tax Regimes Response:', data);
-
-            if (!data.success) {
-                console.warn('Failed to load invoice-level taxes:', data.message);
-                window.invoiceLevelTaxRegimes = [];
-                return;
-            }
-
-            // Store tax regimes in window for use in calculations
-            window.invoiceLevelTaxRegimes = data.data || [];
-            console.log('Stored Tax Regimes:', window.invoiceLevelTaxRegimes);
-
-            // Clear previous dynamic tax columns
-            const container = document.getElementById('invoiceLevelTaxesContainer');
-            if (!container) {
-                console.error('invoiceLevelTaxesContainer not found!');
-                return;
-            }
-            container.innerHTML = '';
-
-            // Create columns for each invoice-level tax regime
-            if (window.invoiceLevelTaxRegimes.length > 0) {
-                window.invoiceLevelTaxRegimes.forEach(regime => {
-                    console.log('Creating elements for regime:', regime);
-                    
-                    // Tax % column
-                    const taxPercentItem = document.createElement('div');
-                    taxPercentItem.className = 'summary-item invoice-tax-item';
-                    taxPercentItem.dataset.taxRegimeId = regime.id;
-                    taxPercentItem.dataset.taxType = 'percent';
-                    taxPercentItem.innerHTML = `
-                        <span class="summary-label">${regime.regime_name} %</span>
-                        <span class="summary-value" id="invoiceTax_${regime.id}_percent">0.00</span>
-                    `;
-                    container.appendChild(taxPercentItem);
-
-                    // Tax Amount column
-                    const taxAmountItem = document.createElement('div');
-                    taxAmountItem.className = 'summary-item invoice-tax-item';
-                    taxAmountItem.dataset.taxRegimeId = regime.id;
-                    taxAmountItem.dataset.taxType = 'amount';
-                    taxAmountItem.innerHTML = `
-                        <span class="summary-label">${regime.regime_name} Amount</span>
-                        <span class="summary-value" id="invoiceTax_${regime.id}_amount">0.00</span>
-                    `;
-                    container.appendChild(taxAmountItem);
-                    
-                    // Verify element creation
-                    const amountEl = document.getElementById(`invoiceTax_${regime.id}_amount`);
-                    console.log(`Element invoiceTax_${regime.id}_amount exists:`, !!amountEl);
-                });
-                
-                // Recalculate if there are items in the invoice
-                // Defer using setTimeout(0) to ensure any pending calculations complete first
-                const itemsTableElement = document.getElementById('itemsTable');
-                if (itemsTableElement) {
-                    const tbody = itemsTableElement.getElementsByTagName('tbody')[0];
-                    if (tbody && tbody.rows && tbody.rows.length > 0) {
-                        console.log('Invoice has items. Calling updateInvoiceSummary to recalculate with new tax regimes');
-                        // Defer to next macrotask to allow current calculations to complete
-                        // Call updateInvoiceSummary which will calculate netAmount and then update tax display
-                        setTimeout(() => {
-                            console.log('Deferred call: Calling updateInvoiceSummary() to recalculate with tax regimes');
-                            updateInvoiceSummary();
-                        }, 0);
-                    } else {
-                        console.log('No items in invoice yet. Tax regimes are ready.');
-                    }
-                } else {
-                    console.log('Items table not found');
-                }
-            }
-
-        } catch (error) {
-            console.error('Error loading invoice-level taxes:', error);
-            window.invoiceLevelTaxRegimes = [];
-        }
     }
 
     // Add event listener for total discount percent
@@ -2677,9 +2686,9 @@ function initializePage(permissions) {
     }
 
     // Add event listener for total GST amount
-    const totalTaxAmountSummary = document.getElementById('totalTaxAmountSummary');
-    if (totalTaxAmountSummary) {
-        totalTaxAmountSummary.addEventListener('input', updateInvoiceSummaryFromTaxAmount);
+    const totalGstAmountSummary = document.getElementById('totalGstAmountSummary');
+    if (totalGstAmountSummary) {
+        totalGstAmountSummary.addEventListener('input', updateInvoiceSummaryFromGstAmount);
     }
 
     // Add event listener for shipping fees
@@ -2745,7 +2754,8 @@ function initializePage(permissions) {
         const rows = itemsTable.rows;
 
         for (let i = 0; i < rows.length; i++) {
-            const netAmountInput = rows[i].cells[8].querySelector('input');
+            // Use class selector instead of hardcoded index
+            const netAmountInput = rows[i].querySelector('.net-cell input');
             if (netAmountInput) {
                 totalBill += parseFloat(netAmountInput.value) || 0;
             }
@@ -2796,33 +2806,140 @@ function initializePage(permissions) {
         // Add one empty row
         addRowDynamic();
 
-        // Reset summary
-        const totalBill = document.getElementById('totalBill');
-        const totalDiscountAmount = document.getElementById('totalDiscountAmount');
-        const netAmount = document.getElementById('netAmount');
-        
-        if (totalBill) totalBill.textContent = '0.00';
-        if (totalDiscountAmount) totalDiscountAmount.value = '0.00';
-        if (netAmount) netAmount.textContent = '0.00';
-
-        // Set default date to today
+        // Reset Invoice Details
         const saleDate = document.getElementById('saleDate');
         if (saleDate) saleDate.value = today;
 
-        // Reset searchable dropdowns
+        // Reset searchable dropdowns - Customer
         const customerCodeSearch = document.getElementById('customerCodeSearch');
         const customerCode = document.getElementById('customerCode');
-        const branchSearch = document.getElementById('branchSearch');
-        const branch = document.getElementById('branch');
-        const fuelingStationSearch = document.getElementById('fuelingStationSearch');
-        const fuelingStation = document.getElementById('fuelingStation');
-        
         if (customerCodeSearch) customerCodeSearch.value = '';
         if (customerCode) customerCode.value = '';
+
+        // Reset Sub Account
+        const subAccount = document.getElementById('subAccount');
+        if (subAccount) subAccount.value = '';
+
+        // Reset Sale Order
+        const saleOrderSearch = document.getElementById('saleOrderSearch');
+        const saleOrder = document.getElementById('saleOrder');
+        if (saleOrderSearch) saleOrderSearch.value = '';
+        if (saleOrder) saleOrder.value = '';
+
+        // Reset Company
+        const companySearch = document.getElementById('companySearch');
+        const company = document.getElementById('company');
+        if (companySearch) companySearch.value = '';
+        if (company) company.value = '';
+
+        // Reset Branch
+        const branchSearch = document.getElementById('branchSearch');
+        const branch = document.getElementById('branch');
         if (branchSearch) branchSearch.value = '';
         if (branch) branch.value = '';
+
+        // Reset Currency
+        const currency = document.getElementById('currency');
+        if (currency) currency.value = '';
+
+        // Reset Sales Officer
+        const salesOfficer = document.getElementById('salesOfficer');
+        if (salesOfficer) salesOfficer.value = '';
+
+        // Reset Supplier Man
+        const supplierMan = document.getElementById('supplierMan');
+        if (supplierMan) supplierMan.value = '';
+
+        // Reset Bilty No
+        const biltyNo = document.getElementById('biltyNo');
+        if (biltyNo) biltyNo.value = '';
+
+        // Reset Transport Name
+        const transportName = document.getElementById('transportName');
+        if (transportName) transportName.value = '';
+
+        // Reset Previous Balance
+        const previousBalance = document.getElementById('previousBalance');
+        if (previousBalance) previousBalance.value = '0.00';
+
+        // Reset Fueling Station
+        const fuelingStationSearch = document.getElementById('fuelingStationSearch');
+        const fuelingStation = document.getElementById('fuelingStation');
         if (fuelingStationSearch) fuelingStationSearch.value = '';
         if (fuelingStation) fuelingStation.value = '';
+
+        // Reset Items Totals Row
+        const totalQty = document.getElementById('totalQty');
+        const totalPcs = document.getElementById('totalPcs');
+        const totalCtn = document.getElementById('totalCtn');
+        const totalDz = document.getElementById('totalDz');
+        const totalSalePrice = document.getElementById('totalSalePrice');
+        const totalGrossAmount = document.getElementById('totalGrossAmount');
+        const totalDiscountAmountItems = document.getElementById('totalDiscountAmountItems');
+        const totalTradeOfferAmount = document.getElementById('totalTradeOfferAmount');
+        const totalGstAmount = document.getElementById('totalGstAmount');
+        const totalFocQty = document.getElementById('totalFocQty');
+        const totalNetAmountItems = document.getElementById('totalNetAmountItems');
+        
+        if (totalQty) totalQty.textContent = '0.00';
+        if (totalPcs) totalPcs.textContent = '0.00';
+        if (totalCtn) totalCtn.textContent = '0.00';
+        if (totalDz) totalDz.textContent = '0.00';
+        if (totalSalePrice) totalSalePrice.textContent = '0.00';
+        if (totalGrossAmount) totalGrossAmount.textContent = '0.00';
+        if (totalDiscountAmountItems) totalDiscountAmountItems.textContent = '0.00';
+        if (totalTradeOfferAmount) totalTradeOfferAmount.textContent = '0.00';
+        if (totalGstAmount) totalGstAmount.textContent = '0.00';
+        if (totalFocQty) totalFocQty.textContent = '0.00';
+        if (totalNetAmountItems) totalNetAmountItems.textContent = '0.00';
+
+        // Reset Invoice Summary
+        const totalBill = document.getElementById('totalBill');
+        const totalDiscountPercent = document.getElementById('totalDiscountPercent');
+        const totalDiscountAmount = document.getElementById('totalDiscountAmount');
+        const shippingFees = document.getElementById('shippingFees');
+        const netAmount = document.getElementById('netAmount');
+        const withholdingTaxPercent = document.getElementById('withholdingTaxPercent');
+        const withholdingTaxAmount = document.getElementById('withholdingTaxAmount');
+        const netReceivable = document.getElementById('netReceivable');
+        const paymentMethod = document.getElementById('paymentMethod');
+        const bankAccount = document.getElementById('bankAccount');
+        const amountPaid = document.getElementById('amountPaid');
+        const remainingBalance = document.getElementById('remainingBalance');
+        const remarks = document.getElementById('remarks');
+        
+        if (totalBill) totalBill.textContent = '0.00';
+        if (totalDiscountPercent) totalDiscountPercent.value = '0';
+        if (totalDiscountAmount) totalDiscountAmount.value = '0.00';
+        if (shippingFees) shippingFees.value = '0.00';
+        if (netAmount) netAmount.textContent = '0.00';
+        if (withholdingTaxPercent) withholdingTaxPercent.value = '0';
+        if (withholdingTaxAmount) withholdingTaxAmount.textContent = '0.00';
+        if (netReceivable) netReceivable.textContent = '0.00';
+        if (paymentMethod) paymentMethod.value = 'cash';
+        if (bankAccount) bankAccount.value = '';
+        if (amountPaid) amountPaid.value = '0.00';
+        if (remainingBalance) remainingBalance.value = '0.00';
+        if (remarks) remarks.value = '';
+
+        // Reset Amount Paid radio buttons to Manual (no)
+        const autoFillNo = document.querySelector('input[name="autoFillAmountPaid"][value="no"]');
+        if (autoFillNo) autoFillNo.checked = true;
+
+        // Hide price history and stock containers
+        const priceHistoryContainer = document.getElementById('priceHistoryContainer');
+        const stockContainer = document.getElementById('stockContainer');
+        const priceHistoryContent = document.getElementById('priceHistoryContent');
+        const stockContent = document.getElementById('stockContent');
+        
+        if (priceHistoryContainer) {
+            priceHistoryContainer.style.display = 'none';
+            if (priceHistoryContent) priceHistoryContent.innerHTML = '';
+        }
+        if (stockContainer) {
+            stockContainer.style.display = 'none';
+            if (stockContent) stockContent.innerHTML = '';
+        }
 
         // Reset currency to base currency
         loadCurrencies();
@@ -3269,8 +3386,8 @@ function saveInvoice(status = 'Posted') {
         totalBill: parseFloat(document.getElementById('totalBill').textContent),
         totalDiscountPercent: parseFloat(document.getElementById('totalDiscountPercent')?.value) || 0,
         totalDiscountAmount: parseFloat(document.getElementById('totalDiscountAmount')?.value),
+        shippingFees: parseFloat(document.getElementById('shippingFees')?.value) || 0,
         netAmount: parseFloat(document.getElementById('netAmount').textContent),
-        netReceivable: parseFloat(document.getElementById('netReceivable').textContent),
         paymentMethod: document.getElementById('paymentMethod')?.value,
         bankAccountId: document.getElementById('bankAccount')?.value || null,
         amountPaid: parseFloat(document.getElementById('amountPaid')?.value) || 0,
@@ -3278,17 +3395,7 @@ function saveInvoice(status = 'Posted') {
         remainingBalance: parseFloat(document.getElementById('remainingBalance')?.value) || 0,
         remarks: document.getElementById('remarks')?.value,
         status: status,
-        items: [],
-        invoiceLevelTaxes: window.invoiceLevelTaxRegimes ? window.invoiceLevelTaxRegimes.map(regime => {
-            const percentEl = document.getElementById(`invoiceTax_${regime.id}_percent`);
-            const amountEl = document.getElementById(`invoiceTax_${regime.id}_amount`);
-            return {
-                regime_id: regime.id,
-                regime_name: regime.regime_name,
-                rate_percentage: parseFloat(regime.rate_percentage),
-                calculated_amount: parseFloat(amountEl?.textContent) || 0
-            };
-        }) : []
+        items: []
     };
 
     const urlParams = new URLSearchParams(window.location.search);
@@ -3314,8 +3421,8 @@ function saveInvoice(status = 'Posted') {
                 discountPercent: 0,
                 discountAmount: 0,
                 tradeOfferAmount: 0,
-                taxPercent: 0,
-                taxAmount: 0,
+                gstPercent: 0,
+                gstAmount: 0,
                 focQty: 0,
                 netAmount: 0,
                 parentRowId: row.dataset.parentRowIndex !== undefined ? parseInt(row.dataset.parentRowIndex) + 1 : null,
@@ -3349,8 +3456,8 @@ function saveInvoice(status = 'Posted') {
         const discPercentInput = row.querySelector('.disc-percent-cell input');
         const discAmountInput = row.querySelector('.disc-amount-cell input');
         const toAmountInput = row.querySelector('.to-amount-cell input');
-        const taxPercentInput = row.querySelector('.tax-percent-cell input');
-        const taxAmountInput = row.querySelector('.tax-amount-cell input');
+        const gstPercentInput = row.querySelector('.gst-percent-cell input');
+        const gstAmountInput = row.querySelector('.gst-amount-cell input');
         const focInput = row.querySelector('.foc-cell input');
         const netInput = row.querySelector('.net-cell input');
         const schemeSelect = row.querySelector('.scheme-select');
@@ -3360,9 +3467,24 @@ function saveInvoice(status = 'Posted') {
         const discountPercent = parseFloat(discPercentInput.value) || 0;
         const discountAmount = parseFloat(discAmountInput.value);
         const tradeOfferAmount = parseFloat(toAmountInput.value) || 0;
-        const taxPercent = parseFloat(taxPercentInput.value) || 0;
-        const taxAmount = parseFloat(taxAmountInput.value) || 0;
+        const gstPercent = parseFloat(gstPercentInput.value) || 0;
+        const gstAmount = parseFloat(gstAmountInput.value) || 0;
         const focQty = parseFloat(focInput.value) || 0;
+        let focUnitId = '';
+        if (focQty > 0) {
+            const uomDataStr = row.dataset.productUomData;
+            if (uomDataStr) {
+                try {
+                    const uomDetails = JSON.parse(uomDataStr);
+                    const baseUnit = uomDetails.find(u => u.isBase === true);
+                    if (baseUnit) {
+                        focUnitId = baseUnit.id;
+                    }
+                } catch (e) {
+                    console.error('Error parsing UOM data:', e);
+                }
+            }
+        }
         const netAmount = parseFloat(netInput.value);
         const scheme = schemeSelect ? schemeSelect.value : 'sale_on_tp';
         
@@ -3378,16 +3500,19 @@ function saveInvoice(status = 'Posted') {
                 dozen: 0,
                 salePrice: salePrice,
                 grossAmount: isFirstUnit ? grossAmount : 0,
+                discountPercent: isFirstUnit ? discountPercent : 0,
                 discountAmount: isFirstUnit ? discountAmount : 0,
+                tradeOfferPercent: 0,
                 tradeOfferAmount: isFirstUnit ? tradeOfferAmount : 0,
-                taxPercent: taxPercent,
-                taxAmount: isFirstUnit ? taxAmount : 0,
+                gstPercent: gstPercent,
+                gstAmount: isFirstUnit ? gstAmount : 0,
                 focQty: isFirstUnit ? focQty : 0,
+                focUnitId: focUnitId,
                 netAmount: isFirstUnit ? netAmount : 0,
                 parentRowId: null,
+                scheme: scheme,
                 stockAffects: parseInt(row.dataset.stockAffects) || 1,
-                invoiceAffects: parseInt(row.dataset.invoiceAffects) || 1,
-                scheme: scheme
+                invoiceAffects: parseInt(row.dataset.invoiceAffects) || 1
             };
             formData.items.push(item);
         });
@@ -3408,13 +3533,11 @@ function saveInvoice(status = 'Posted') {
                     discountPercent: 0,
                     discountAmount: 0,
                     tradeOfferAmount: 0,
-                    taxPercent: 0,
-                    taxAmount: 0,
+                    gstPercent: 0,
+                    gstAmount: 0,
                     focQty: 0,
                     netAmount: 0,
                     parentRowId: formData.items.length,
-                    stockAffects: parseInt(child.stock_affects) || 0,
-                    invoiceAffects: parseInt(child.invoice_affects) || 0,
                     scheme: 'sale_on_tp'
                 });
             });
@@ -3473,10 +3596,10 @@ function loadInvoiceSettings() {
     const schemeRadio = document.querySelector(`input[name="defaultScheme"][value="${defaultScheme}"]`);
     if (schemeRadio) schemeRadio.checked = true;
     
-    // Load sale price preference
-    const salePriceSetting = localStorage.getItem('salePriceSetting') || 'trade_price';
-    const salePriceRadio = document.querySelector(`input[name="salePriceSetting"][value="${salePriceSetting}"]`);
-    if (salePriceRadio) salePriceRadio.checked = true;
+    // Load product filter preference
+    const productFilter = localStorage.getItem('productFilter') || 'all';
+    const filterRadio = document.querySelector(`input[name="productFilter"][value="${productFilter}"]`);
+    if (filterRadio) filterRadio.checked = true;
     
     // Load other settings
     document.getElementById('enableTradeOfferAmount').checked = localStorage.getItem('enableTradeOfferAmount') === 'true';
@@ -3497,9 +3620,9 @@ function saveInvoiceSettings() {
     const selectedScheme = document.querySelector('input[name="defaultScheme"]:checked')?.value || 'sale_on_tp';
     localStorage.setItem('defaultScheme', selectedScheme);
     
-    // Save sale price preference
-    const selectedSalePrice = document.querySelector('input[name="salePriceSetting"]:checked')?.value || 'trade_price';
-    localStorage.setItem('salePriceSetting', selectedSalePrice);
+    // Save product filter preference
+    const selectedFilter = document.querySelector('input[name="productFilter"]:checked')?.value || 'all';
+    localStorage.setItem('productFilter', selectedFilter);
     
     // Save other settings
     localStorage.setItem('enableTradeOfferAmount', document.getElementById('enableTradeOfferAmount').checked);
@@ -3513,6 +3636,25 @@ function saveInvoiceSettings() {
     localStorage.setItem('enablePrintQRCode', document.getElementById('enablePrintQRCode').checked);
     localStorage.setItem('enableAmountPaidPaymentMethod', document.getElementById('enableAmountPaidPaymentMethod').checked);
     alert('Invoice settings saved successfully!');
+}
+
+// Apply product filter on page load based on saved settings
+async function applyProductFilterOnLoad() {
+    const productFilter = localStorage.getItem('productFilter') || 'all';
+    const lastSalesOfficer = localStorage.getItem('lastSelectedSalesOfficer');
+    
+    // If 'sales_officer' filter is enabled and there's a previously selected sales officer
+    if (productFilter === 'sales_officer' && lastSalesOfficer) {
+        const salesOfficerSelect = document.getElementById('salesOfficer');
+        if (salesOfficerSelect) {
+            // Set the sales officer
+            salesOfficerSelect.value = lastSalesOfficer;
+            // Load products for that sales officer
+            await loadProductsByOfficer(lastSalesOfficer);
+            // Refresh product dropdowns in existing rows
+            refreshAllProductDropdowns();
+        }
+    }
 }
 
 // Apply invoice settings to show/hide columns
@@ -3529,6 +3671,8 @@ function applyInvoiceSettings() {
     // Hide/show invoice summary fields
     const totalDiscountPercentItem = document.getElementById('totalDiscountPercent')?.closest('.summary-item');
     const totalDiscountAmountItem = document.getElementById('totalDiscountAmount')?.closest('.summary-item');
+    const totalGstPercentItem = document.getElementById('totalGstPercent')?.closest('.summary-item');
+    const totalGstAmountItem = document.getElementById('totalGstAmount')?.closest('.summary-item');
     const shippingFeesItem = document.getElementById('shippingFees')?.closest('.summary-item');
     const enableAmountPaidPaymentMethod = localStorage.getItem('enableAmountPaidPaymentMethod') === 'true';
     const paymentMethodItem = document.getElementById('paymentMethod')?.closest('.summary-item');
@@ -3538,6 +3682,8 @@ function applyInvoiceSettings() {
 
     if (totalDiscountPercentItem) totalDiscountPercentItem.style.display = enableInvoiceCashDiscountPercent ? '' : 'none';
     if (totalDiscountAmountItem) totalDiscountAmountItem.style.display = enableInvoiceCashDiscountAmount ? '' : 'none';
+    if (totalGstPercentItem) totalGstPercentItem.style.display = enableTaxation ? '' : 'none';
+    if (totalGstAmountItem) totalGstAmountItem.style.display = enableTaxation ? '' : 'none';
     if (shippingFeesItem) shippingFeesItem.style.display = enableShippingFees ? '' : 'none';
     if (paymentMethodItem) paymentMethodItem.style.display = enableAmountPaidPaymentMethod ? '' : 'none';
     if (bankAccountItem && !enableAmountPaidPaymentMethod) bankAccountItem.style.display = 'none';
@@ -3553,17 +3699,21 @@ function applyColumnVisibility(settings) {
 
     const rows = document.getElementById('itemsTable').getElementsByTagName('tbody')[0].rows;
     for (let i = 0; i < rows.length; i++) {
-        if (rows[i].cells[8]) rows[i].cells[8].style.display = settings.enableTradeOfferDiscount ? '' : 'none';
-        if (rows[i].cells[9]) rows[i].cells[9].style.display = settings.enableFOC ? '' : 'none';
+        // Use class selectors instead of hardcoded indices
+        const toAmountCell = rows[i].querySelector('.to-amount-cell');
+        const focCell = rows[i].querySelector('.foc-cell');
+        
+        if (toAmountCell) toAmountCell.style.display = settings.enableTradeOfferDiscount ? '' : 'none';
+        if (focCell) focCell.style.display = settings.enableFOC ? '' : 'none';
     }
 }
 
-function updateInvoiceSummaryFromTaxAmount() {
+function updateInvoiceSummaryFromGstAmount() {
     let totalBill = 0;
     const rows = itemsTable.rows;
 
     for (let i = 0; i < rows.length; i++) {
-        const netAmountInput = rows[i].querySelector('.net-cell input');
+        const netAmountInput = rows[i].cells[13].querySelector('input');
         if (netAmountInput) {
             totalBill += parseFloat(netAmountInput.value) || 0;
         }
@@ -3573,7 +3723,7 @@ function updateInvoiceSummaryFromTaxAmount() {
 
     const discountAmount = parseFloat(document.getElementById('totalDiscountAmount').value) || 0;
     const afterDiscount = totalBill - discountAmount;
-    const taxAmount = parseFloat(document.getElementById('totalTaxAmountSummary').value) || 0;
+    const gstAmount = parseFloat(document.getElementById('totalGstAmountSummary').value) || 0;
     const gstPercent = afterDiscount > 0 ? (gstAmount / afterDiscount) * 100 : 0;
     const shippingFees = parseFloat(document.getElementById('shippingFees').value) || 0;
     const netAmount = afterDiscount + gstAmount + shippingFees;
@@ -3737,12 +3887,8 @@ async function loadProductStock(productId) {
 }
 
 
-// Save sales officer selection
-document.getElementById('salesOfficer').addEventListener('change', function () {
-    if (this.value) {
-        localStorage.setItem('lastSelectedSalesOfficer', this.value);
-    }
-});
+
+
 
 
 
@@ -4595,16 +4741,16 @@ async function addRowDynamic() {
     toAmountCell.appendChild(toAmountInput);
     
     // GST %
-    const taxPercentCell = row.insertCell(8);
-    taxPercentCell.className = 'tax-percent-cell';
-    const taxPercentInput = document.createElement('input');
-    taxPercentInput.type = 'number';
-    taxPercentInput.className = 'table-input';
-    taxPercentInput.min = '0';
-    taxPercentInput.max = '100';
-    taxPercentInput.step = '0.01';
-    taxPercentInput.value = '0';
-    taxPercentInput.addEventListener('input', function() {
+    const gstPercentCell = row.insertCell(8);
+    gstPercentCell.className = 'gst-percent-cell';
+    const gstPercentInput = document.createElement('input');
+    gstPercentInput.type = 'number';
+    gstPercentInput.className = 'table-input';
+    gstPercentInput.min = '0';
+    gstPercentInput.max = '100';
+    gstPercentInput.step = '0.01';
+    gstPercentInput.value = '0';
+    gstPercentInput.addEventListener('input', function() {
         const unitInputs = row.querySelectorAll('.unit-input');
         let totalQty = 0;
         unitInputs.forEach(input => {
@@ -4615,18 +4761,18 @@ async function addRowDynamic() {
         const price = parseFloat(row.querySelector('.price-cell input').value) || 0;
         calculateRowAmounts(row, totalQty, price);
     });
-    taxPercentCell.appendChild(taxPercentInput);
+    gstPercentCell.appendChild(gstPercentInput);
     
     // GST Amount
-    const taxAmountCell = row.insertCell(9);
-    taxAmountCell.className = 'tax-amount-cell';
-    const taxAmountInput = document.createElement('input');
-    taxAmountInput.type = 'number';
-    taxAmountInput.className = 'table-input';
-    taxAmountInput.min = '0';
-    taxAmountInput.step = '0.01';
-    taxAmountInput.value = '0.00';
-    taxAmountCell.appendChild(taxAmountInput);
+    const gstAmountCell = row.insertCell(9);
+    gstAmountCell.className = 'gst-amount-cell';
+    const gstAmountInput = document.createElement('input');
+    gstAmountInput.type = 'number';
+    gstAmountInput.className = 'table-input';
+    gstAmountInput.min = '0';
+    gstAmountInput.step = '0.01';
+    gstAmountInput.value = '0.00';
+    gstAmountCell.appendChild(gstAmountInput);
     
     // FOC Qty
     const focCell = row.insertCell(10);
@@ -4669,7 +4815,7 @@ async function addRowDynamic() {
             row.remove();
             updateSerialNumbers();
             recalculateMaxColumns();
-            updateInvoiceSummaryDynamic();
+            updateInvoiceSummary();
         } else {
             alert('Cannot delete the only row.');
         }
@@ -4755,62 +4901,13 @@ function initTableDropdownDynamic(container, row) {
                 await onSchemeChange(row, savedScheme);
             }
             
-            // Set price based on saved setting
-            const salePriceSetting = localStorage.getItem('salePriceSetting') || 'trade_price';
-            const priceValue = salePriceSetting === 'mrp' ? (product.mrp || 0) : (product.trade_price || 0);
-            row.querySelector('.price-cell input').value = priceValue;
+            // Set price
+            row.querySelector('.price-cell input').value = product.trade_price || 0;
             
             // Set default values
             row.querySelector('.disc-percent-cell input').value = product.default_discount || 0;
             row.querySelector('.foc-cell input').value = product.default_foc || 0;
-            
-            // Calculate and apply tax based on customer and tax regime
-            const customerId = document.getElementById('customerCode').value;
-            if (customerId && product.id) {
-                const taxCalc = await calculateProductTax(customerId, product.id, salePriceSetting);
-                if (taxCalc.success) {
-                    // Store application_level in row dataset
-                    const applicationLevel = taxCalc.application_level || 'item';
-                    row.dataset.applicationLevel = applicationLevel;
-                    row.dataset.taxRate = taxCalc.tax_rate;
-                    row.dataset.taxBase = taxCalc.tax_base;
-                    row.dataset.basePrice = taxCalc.base_price;
-                    row.dataset.formulaTemplate = taxCalc.formula_template;
-                    
-                    // Set Tax % based on application_level
-                    const taxPercentInput = row.querySelector('.tax-percent-cell input');
-                    const taxAmountInput = row.querySelector('.tax-amount-cell input');
-                    
-                    if (applicationLevel === 'invoice') {
-                        // Invoice-level tax: show 0 and make read-only
-                        taxPercentInput.value = '0.00';
-                        taxPercentInput.readOnly = true;
-                        taxPercentInput.disabled = false;
-                        taxPercentInput.style.backgroundColor = '#f0f0f0';
-                        taxPercentInput.style.cursor = 'not-allowed';
-                        taxPercentInput.style.opacity = '0.7';
-                        taxPercentInput.title = 'Tax applied at invoice level, not at item level';
-                        taxAmountInput.value = '0.00';
-                    } else {
-                        // Item-level tax: show the tax rate
-                        taxPercentInput.value = parseFloat(taxCalc.tax_rate).toFixed(2);
-                        taxPercentInput.readOnly = false;
-                        taxPercentInput.disabled = false;
-                        taxPercentInput.style.backgroundColor = '';
-                        taxPercentInput.style.cursor = 'auto';
-                        taxPercentInput.style.opacity = '1';
-                        taxPercentInput.title = '';
-                        taxAmountInput.value = '0.00';
-                    }
-                } else {
-                    row.querySelector('.tax-percent-cell input').value = 0;
-                    row.querySelector('.tax-amount-cell input').value = '0.00';
-                }
-            } else {
-                // If no customer selected yet, use product default
-                row.querySelector('.tax-percent-cell input').value = product.sales_tax || 0;
-                row.querySelector('.tax-amount-cell input').value = '0.00';
-            }
+            row.querySelector('.gst-percent-cell input').value = product.sales_tax || 0;
             
             optionsContainer.style.display = 'none';
             
@@ -4818,6 +4915,7 @@ function initTableDropdownDynamic(container, row) {
             recalculateMaxColumns();
             
             // Load price history and stock
+            const customerId = document.getElementById('customerCode').value;
             if (customerId) {
                 loadPriceHistory(product.id);
             }
@@ -4922,8 +5020,8 @@ function saveInvoice(status = 'Posted') {
         const discountPercent = parseFloat(row.querySelector('.disc-percent-cell input').value) || 0;
         const discountAmount = parseFloat(row.querySelector('.disc-amount-cell input').value) || 0;
         const tradeOfferAmount = parseFloat(row.querySelector('.to-amount-cell input').value) || 0;
-        const taxPercent = parseFloat(row.querySelector('.tax-percent-cell input').value) || 0;
-        const taxAmount = parseFloat(row.querySelector('.tax-amount-cell input').value) || 0;
+        const gstPercent = parseFloat(row.querySelector('.gst-percent-cell input').value) || 0;
+        const gstAmount = parseFloat(row.querySelector('.gst-amount-cell input').value) || 0;
         const focQty = parseFloat(row.querySelector('.foc-cell input').value) || 0;
         const netAmount = parseFloat(row.querySelector('.net-cell input').value);
         const schemeSelect = row.querySelector('.scheme-select');
@@ -4945,8 +5043,8 @@ function saveInvoice(status = 'Posted') {
                     discountPercent: isFirstUnit ? discountPercent : 0,
                     discountAmount: isFirstUnit ? discountAmount : 0,
                     tradeOfferAmount: isFirstUnit ? tradeOfferAmount : 0,
-                    taxPercent: isFirstUnit ? taxPercent : 0,
-                    taxAmount: isFirstUnit ? taxAmount : 0,
+                    gstPercent: isFirstUnit ? gstPercent : 0,
+                    gstAmount: isFirstUnit ? gstAmount : 0,
                     focQty: isFirstUnit ? focQty : 0,
                     netAmount: isFirstUnit ? netAmount : 0,
                     parentRowId: null,

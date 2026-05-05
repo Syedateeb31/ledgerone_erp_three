@@ -72,6 +72,17 @@ if (!$user_id) {
                 </button>
             </div>
             
+            <div class="summary-box">
+                <div class="summary-item">
+                    <div class="summary-label">Total Invoices</div>
+                    <div class="summary-value" id="totalInvoices">0</div>
+                </div>
+                <div class="summary-item">
+                    <div class="summary-label">Total Amount</div>
+                    <div class="summary-value" id="totalAmount">₹0.00</div>
+                </div>
+            </div>
+            
             <div class="table-container">
                 <table id="invoicesTable">
                     <thead>

@@ -22,7 +22,8 @@ async function getProductUOMDetails(product) {
                             id: defaultUom.id,
                             name: defaultUom.uom_name,
                             conversionFactor: parseFloat(conversion.conversion_factor) || 1,
-                            isBase: true
+                            isBase: true,
+                            baseUnitId: defaultUom.base_unit_id
                         });
                     }
                 } else {
@@ -31,7 +32,8 @@ async function getProductUOMDetails(product) {
                         id: defaultUom.id,
                         name: defaultUom.uom_name,
                         conversionFactor: 1,
-                        isBase: true
+                        isBase: true,
+                        baseUnitId: defaultUom.base_unit_id
                     });
                 }
             } else {
@@ -39,7 +41,8 @@ async function getProductUOMDetails(product) {
                     id: defaultUom.id,
                     name: defaultUom.uom_name,
                     conversionFactor: parseFloat(defaultUom.conversion_factor) || 1,
-                    isBase: defaultUom.is_base_unit == 1
+                    isBase: defaultUom.is_base_unit == 1,
+                    baseUnitId: defaultUom.base_unit_id
                 });
             }
         }
@@ -62,14 +65,16 @@ async function getProductUOMDetails(product) {
                         id: uom.id,
                         name: uom.uom_name,
                         conversionFactor: parseFloat(productConversion.conversion_factor) || 1,
-                        isBase: uom.is_base_unit == 1
+                        isBase: uom.is_base_unit == 1,
+                        baseUnitId: uom.base_unit_id
                     });
                 } else {
                     uomDetails.push({
                         id: uom.id,
                         name: uom.uom_name,
                         conversionFactor: parseFloat(uom.conversion_factor) || 1,
-                        isBase: uom.is_base_unit == 1
+                        isBase: uom.is_base_unit == 1,
+                        baseUnitId: uom.base_unit_id
                     });
                 }
             }
@@ -213,6 +218,46 @@ function updateRowUnitCells(row) {
                 const priceInput = row.querySelector('.price-cell input');
                 const price = priceInput ? (Number(priceInput.value) || 0) : 0;
                 
+                if (typeof validateRowStockRealTime === 'function') {
+                    validateRowStockRealTime(row);
+                }
+                
+                // Update FOC unit ID when unit quantity changes
+                const focInput = row.querySelector('.foc-cell input');
+                if (focInput) {
+                    const uomDataStr = row.dataset.productUomData;
+                    if (uomDataStr) {
+                        const uomDetails = JSON.parse(uomDataStr);
+                        
+                        // Find the first unit with quantity > 0
+                        let selectedUnitId = null;
+                        let selectedUnitData = null;
+                        
+                        for (let inp of unitInputs) {
+                            const qty = parseFloat(inp.value) || 0;
+                            if (qty > 0) {
+                                selectedUnitId = parseInt(inp.dataset.unitId);
+                                selectedUnitData = uomDetails.find(u => u.id === selectedUnitId);
+                                break;
+                            }
+                        }
+                        
+                        // Update the FOC unit ID dataset
+                        if (selectedUnitData) {
+                            if (selectedUnitData.isBase) {
+                                // If the selected unit IS the base unit, use its ID
+                                focInput.dataset.baseUnitId = selectedUnitData.id;
+                            } else {
+                                // If the selected unit is NOT the base unit, use its baseUnitId
+                                focInput.dataset.baseUnitId = selectedUnitData.baseUnitId || selectedUnitData.id;
+                            }
+                        } else {
+                            // Reset if no unit is selected
+                            focInput.dataset.baseUnitId = '';
+                        }
+                    }
+                }
+                
                 // Check active scheme and recalculate accordingly
                 if (typeof SCHEME_TYPES !== 'undefined') {
                     const schemeSelect = row.querySelector('.scheme-select');
@@ -257,7 +302,7 @@ function calculateRowAmounts(row, totalQty, price) {
     price = Number(price) || 0;
     
     const discountPercent = parseFloat(row.querySelector('.disc-percent-cell input')?.value) || 0;
-    const taxPercent = parseFloat(row.querySelector('.tax-percent-cell input')?.value) || 0;
+    const gstPercent = parseFloat(row.querySelector('.gst-percent-cell input')?.value) || 0;
     
     const gross = Number(totalQty) * Number(price);
     const grossInput = row.querySelector('.gross-cell input');
@@ -282,38 +327,12 @@ function calculateRowAmounts(row, totalQty, price) {
     // After trade offer
     const afterTradeOffer = afterDiscount - tradeOfferAmt;
     
-    // Check application level - only apply tax at item level if application_level is 'item'
-    const applicationLevel = row.dataset.applicationLevel || 'item';
-    let taxAmt = 0;
-    
-    if (applicationLevel === 'item') {
-        // Tax amount - use formula from backend if available, otherwise use simple percentage
-        const formulaTemplate = row.dataset.formulaTemplate;
-        const basePrice = parseFloat(row.dataset.basePrice);
-        const taxBase = row.dataset.taxBase;
-        
-        if (formulaTemplate && !isNaN(basePrice) && basePrice > 0) {
-            // For MRP-based formulas (Third Schedule), formula calculates base price
-            // Tax = MRP - base_price
-            if (taxBase === 'mrp') {
-                const totalMrp = basePrice * totalQty;
-                const basePriceTotal = evaluateFormula(formulaTemplate, basePrice, taxPercent) * totalQty;
-                taxAmt = totalMrp - basePriceTotal;
-            } else {
-                // For trade_price formulas (Standard GST), formula calculates tax directly
-                const taxPerUnit = evaluateFormula(formulaTemplate, basePrice, taxPercent);
-                taxAmt = taxPerUnit * totalQty;
-            }
-        } else {
-            taxAmt = afterTradeOffer * (taxPercent / 100);
-        }
-    }
-    // If application_level is 'invoice', tax is NOT applied here (will be applied at invoice level)
-    
-    row.querySelector('.tax-amount-cell input').value = taxAmt.toFixed(2);
+    // GST amount
+    const gstAmt = afterTradeOffer * (gstPercent / 100);
+    row.querySelector('.gst-amount-cell input').value = gstAmt.toFixed(2);
     
     // Net amount
-    const net = afterTradeOffer + taxAmt;
+    const net = afterTradeOffer + gstAmt;
     row.querySelector('.net-cell input').value = net.toFixed(2);
     
     // Update summary
@@ -365,7 +384,7 @@ function updateInvoiceSummaryDynamic() {
     let totalGrossAmount = 0;
     let totalDiscountAmountItems = 0;
     let totalTradeOfferAmountItems = 0;
-    let totalTaxAmountItems = 0;
+    let totalGSTAmountItems = 0;
     let totalFOCQty = 0;
     let totalNetAmountItems = 0;
     
@@ -376,7 +395,7 @@ function updateInvoiceSummaryDynamic() {
         const grossInput = row.querySelector('.gross-cell input');
         const discAmtInput = row.querySelector('.disc-amount-cell input');
         const toAmtInput = row.querySelector('.to-amount-cell input');
-        const taxAmtInput = row.querySelector('.tax-amount-cell input');
+        const gstAmtInput = row.querySelector('.gst-amount-cell input');
         const focInput = row.querySelector('.foc-cell input');
         const netInput = row.querySelector('.net-cell input');
         
@@ -385,7 +404,7 @@ function updateInvoiceSummaryDynamic() {
             totalGrossAmount += parseFloat(grossInput?.value) || 0;
             totalDiscountAmountItems += parseFloat(discAmtInput?.value) || 0;
             totalTradeOfferAmountItems += parseFloat(toAmtInput?.value) || 0;
-            totalTaxAmountItems += parseFloat(taxAmtInput?.value) || 0;
+            totalGSTAmountItems += parseFloat(gstAmtInput?.value) || 0;
             totalFOCQty += parseFloat(focInput?.value) || 0;
             totalNetAmountItems += parseFloat(netInput?.value) || 0;
             totalBill += parseFloat(netInput?.value) || 0;
@@ -397,7 +416,7 @@ function updateInvoiceSummaryDynamic() {
     const totalGrossAmountEl = document.getElementById('totalGrossAmount');
     const totalDiscountAmountItemsEl = document.getElementById('totalDiscountAmountItems');
     const totalTradeOfferAmountEl = document.getElementById('totalTradeOfferAmount');
-    const totalTaxAmountEl = document.getElementById('totalTaxAmount');
+    const totalGstAmountEl = document.getElementById('totalGstAmount');
     const totalFocQtyEl = document.getElementById('totalFocQty');
     const totalNetAmountItemsEl = document.getElementById('totalNetAmountItems');
     
@@ -405,7 +424,7 @@ function updateInvoiceSummaryDynamic() {
     if (totalGrossAmountEl) totalGrossAmountEl.textContent = totalGrossAmount.toFixed(2);
     if (totalDiscountAmountItemsEl) totalDiscountAmountItemsEl.textContent = totalDiscountAmountItems.toFixed(2);
     if (totalTradeOfferAmountEl) totalTradeOfferAmountEl.textContent = totalTradeOfferAmountItems.toFixed(2);
-    if (totalTaxAmountEl) totalTaxAmountEl.textContent = totalTaxAmountItems.toFixed(2);
+    if (totalGstAmountEl) totalGstAmountEl.textContent = totalGSTAmountItems.toFixed(2);
     if (totalFocQtyEl) totalFocQtyEl.textContent = totalFOCQty.toFixed(2);
     if (totalNetAmountItemsEl) totalNetAmountItemsEl.textContent = totalNetAmountItems.toFixed(2);
     
@@ -452,11 +471,6 @@ function updateInvoiceSummaryDynamic() {
     const remainingBalanceEl = document.getElementById('remainingBalance');
     if (remainingBalanceEl) {
         remainingBalanceEl.value = remainingBalance.toFixed(2);
-    }
-    
-    // Calculate invoice-level taxes
-    if (typeof calculateInvoiceLevelTaxes === 'function') {
-        calculateInvoiceLevelTaxes();
     }
 }
 
