@@ -76,18 +76,8 @@ function initializeListPage(permissions) {
         }
     }
 
-    function updateSummary(data) {
-        const totalInvoices = data.length;
-        const totalAmount = data.reduce((sum, invoice) => sum + invoice.totalAmount, 0);
-        const currencySymbol = data.length > 0 ? data[0].currencySymbol : '₹';
-        
-        document.getElementById('totalInvoices').textContent = totalInvoices;
-        document.getElementById('totalAmount').textContent = `${currencySymbol}${totalAmount.toFixed(2)}`;
-    }
-
     function populateTable(data) {
         invoicesTable.innerHTML = '';
-        updateSummary(data);
 
         data.forEach(invoice => {
             const row = invoicesTable.insertRow();

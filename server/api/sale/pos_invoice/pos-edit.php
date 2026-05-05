@@ -134,7 +134,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
             UPDATE sale_invoice SET
                 currency_id = ?, sale_date = ?, customer_id = ?, sub_account_id = ?, company_id = ?, branch_id = ?,
                 previous_balance = ?, sale_officer_id = ?, supplier_man_id = ?, sale_order_id = ?, bilty_no = ?, transport_name = ?, total_bill = ?, total_discount_percent = ?,
-                total_discount_amount = ?, shipping_fees = ?, net_amount = ?, withholding_tax_percent = ?, withholding_tax_amount = ?, amount_paid_auto_fill = ?, remarks = ?, status = ?, updated_by = ?
+                total_discount_amount = ?, net_amount = ?, withholding_tax_percent = ?, withholding_tax_amount = ?, amount_paid_auto_fill = ?, remarks = ?, status = ?, updated_by = ?
             WHERE id = ? AND tenant_id = ?
         ");
         $stmt->execute([
@@ -153,7 +153,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
             $input['totalBill'],
             $input['totalDiscountPercent'] ?? 0.00,
             $input['totalDiscountAmount'] ?? 0.00,
-            $input['shippingFees'] ?? 0.00,
             $input['netAmount'],
             $withholdingTaxPercent,
             $withholdingTaxAmount,
@@ -192,9 +191,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
                 tenant_id, sale_invoice_id, product_id, uom_id,
                 quantity, sale_price, gross_amount, discount_percent,
                 discount_amount, trade_offer_percent, trade_offer_amount,
-                gst_percent, gst_amount, foc_quantity, net_amount, parent_row_id,
+                gst_percent, gst_amount, tax_percent, tax_amount, foc_quantity, net_amount, parent_row_id,
                 piece, carton, dozen, scheme, created_by, updated_by
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ");
 
         $itemIdMap = [];
@@ -218,6 +217,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
                 $item['tradeOfferAmount'] ?? 0.00,
                 $item['gstPercent'] ?? 0.00,
                 $item['gstAmount'] ?? 0.00,
+                $item['taxPercent'] ?? 0.00,
+                $item['taxAmount'] ?? 0.00,
                 $item['focQty'] ?? 0.00,
                 $item['netAmount'],
                 $parentRowId,
@@ -231,29 +232,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
             
             $itemIdMap[$index + 1] = $pdo->lastInsertId();
 
-            // Skip stock_ledger if stock_affects = 0
-            $stockAffects = $item['stockAffects'] ?? 1;
-            if ($status === 'Posted' && $stockAffects == 1) {
-                // Get product's inventory account
-                $productStmt = $pdo->prepare("SELECT inventory_account_id FROM products WHERE id = ?");
-                $productStmt->execute([$item['productId']]);
-                $inventoryAccountId = $productStmt->fetchColumn() ?: 0;
+            // Skip stock ledger for Draft status
+            if ($status === 'Posted') {
+                // Convert quantity to pieces based on UOM
+                $qtyInPieces = convertToPieces($item['quantity'], $item['uomId'], $pdo, $item['productId']);
+                
+                // Get product cost price
                 $costPrice = getCostPrice($pdo, $tenant_id, $item['productId'], $input['branchId']);
                 
-                // Insert stock ledger for quantity sold (use actual quantity, not converted)
+                // Insert stock ledger for quantity sold
                 $stock_stmt = $pdo->prepare("
-                    INSERT INTO stock_ledger (
-                        tenant_id, account_id, branch_id, product_id, reference_table, reference_id,
-                        qty_out, unit_cost, unit_id, transaction_type, transaction_date
-                    ) VALUES (?, ?, ?, ?, 'sale_invoice', ?, ?, ?, ?, 'Sale Invoice', ?)
-                ");
+                        INSERT INTO stock_ledger (
+                            tenant_id, branch_id, product_id, reference_table, reference_id,
+                            qty_out, unit_cost, unit_id, transaction_type, transaction_date
+                        ) VALUES (?, ?, ?, 'sale_invoice', ?, ?, ?, ?, 'Sale Invoice', ?)
+                    ");
                 $stock_stmt->execute([
                     $tenant_id,
-                    $inventoryAccountId,
                     $input['branchId'],
                     $item['productId'],
                     $invoice_id,
-                    $item['quantity'],
+                    $qtyInPieces,
                     $costPrice,
                     $item['uomId'],
                     $input['saleDate']
@@ -261,39 +260,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
                 
                 // Insert stock ledger for FOC quantity if exists
                 if (isset($item['focQty']) && $item['focQty'] > 0) {
-                    // Use base unit ID for FOC quantity
-                    $focUnitId = $item['focUnitId'] ?? null;
-                    
-                    // If focUnitId is not provided, look up the base unit from the selected unit
-                    if (!$focUnitId || $focUnitId === '') {
-                        $unitStmt = $pdo->prepare("SELECT is_base_unit, base_unit_id FROM uom WHERE id = ?");
-                        $unitStmt->execute([$item['uomId']]);
-                        $unitData = $unitStmt->fetch();
-                        
-                        if ($unitData) {
-                            // If selected unit IS a base unit, use its ID; otherwise use its base_unit_id
-                            $focUnitId = $unitData['is_base_unit'] == 1 ? $item['uomId'] : ($unitData['base_unit_id'] ?? $item['uomId']);
-                        } else {
-                            // Fallback to selected unit ID if query fails
-                            $focUnitId = $item['uomId'];
-                        }
-                    }
+                    $focQtyInPieces = convertToPieces($item['focQty'], $item['uomId'], $pdo, $item['productId']);
                     
                     $foc_stmt = $pdo->prepare("
                         INSERT INTO stock_ledger (
-                            tenant_id, account_id, branch_id, product_id, reference_table, reference_id,
+                            tenant_id, branch_id, product_id, reference_table, reference_id,
                             qty_out, unit_cost, unit_id, transaction_type, transaction_date
-                        ) VALUES (?, ?, ?, ?, 'sale_invoice', ?, ?, ?, ?, 'Sale Invoice - FOC', ?)
+                        ) VALUES (?, ?, ?, 'sale_invoice', ?, ?, ?, ?, 'Sale Invoice - FOC', ?)
                     ");
                     $foc_stmt->execute([
                         $tenant_id,
-                        $inventoryAccountId,
                         $input['branchId'],
                         $item['productId'],
                         $invoice_id,
-                        $item['focQty'],
+                        $focQtyInPieces,
                         0,
-                        $focUnitId,
+                        $item['uomId'],
                         $input['saleDate']
                     ]);
                 }
@@ -494,7 +476,7 @@ function extractBalanceAmount($balanceString)
 {
     if (empty($balanceString))
         return 0.00;
-    $amount = trim(preg_replace('/^(Dr|Cr)\s*/i', '', $balanceString));
+    $amount = preg_replace('/^(Dr|Cr)\s*/', '', $balanceString);
     return floatval($amount);
 }
 
@@ -551,4 +533,32 @@ function getCostPrice($pdo, $tenant_id, $product_id, $branch_id)
     }
     
     return $costPrice;
+}
+
+// Function to convert quantity to pieces based on UOM
+function convertToPieces($quantity, $uomId, $pdo, $productId)
+{
+    $qty = floatval($quantity);
+    $uomId = intval($uomId);
+    
+    // Piece (id: 9) - base unit
+    if ($uomId === 9) {
+        return $qty;
+    }
+    
+    // Dozen (id: 10) - 12 pieces
+    if ($uomId === 10) {
+        return $qty * 12;
+    }
+    
+    // Carton (id: 16) - get from product's carton_conversion
+    if ($uomId === 16) {
+        $stmt = $pdo->prepare("SELECT carton_conversion FROM products WHERE id = ?");
+        $stmt->execute([$productId]);
+        $cartonConversion = $stmt->fetchColumn();
+        return $qty * intval($cartonConversion ?: 1);
+    }
+    
+    // Other units - return as is
+    return $qty;
 }

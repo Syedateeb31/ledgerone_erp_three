@@ -168,26 +168,6 @@
             border: 2px solid #333;
         }
 
-        .totals-horizontal-2 .totals-item#totalBalance,
-        .totals-horizontal-2 .totals-item.totalBalance,
-        .totals-horizontal-3 .totals-item#totalBalance,
-        .totals-horizontal-3 .totals-item.totalBalance {
-            background: #f0f8ff;
-            border: 1px solid #b3d9ff;
-            color: #1f7bff;
-            font-weight: bold;
-        }
-
-        .totals-horizontal-2 .totals-item#previousBalance,
-        .totals-horizontal-2 .totals-item.previousBalance,
-        .totals-horizontal-3 .totals-item#previousBalance,
-        .totals-horizontal-3 .totals-item.previousBalance {
-            background: #fff8f0;
-            border: 1px solid #ffc9a3;
-            color: #ff8c42;
-            font-weight: bold;
-        }
-
         .print-btn {
             background: #007bff;
             color: white;
@@ -377,7 +357,7 @@
                 <p id="companyEmail">Loading...</p>
             </div>
             <div class="invoice-details">
-                <h2>SALE INVOICE</h2>
+                <h2 id="invoiceTypeHeading">SALE INVOICE</h2>
                 <p><strong>Invoice #:</strong> <span id="invoiceNo">Loading...</span></p>
                 <p><strong>Date:</strong> <span id="invoiceDate">Loading...</span></p>
             </div>
@@ -390,6 +370,7 @@
                 <p><strong>Address:</strong> <span id="customerAddress">Loading...</span></p>
                 <p><strong>Phone:</strong> <span id="customerPhone">-</span></p>
                 <p><strong>Email:</strong> <span id="customerEmail">-</span></p>
+                <p><strong>Previous Balance:</strong> <span id="previousBalance">Loading...</span></p>
             </div>
             <div class="invoice-info">
                 <h3>Invoice Information</h3>
@@ -454,17 +435,6 @@
                 <tr>
                     <td>Remaining Balance:</td>
                     <td class="text-right" id="remainingBalance">0.00</td>
-                </tr>
-                <tr style="border-top: 2px solid #ddd; height: 8px;">
-                    <td colspan="2"></td>
-                </tr>
-                <tr style="background-color: #fff8f0; border: 1px solid #ffc9a3;">
-                    <td style="font-weight: bold; padding: 10px; color: #ff8c42;">Previous Balance:</td>
-                    <td class="text-right" id="previousBalanceAmount" style="font-weight: bold; padding: 10px; color: #ff8c42;">0.00</td>
-                </tr>
-                <tr style="background-color: #f0f8ff; border: 1px solid #b3d9ff;">
-                    <td style="font-weight: bold; padding: 10px; color: #1f7bff;">Total Balance:</td>
-                    <td class="text-right" id="totalBalance" style="font-weight: bold; padding: 10px; color: #1f7bff;">0.00</td>
                 </tr>
             </table>
         </div>
@@ -548,8 +518,8 @@
             { id: 'disc_pct', label: 'Disc %', width: '5%' },
             { id: 'disc_amt', label: 'Disc Amt', width: '8%' },
             { id: 'to_amt', label: 'T.O Amt', width: '8%' },
-            { id: 'gst_pct', label: 'GST %', width: '5%' },
-            { id: 'gst_amt', label: 'GST Amt', width: '8%' },
+            { id: 'tax_pct', label: 'Tax %', width: '5%' },
+            { id: 'tax_amt', label: 'Tax Amt', width: '8%' },
             { id: 'foc', label: 'FOC Qty', width: '5%' },
             { id: 'net', label: 'Net Amt', width: '9%' }
         ];
@@ -568,6 +538,11 @@
         const enableTaxation = localStorage.getItem('enableTaxation') === 'true';
         const enableFOC = localStorage.getItem('enableFOC') === 'true';
         const enableShippingFees = localStorage.getItem('enableShippingFees') === 'true';
+
+        // Update invoice heading based on taxation setting
+        if (enableTaxation) {
+            document.getElementById('invoiceTypeHeading').textContent = 'SALES TAX INVOICE';
+        }
 
         // Get totals layout preference
         const totalsLayout = localStorage.getItem('totalsLayout') || 'vertical';
@@ -638,7 +613,7 @@
             headerRow.appendChild(unitPlaceholder);
 
             // Add remaining columns
-            const remainingCols = ['price', 'gross', 'disc_pct', 'disc_amt', 'to_amt', 'gst_pct', 'gst_amt', 'foc', 'net'];
+            const remainingCols = ['price', 'gross', 'disc_pct', 'disc_amt', 'to_amt', 'tax_pct', 'tax_amt', 'foc', 'net'];
             remainingCols.forEach(colId => {
                 const col = columnConfig.find(c => c.id === colId);
                 if (col && col.visible === false) return;
@@ -653,8 +628,8 @@
                     case 'disc_pct': th.textContent = 'Disc %'; th.width = '5%'; break;
                     case 'disc_amt': th.textContent = 'Disc Amt'; th.width = '8%'; break;
                     case 'to_amt': th.textContent = 'T.O Amt'; th.width = '8%'; break;
-                    case 'gst_pct': th.textContent = 'GST %'; th.width = '5%'; break;
-                    case 'gst_amt': th.textContent = 'GST Amt'; th.width = '8%'; break;
+                    case 'tax_pct': th.textContent = 'Tax %'; th.width = '5%'; break;
+                    case 'tax_amt': th.textContent = 'Tax Amt'; th.width = '8%'; break;
                     case 'foc': th.textContent = 'FOC Qty'; th.width = '5%'; break;
                     case 'net': th.textContent = 'Net Amt'; th.width = '9%'; break;
                 }
@@ -663,8 +638,8 @@
                 if (colId === 'disc_pct' && !enableCashDiscountPercent) th.style.display = 'none';
                 if (colId === 'disc_amt' && !enableCashDiscountAmount) th.style.display = 'none';
                 if (colId === 'to_amt' && !enableTradeOfferAmount) th.style.display = 'none';
-                if (colId === 'gst_pct' && !enableTaxation) th.style.display = 'none';
-                if (colId === 'gst_amt' && !enableTaxation) th.style.display = 'none';
+                if (colId === 'tax_pct' && !enableTaxation) th.style.display = 'none';
+                if (colId === 'tax_amt' && !enableTaxation) th.style.display = 'none';
                 if (colId === 'foc' && !enableFOC) th.style.display = 'none';
 
                 headerRow.appendChild(th);
@@ -728,8 +703,8 @@
                 { id: 'disc_pct', label: '', hasTotal: false },
                 { id: 'disc_amt', label: '', hasTotal: true, totalId: 'totalDiscountAmountItems' },
                 { id: 'to_amt', label: '', hasTotal: true, totalId: 'totalTradeOfferAmountItems' },
-                { id: 'gst_pct', label: '', hasTotal: false },
-                { id: 'gst_amt', label: '', hasTotal: true, totalId: 'totalGstAmountItems' },
+                { id: 'tax_pct', label: '', hasTotal: false },
+                { id: 'tax_amt', label: '', hasTotal: true, totalId: 'totalTaxAmountItems' },
                 { id: 'foc', label: '', hasTotal: true, totalId: 'totalFocQty' },
                 { id: 'net', label: '', hasTotal: true, totalId: 'totalNetAmountItems' }
             ];
@@ -751,8 +726,8 @@
                 if (colDef.id === 'disc_pct' && !enableCashDiscountPercent) th.style.display = 'none';
                 if (colDef.id === 'disc_amt' && !enableCashDiscountAmount) th.style.display = 'none';
                 if (colDef.id === 'to_amt' && !enableTradeOfferAmount) th.style.display = 'none';
-                if (colDef.id === 'gst_pct' && !enableTaxation) th.style.display = 'none';
-                if (colDef.id === 'gst_amt' && !enableTaxation) th.style.display = 'none';
+                if (colDef.id === 'tax_pct' && !enableTaxation) th.style.display = 'none';
+                if (colDef.id === 'tax_amt' && !enableTaxation) th.style.display = 'none';
                 if (colDef.id === 'foc' && !enableFOC) th.style.display = 'none';
 
                 totalsRow.appendChild(th);
@@ -767,8 +742,8 @@
         document.querySelectorAll('.disc-amt-col').forEach(el => el.style.display = enableCashDiscountAmount ? 'table-cell' : 'none');
         document.querySelectorAll('.to-pct-col').forEach(el => el.style.display = enableTradeOfferDiscount ? 'table-cell' : 'none');
         document.querySelectorAll('.to-amt-col').forEach(el => el.style.display = enableTradeOfferAmount ? 'table-cell' : 'none');
-        document.querySelectorAll('.gst-pct-col').forEach(el => el.style.display = enableTaxation ? 'table-cell' : 'none');
-        document.querySelectorAll('.gst-amt-col').forEach(el => el.style.display = enableTaxation ? 'table-cell' : 'none');
+        document.querySelectorAll('.tax-pct-col').forEach(el => el.style.display = enableTaxation ? 'table-cell' : 'none');
+        document.querySelectorAll('.tax-amt-col').forEach(el => el.style.display = enableTaxation ? 'table-cell' : 'none');
         document.querySelectorAll('.foc-col').forEach(el => el.style.display = enableFOC ? 'table-cell' : 'none');
 
         // Get invoice ID from URL
@@ -778,32 +753,6 @@
         if (!invoiceId) {
             alert('Invoice ID is required');
             window.close();
-        }
-
-        // Fetch customer's closing balance from ledger
-        async function fetchCustomerClosingBalance(customerId, companyId) {
-            try {
-                const params = new URLSearchParams({
-                    customer_id: customerId,
-                    as_of_date: new Date().toISOString().split('T')[0] // Today's date
-                });
-                if (companyId) {
-                    params.append('company_id', companyId);
-                }
-                
-                const response = await fetch(`../../../../server/api/sale/pos_invoice/get-customer-closing-balance.php?${params}`);
-                const data = await response.json();
-                
-                if (data.success) {
-                    return parseFloat(data.closing_balance);
-                } else {
-                    console.error('Error fetching closing balance:', data.message);
-                    return 0;
-                }
-            } catch (error) {
-                console.error('Error fetching closing balance:', error);
-                return 0;
-            }
         }
 
         // Load company, user and invoice data
@@ -837,10 +786,7 @@
                             populateCompanyData(companyData.company);
                         }
                     }
-                    
-                    // Fetch customer's closing balance before populating invoice data
-                    const closingBalanceData = await fetchCustomerClosingBalance(invoiceData.invoice.customer_id, invoiceData.invoice.company_id);
-                    populateInvoiceData(invoiceData.invoice, invoiceData.items, closingBalanceData);
+                    populateInvoiceData(invoiceData.invoice, invoiceData.items);
                 } else {
                     alert('Error loading invoice: ' + invoiceData.message);
                 }
@@ -870,7 +816,7 @@
             document.getElementById('companyEmail').textContent = company.email ? `Email: ${company.email}` : '';
         }
 
-        function populateInvoiceData(invoice, items, closingBalanceData) {
+        function populateInvoiceData(invoice, items) {
             // Populate header info
             document.getElementById('invoiceNo').textContent = invoice.bill_no;
             document.getElementById('invoiceDate').textContent = new Date(invoice.sale_date).toLocaleDateString();
@@ -900,9 +846,11 @@
                 document.getElementById('customerEmail').textContent = invoice.customer_email || '-';
             }
 
-            const previousBalanceEl = document.getElementById('previousBalance');
-            if (previousBalanceEl) {
-                previousBalanceEl.closest('p').style.display = 'none';
+            const previousBalanceEl = document.getElementById('previousBalance').closest('p');
+            if (localStorage.getItem('hidePrintPreviousBalance') === 'true') {
+                previousBalanceEl.style.display = 'none';
+            } else {
+                document.getElementById('previousBalance').textContent = invoice.previous_balance;
             }
 
             const branchText = invoice.parent_branch_name ?
@@ -964,7 +912,7 @@
             const tbody = document.getElementById('itemsTableBody');
             tbody.innerHTML = '';
 
-            let totalQty = 0, totalPcs = 0, totalCtn = 0, totalDz = 0, totalUnitPrice = 0, totalGrossAmount = 0, totalDiscountAmountItems = 0, totalTradeOfferAmountItems = 0, totalGstAmountItems = 0, totalFocQty = 0, totalNetAmountItems = 0;
+            let totalQty = 0, totalPcs = 0, totalCtn = 0, totalDz = 0, totalUnitPrice = 0, totalGrossAmount = 0, totalDiscountAmountItems = 0, totalTradeOfferAmountItems = 0, totalTaxAmountItems = 0, totalFocQty = 0, totalNetAmountItems = 0;
 
             // Group items by product_id to reconstruct rows with multiple units
             const itemsByProduct = {};
@@ -1054,8 +1002,8 @@
                     { id: 'disc_pct', value: parseFloat(item.discount_percent || 0).toFixed(2) + '%', visible: enableCashDiscountPercent },
                     { id: 'disc_amt', value: currencySymbol + ' ' + parseFloat(item.discount_amount || 0).toFixed(2), visible: enableCashDiscountAmount },
                     { id: 'to_amt', value: currencySymbol + ' ' + parseFloat(item.trade_offer_amount || 0).toFixed(2), visible: enableTradeOfferAmount },
-                    { id: 'gst_pct', value: parseFloat(item.gst_percent || 0).toFixed(2) + '%', visible: enableTaxation },
-                    { id: 'gst_amt', value: currencySymbol + ' ' + parseFloat(item.gst_amount || 0).toFixed(2), visible: enableTaxation },
+                    { id: 'tax_pct', value: parseFloat(item.tax_percent || 0).toFixed(2) + '%', visible: enableTaxation },
+                    { id: 'tax_amt', value: currencySymbol + ' ' + parseFloat(item.tax_amount || 0).toFixed(2), visible: enableTaxation },
                     { id: 'foc', value: parseFloat(item.foc_quantity || 0).toFixed(2), visible: enableFOC },
                     { id: 'net', value: currencySymbol + ' ' + parseFloat(item.net_amount).toFixed(2), visible: true }
                 ];
@@ -1083,7 +1031,7 @@
                 totalGrossAmount += parseFloat(item.gross_amount);
                 totalDiscountAmountItems += parseFloat(item.discount_amount || 0);
                 totalTradeOfferAmountItems += parseFloat(item.trade_offer_amount || 0);
-                totalGstAmountItems += parseFloat(item.gst_amount || 0);
+                totalTaxAmountItems += parseFloat(item.tax_amount || 0);
                 totalFocQty += parseFloat(item.foc_quantity || 0);
                 totalNetAmountItems += parseFloat(item.net_amount);
             });
@@ -1125,7 +1073,7 @@
                     }
 
                     // Remaining columns - all dashes for child items
-                    const remainingCols = ['price', 'gross', 'disc_pct', 'disc_amt', 'to_amt', 'gst_pct', 'gst_amt', 'foc', 'net'];
+                    const remainingCols = ['price', 'gross', 'disc_pct', 'disc_amt', 'to_amt', 'tax_pct', 'tax_amt', 'foc', 'net'];
                     remainingCols.forEach(colId => {
                         const col = columnConfig.find(c => c.id === colId);
                         if (col && col.visible === false) return;
@@ -1138,8 +1086,8 @@
                         if (colId === 'disc_pct' && !enableCashDiscountPercent) td.style.display = 'none';
                         if (colId === 'disc_amt' && !enableCashDiscountAmount) td.style.display = 'none';
                         if (colId === 'to_amt' && !enableTradeOfferAmount) td.style.display = 'none';
-                        if (colId === 'gst_pct' && !enableTaxation) td.style.display = 'none';
-                        if (colId === 'gst_amt' && !enableTaxation) td.style.display = 'none';
+                        if (colId === 'tax_pct' && !enableTaxation) td.style.display = 'none';
+                        if (colId === 'tax_amt' && !enableTaxation) td.style.display = 'none';
                         if (colId === 'foc' && !enableFOC) td.style.display = 'none';
                     });
                 });
@@ -1154,7 +1102,7 @@
             const totalGrossAmountEl = document.getElementById('totalGrossAmount');
             const totalDiscountAmountItemsEl = document.getElementById('totalDiscountAmountItems');
             const totalTradeOfferAmountItemsEl = document.getElementById('totalTradeOfferAmountItems');
-            const totalGstAmountItemsEl = document.getElementById('totalGstAmountItems');
+            const totalTaxAmountItemsEl = document.getElementById('totalTaxAmountItems');
             const totalFocQtyEl = document.getElementById('totalFocQty');
             const totalNetAmountItemsEl = document.getElementById('totalNetAmountItems');
 
@@ -1166,7 +1114,7 @@
             if (totalGrossAmountEl) totalGrossAmountEl.textContent = `${currencySymbol} ${totalGrossAmount.toFixed(2)}`;
             if (totalDiscountAmountItemsEl) totalDiscountAmountItemsEl.textContent = `${currencySymbol} ${totalDiscountAmountItems.toFixed(2)}`;
             if (totalTradeOfferAmountItemsEl) totalTradeOfferAmountItemsEl.textContent = `${currencySymbol} ${totalTradeOfferAmountItems.toFixed(2)}`;
-            if (totalGstAmountItemsEl) totalGstAmountItemsEl.textContent = `${currencySymbol} ${totalGstAmountItems.toFixed(2)}`;
+            if (totalTaxAmountItemsEl) totalTaxAmountItemsEl.textContent = `${currencySymbol} ${totalTaxAmountItems.toFixed(2)}`;
             if (totalFocQtyEl) totalFocQtyEl.textContent = totalFocQty.toFixed(2);
             if (totalNetAmountItemsEl) totalNetAmountItemsEl.textContent = `${currencySymbol} ${totalNetAmountItems.toFixed(2)}`;
 
@@ -1177,14 +1125,7 @@
             // Calculate paid and balance from receive voucher
             const amountPaid = parseFloat(invoice.amount_paid) || 0;
             const remainingBalance = parseFloat(invoice.net_amount) - amountPaid;
-            
-            // Use closing balance from ledger
-            const closingBalance = closingBalanceData || 0;
-            const netAmount = parseFloat(invoice.net_amount);
-            const totalBalance = closingBalance; // Total Balance from customer ledger
-            const previousBalance = closingBalance - netAmount; // Total Balance - Current Invoice Amount
 
-            const totalBalanceCalculated = amountPaid - totalBalance;
             const totalsData = [
                 { id: 'totalBill', label: localStorage.getItem('labelTotalBill') || 'Total Bill', value: `${currencySymbol} ${parseFloat(invoice.total_bill).toFixed(2)}`, show: localStorage.getItem('hidePrintTotalBill') !== 'true' },
                 { id: 'discountPercent', label: 'Discount (%)', value: parseFloat(invoice.total_discount_percent).toFixed(2) + '%', show: enableInvoiceCashDiscountPercent },
@@ -1193,17 +1134,14 @@
                 { id: 'netAmount', label: localStorage.getItem('labelNetAmount') || 'Net Amount', value: `${currencySymbol} ${parseFloat(invoice.net_amount).toFixed(2)}`, show: localStorage.getItem('hidePrintNetAmount') !== 'true', isTotal: true },
                 { id: 'amountPaid', label: localStorage.getItem('labelAmountPaid') || 'Amount Paid', value: `${currencySymbol} ${amountPaid.toFixed(2)}`, show: localStorage.getItem('hidePrintAmountPaid') !== 'true' },
                 { id: 'paymentMethod', label: localStorage.getItem('labelPaymentMethod') || 'Payment Method', value: invoice.payment_method || '-', show: localStorage.getItem('hidePrintPaymentMethod') !== 'true' },
-                { id: 'remainingBalance', label: localStorage.getItem('labelRemainingBalance') || 'Remaining Balance', value: `${currencySymbol} ${remainingBalance.toFixed(2)}`, show: localStorage.getItem('hidePrintRemainingBalance') !== 'true' },
-                { id: 'previousBalance', label: 'Previous Balance', value: `${currencySymbol} ${Math.abs(previousBalance).toFixed(2)} Dr`, show: true, isSpecial: true },
-                { id: 'totalBalance', label: 'Total Balance', value: `${currencySymbol} ${Math.abs(totalBalanceCalculated).toFixed(2)} Dr`, show: true, isSpecial: true }
+                { id: 'remainingBalance', label: localStorage.getItem('labelRemainingBalance') || 'Remaining Balance', value: `${currencySymbol} ${remainingBalance.toFixed(2)}`, show: localStorage.getItem('hidePrintRemainingBalance') !== 'true' }
             ];
 
             if (totalsLayout === 'horizontal-2' || totalsLayout === 'horizontal-3') {
                 const container = document.getElementById('totalsHorizontal');
                 totalsData.filter(item => item.show).forEach(item => {
                     const div = document.createElement('div');
-                    div.className = 'totals-item' + (item.isTotal ? ' total-row' : '') + (item.isSpecial ? ` ${item.id}` : '');
-                    div.id = item.id;
+                    div.className = 'totals-item' + (item.isTotal ? ' total-row' : '');
                     div.innerHTML = `<span>${item.label}:</span><span>${item.value}</span>`;
                     container.appendChild(div);
                 });
@@ -1231,15 +1169,6 @@
                 document.getElementById('amountPaid').textContent = `${currencySymbol} ${amountPaid.toFixed(2)}`;
                 document.getElementById('paymentMethod').textContent = invoice.payment_method || '-';
                 document.getElementById('remainingBalance').textContent = `${currencySymbol} ${remainingBalance.toFixed(2)}`;
-
-                // Set Previous Balance from sale_invoice.previous_balance column
-                const invoicePreviousBalance = parseFloat(invoice.previous_balance) || 0;
-                const previousBalanceSign = invoicePreviousBalance >= 0 ? 'Dr' : 'Cr';
-                document.getElementById('previousBalanceAmount').textContent = `${currencySymbol} ${Math.abs(invoicePreviousBalance).toFixed(2)} ${previousBalanceSign}`;
-                
-                // Set Total Balance using data from ledger
-                const totalBalanceCalculated = amountPaid - totalBalance;
-                document.getElementById('totalBalance').textContent = `${currencySymbol} ${Math.abs(totalBalanceCalculated).toFixed(2)} Dr`;
             }
 
             // Convert net amount to words
