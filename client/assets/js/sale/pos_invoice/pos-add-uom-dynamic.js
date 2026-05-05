@@ -132,9 +132,12 @@ function updateRowUnitCells(row, uomConfig, maxUnits, existingValues = []) {
                 input.value = existingValue.value;
             }
             
-            input.addEventListener('input', function() {
+            input.addEventListener('input', async function() {
                 calculateTotalQuantityDynamic(row);
-            });
+                if (typeof validateRowStockRealTime === 'function') {
+                    await validateRowStockRealTime(row);
+                }
+            });}
             
             cell.appendChild(input);
         } else {
@@ -216,18 +219,8 @@ function calculateRowAmountsDynamic(row, totalQty) {
     const afterDiscount = grossAmount - discountAmount;
     const tradeOfferAmount = parseFloat(toAmountInput?.value) || 0;
     const afterTO = afterDiscount - tradeOfferAmount;
-
-    // Inclusive: tax is embedded in the price — extract it (net stays at afterTO)
-    // Exclusive: tax is added on top of afterTO
-    const isTaxInclusive = row.dataset.isTaxInclusive === '1';
-    let gstAmount, netAmount;
-    if (isTaxInclusive) {
-        gstAmount = gstPercent > 0 ? afterTO * gstPercent / (100 + gstPercent) : 0;
-        netAmount = afterTO;
-    } else {
-        gstAmount = afterTO * (gstPercent / 100);
-        netAmount = afterTO + gstAmount;
-    }
+    const gstAmount = afterTO * (gstPercent / 100);
+    const netAmount = afterTO + gstAmount;
     
     if (grossInput) grossInput.value = grossAmount.toFixed(2);
     if (discAmountInput) discAmountInput.value = discountAmount.toFixed(2);
