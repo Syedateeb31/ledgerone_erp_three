@@ -197,56 +197,26 @@ try {
             $stmt->execute([$tenant_id, 'customer_opening', 'customers', $customer_id, 2, 'Customer opening credit balance', 0, $opening_credit]);
         }
         
-        // Update/Insert/Delete sub accounts
+        // Delete existing sub accounts
+        $stmt = $pdo->prepare("DELETE FROM customer_sub_accounts WHERE tenant_id = ? AND customer_id = ?");
+        $stmt->execute([$tenant_id, $customer_id]);
+        
+        // Insert new sub accounts
         $sub_accounts = $input['subAccounts'] ?? [];
         if (!empty($sub_accounts)) {
-            // Get existing sub accounts
-            $stmt = $pdo->prepare("SELECT id FROM customer_sub_accounts WHERE tenant_id = ? AND customer_id = ?");
-            $stmt->execute([$tenant_id, $customer_id]);
-            $existingIds = array_column($stmt->fetchAll(PDO::FETCH_ASSOC), 'id');
-            $processedIds = [];
-            
+            $sub_sql = "INSERT INTO customer_sub_accounts (tenant_id, customer_id, sub_account_name, debit, credit) VALUES (?, ?, ?, ?, ?)";
+            $stmt = $pdo->prepare($sub_sql);
             foreach ($sub_accounts as $sub) {
                 if (!empty($sub['sub_account_name'])) {
-                    $subAccountId = $sub['id'] ?? null;
-                    
-                    if ($subAccountId && in_array($subAccountId, $existingIds)) {
-                        // Update existing sub account
-                        $stmt = $pdo->prepare("UPDATE customer_sub_accounts SET sub_account_name = ?, debit = ?, credit = ? WHERE id = ? AND tenant_id = ? AND customer_id = ?");
-                        $stmt->execute([
-                            $sub['sub_account_name'],
-                            floatval($sub['debit'] ?? 0),
-                            floatval($sub['credit'] ?? 0),
-                            $subAccountId,
-                            $tenant_id,
-                            $customer_id
-                        ]);
-                        $processedIds[] = $subAccountId;
-                    } else {
-                        // Insert new sub account
-                        $stmt = $pdo->prepare("INSERT INTO customer_sub_accounts (tenant_id, customer_id, sub_account_name, debit, credit) VALUES (?, ?, ?, ?, ?)");
-                        $stmt->execute([
-                            $tenant_id,
-                            $customer_id,
-                            $sub['sub_account_name'],
-                            floatval($sub['debit'] ?? 0),
-                            floatval($sub['credit'] ?? 0)
-                        ]);
-                    }
+                    $stmt->execute([
+                        $tenant_id, 
+                        $customer_id, 
+                        $sub['sub_account_name'],
+                        floatval($sub['debit'] ?? 0),
+                        floatval($sub['credit'] ?? 0)
+                    ]);
                 }
             }
-            
-            // Delete sub accounts that were removed
-            $idsToDelete = array_diff($existingIds, $processedIds);
-            if (!empty($idsToDelete)) {
-                $placeholders = implode(',', array_fill(0, count($idsToDelete), '?'));
-                $stmt = $pdo->prepare("DELETE FROM customer_sub_accounts WHERE id IN ($placeholders) AND tenant_id = ? AND customer_id = ?");
-                $stmt->execute(array_merge($idsToDelete, [$tenant_id, $customer_id]));
-            }
-        } else {
-            // Delete all sub accounts if none provided
-            $stmt = $pdo->prepare("DELETE FROM customer_sub_accounts WHERE tenant_id = ? AND customer_id = ?");
-            $stmt->execute([$tenant_id, $customer_id]);
         }
         
         echo json_encode(['success' => true, 'message' => 'Customer updated successfully']);

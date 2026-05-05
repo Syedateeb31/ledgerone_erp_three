@@ -56,6 +56,7 @@ try {
         'supplier_code' => $supplier_code,
         'supplier_name' => trim($input['supplierName']),
         'address' => !empty($input['address']) ? trim($input['address']) : null,
+        'brand_name' => !empty($input['brandName']) ? trim($input['brandName']) : null,
         'primary_phone' => !empty($input['primaryPhone']) ? trim($input['primaryPhone']) : null,
         'secondary_phone' => !empty($input['secondaryPhone']) ? trim($input['secondaryPhone']) : null,
         'identity_card_no' => !empty($input['identityCard']) ? trim($input['identityCard']) : null,
@@ -75,7 +76,7 @@ try {
     $data['id'] = $new_id;
     
     // Insert supplier
-    $sql = "INSERT INTO suppliers (id, tenant_id, company_id, salesman_id, supplier_code, supplier_name, address, primary_phone, secondary_phone, identity_card_no, email, opening_debit_amount, opening_credit_amount, ait_percent, is_blacklisted, created_by, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+    $sql = "INSERT INTO suppliers (id, tenant_id, company_id, salesman_id, supplier_code, supplier_name, brand_name,  address, primary_phone, secondary_phone, identity_card_no, email, opening_debit_amount, opening_credit_amount, ait_percent, is_blacklisted, created_by, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
     
     $stmt = $pdo->prepare($sql);
     $stmt->execute([
@@ -85,6 +86,7 @@ try {
         $data['salesman_id'],
         $data['supplier_code'],
         $data['supplier_name'],
+        $data['brand_name'],
         $data['address'],
         $data['primary_phone'],
         $data['secondary_phone'],
