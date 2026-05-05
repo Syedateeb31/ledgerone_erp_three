@@ -79,7 +79,16 @@ if (strpos($host, 'unisensystems.com') !== false) {
                     </div>
                 </div>
 
-                <div class="raw-title">Materials Issued</div>
+                <div class="raw-title">
+                    Materials Issued
+                    <div class="autocomplete-toggle">
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="autocompleteToggle">
+                            <span class="toggle-slider"></span>
+                        </label>
+                        <span class="toggle-label">Auto-fill Required Qty</span>
+                    </div>
+                </div>
 
                 <div class="table-responsive">
                     <table>

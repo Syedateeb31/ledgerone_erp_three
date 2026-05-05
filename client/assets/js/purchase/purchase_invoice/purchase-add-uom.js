@@ -56,6 +56,8 @@ function updateTableHeaders() {
 // Update footer totals
 function updateFooterTotals() {
     const footerRow = document.querySelector('#itemsTable tfoot tr');
+    if (!footerRow) return; // Exit if footer doesn't exist
+    
     const totalsLabel = footerRow.cells[0]; // "Totals" cell
     
     // Clear existing unit totals
@@ -92,7 +94,7 @@ function updateFooterTotals() {
         const grossCell = row.querySelector('.gross-cell');
         const discAmountCell = row.querySelector('.disc-amount-cell');
         const toAmountCell = row.querySelector('.to-amount-cell');
-        const gstAmountCell = row.querySelector('.gst-amount-cell');
+        const taxAmountCell = row.querySelector('.tax-amount-cell');
         const focCell = row.querySelector('.foc-cell');
         const netCell = row.querySelector('.net-cell');
         
@@ -100,18 +102,31 @@ function updateFooterTotals() {
         if (grossCell) totalGross += parseFloat(grossCell.querySelector('input').value) || 0;
         if (discAmountCell) totalDisc += parseFloat(discAmountCell.querySelector('input').value) || 0;
         if (toAmountCell) totalTO += parseFloat(toAmountCell.querySelector('input').value) || 0;
-        if (gstAmountCell) totalGST += parseFloat(gstAmountCell.querySelector('input').value) || 0;
+        if (taxAmountCell) totalGST += parseFloat(taxAmountCell.querySelector('input').value) || 0;
         if (focCell) totalFOC += parseFloat(focCell.querySelector('input').value) || 0;
         if (netCell) totalNet += parseFloat(netCell.querySelector('input').value) || 0;
     }
     
-    document.getElementById('totalPurchasePrice').textContent = totalPrice.toFixed(2);
-    document.getElementById('totalGrossAmount').textContent = totalGross.toFixed(2);
-    document.getElementById('totalDiscountAmountItems').textContent = totalDisc.toFixed(2);
-    document.getElementById('totalTradeOfferAmountItems').textContent = totalTO.toFixed(2);
-    document.getElementById('totalGSTAmountItems').textContent = totalGST.toFixed(2);
-    document.getElementById('totalFOCQty').textContent = totalFOC.toFixed(2);
-    document.getElementById('totalNetAmountItems').textContent = totalNet.toFixed(2);
+    const totalPurchasePriceEl = document.getElementById('totalPurchasePrice');
+    if (totalPurchasePriceEl) totalPurchasePriceEl.textContent = totalPrice.toFixed(2);
+    
+    const totalGrossAmountEl = document.getElementById('totalGrossAmount');
+    if (totalGrossAmountEl) totalGrossAmountEl.textContent = totalGross.toFixed(2);
+    
+    const totalDiscountAmountItemsEl = document.getElementById('totalDiscountAmountItems');
+    if (totalDiscountAmountItemsEl) totalDiscountAmountItemsEl.textContent = totalDisc.toFixed(2);
+    
+    const totalTradeOfferAmountItemsEl = document.getElementById('totalTradeOfferAmountItems');
+    if (totalTradeOfferAmountItemsEl) totalTradeOfferAmountItemsEl.textContent = totalTO.toFixed(2);
+    
+    const totalGSTAmountItemsEl = document.getElementById('totalGSTAmountItems');
+    if (totalGSTAmountItemsEl) totalGSTAmountItemsEl.textContent = totalGST.toFixed(2);
+    
+    const totalFOCQtyEl = document.getElementById('totalFOCQty');
+    if (totalFOCQtyEl) totalFOCQtyEl.textContent = totalFOC.toFixed(2);
+    
+    const totalNetAmountItemsEl = document.getElementById('totalNetAmountItems');
+    if (totalNetAmountItemsEl) totalNetAmountItemsEl.textContent = totalNet.toFixed(2);
 }
 
 // Recalculate max columns when products change
@@ -278,9 +293,13 @@ function calculateRowAmounts(row, qty, price) {
     const discAmountCell = row.querySelector('.disc-amount-cell');
     const toPercentCell = row.querySelector('.to-percent-cell');
     const toAmountCell = row.querySelector('.to-amount-cell');
-    const gstPercentCell = row.querySelector('.gst-percent-cell');
-    const gstAmountCell = row.querySelector('.gst-amount-cell');
+    const taxPercentCell = row.querySelector('.tax-percent-cell');
+    const taxAmountCell = row.querySelector('.tax-amount-cell');
     const netCell = row.querySelector('.net-cell');
+    
+    if (!grossCell || !discPercentCell || !discAmountCell || !toPercentCell || !toAmountCell || !taxPercentCell || !taxAmountCell || !netCell) {
+        return; // Cells not yet created
+    }
     
     const gross = qty * price;
     grossCell.querySelector('input').value = gross.toFixed(2);
@@ -297,11 +316,11 @@ function calculateRowAmounts(row, qty, price) {
     
     const afterTO = afterDiscount - toAmount;
     
-    const gstPercent = parseFloat(gstPercentCell.querySelector('input').value) || 0;
-    const gstAmount = afterTO * (gstPercent / 100);
-    gstAmountCell.querySelector('input').value = gstAmount.toFixed(2);
+    const taxPercent = parseFloat(taxPercentCell.querySelector('input').value) || 0;
+    const taxAmount = afterTO * (taxPercent / 100);
+    taxAmountCell.querySelector('input').value = taxAmount.toFixed(2);
     
-    const net = afterTO + gstAmount;
+    const net = afterTO + taxAmount;
     netCell.querySelector('input').value = net.toFixed(2);
     
     updateInvoiceSummaryDynamic();
@@ -319,22 +338,37 @@ function updateInvoiceSummaryDynamic() {
         }
     }
     
-    document.getElementById('totalBill').textContent = totalBill.toFixed(2);
+    const totalBillElement = document.getElementById('totalBill');
+    if (totalBillElement) totalBillElement.textContent = totalBill.toFixed(2);
     
-    const discountPercent = parseFloat(document.getElementById('totalDiscountPercent').value) || 0;
+    const discountPercentElement = document.getElementById('totalDiscountPercent');
+    const discountPercent = discountPercentElement ? parseFloat(discountPercentElement.value) || 0 : 0;
     const discountAmount = totalBill * (discountPercent / 100);
     const afterDiscount = totalBill - discountAmount;
     
-    const gstPercent = parseFloat(document.getElementById('totalGSTPercent').value) || 0;
+    const gstPercentElement = document.getElementById('totalGSTPercent');
+    const gstPercent = gstPercentElement ? parseFloat(gstPercentElement.value) || 0 : 0;
     const gstAmount = afterDiscount * (gstPercent / 100);
-    const shippingFees = parseFloat(document.getElementById('shippingFees').value) || 0;
+    
+    const shippingFeesElement = document.getElementById('shippingFees');
+    const shippingFees = shippingFeesElement ? parseFloat(shippingFeesElement.value) || 0 : 0;
     const netAmount = afterDiscount + gstAmount + shippingFees;
     
-    document.getElementById('totalDiscountAmount').value = discountAmount.toFixed(2);
-    document.getElementById('totalGSTAmount').value = gstAmount.toFixed(2);
-    document.getElementById('netAmount').textContent = netAmount.toFixed(2);
+    const discountAmountElement = document.getElementById('totalDiscountAmount');
+    if (discountAmountElement) discountAmountElement.value = discountAmount.toFixed(2);
+    
+    const gstAmountElement = document.getElementById('totalGSTAmount');
+    if (gstAmountElement) gstAmountElement.value = gstAmount.toFixed(2);
+    
+    const netAmountElement = document.getElementById('netAmount');
+    if (netAmountElement) netAmountElement.textContent = netAmount.toFixed(2);
     
     updateFooterTotals();
+    
+    // Trigger invoice-level tax calculation
+    if (window.calculateInvoiceLevelTaxes) {
+        setTimeout(() => window.calculateInvoiceLevelTaxes(), 5);
+    }
 }
 
 // Helper function to attach price change listener (called from purchase-add.js)

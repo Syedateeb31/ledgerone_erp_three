@@ -14,10 +14,26 @@ document.addEventListener('DOMContentLoaded', function () {
         window.location.href = 'product-add.php';
     });
 
+    // Bulk Opening Stock button
+    document.getElementById('bulkOpeningStockBtn').addEventListener('click', function () {
+        window.location.href = 'bulk-opening-stock.php';
+    });
+
     // Add First Product button
     document.getElementById('addFirstProduct').addEventListener('click', function () {
         window.location.href = 'product-add.php';
     });
+    
+    // AIQ button
+    if (document.getElementById('aiqBtn')) {
+        document.getElementById('aiqBtn').addEventListener('click', openAiqModal);
+        document.getElementById('closeAiqModal').addEventListener('click', closeAiqModal);
+        document.getElementById('cancelAiq').addEventListener('click', closeAiqModal);
+        document.getElementById('confirmAiqPrint').addEventListener('click', handleAiqPrint);
+        document.getElementById('aiqModal').addEventListener('click', function(e) {
+            if (e.target === this) closeAiqModal();
+        });
+    }
     
     // Select All checkbox
     document.getElementById('selectAll').addEventListener('change', function() {
@@ -211,7 +227,7 @@ function renderProductTable(productsToRender) {
                     <td>
                         <div class="action-buttons">
                             ${product.qrCode || product.barcode ? `
-                            <button class="btn btn-icon btn-ghost print-code" data-id="${product.id}" data-qr="${product.qrCode || ''}" data-barcode="${product.barcode || ''}" data-name="${product.name}" data-code="${product.code}" data-price="${product.tradePrice}" data-company="${product.companyName || ''}" data-currency="${product.currencySymbol}" title="Print Code">
+                            <button class="btn btn-icon btn-ghost print-code" data-id="${product.id}" data-qr="${product.qrCode || ''}" data-barcode="${product.barcode || ''}" data-name="${product.name}" data-code="${product.code}" data-trade-price="${product.tradePrice}" data-wholesale-price="${product.wholesalePrice}" data-mrp-price="${product.mrp}" data-company="${product.companyName || ''}" data-currency="${product.currencySymbol}" title="Print Code">
                                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
                                     <path d="M4 6V2H12V6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
                                     <path d="M4 11H2V7H14V11H12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
@@ -244,10 +260,12 @@ function renderProductTable(productsToRender) {
             const barcode = this.getAttribute('data-barcode');
             const name = this.getAttribute('data-name');
             const code = this.getAttribute('data-code');
-            const price = this.getAttribute('data-price');
+            const tradePrice = this.getAttribute('data-trade-price');
+            const wholesalePrice = this.getAttribute('data-wholesale-price');
+            const mrpPrice = this.getAttribute('data-mrp-price');
             const company = this.getAttribute('data-company');
             const currency = this.getAttribute('data-currency');
-            printCode(qr, barcode, name, code, price, company, currency);
+            printCode(qr, barcode, name, code, tradePrice, company, currency, wholesalePrice, mrpPrice);
         });
     });
     
@@ -574,6 +592,8 @@ function loadProducts(page = 1) {
                     currentStock: product.current_stock,
                     price: parseFloat(priceType === 'tp' ? product.trade_price : product.mrp),
                     tradePrice: parseFloat(product.trade_price),
+                    wholesalePrice: parseFloat(product.wholesale_price),
+                    mrp: parseFloat(product.mrp),
                     status: product.is_active ? 'active' : 'inactive',
                     noStockRecords: product.no_stock_records == 1,
                     currencySymbol: product.currency_symbol || '₹',
@@ -652,7 +672,50 @@ function updatePagination() {
     }
 }
 
-function printCode(qr, barcode, productName, productCode, tradePrice, companyName, currencySymbol) {
+function updatePriceTypePreview() {
+    const modal = document.getElementById('printCodeModal');
+    const priceDisplay = document.querySelector('#printCodeContent .priceDisplay');
+    
+    if (!modal || !priceDisplay) {
+        console.log('Modal or price display not found');
+        return;
+    }
+    
+    const showPrice = document.getElementById('showPrice').checked;
+    const selectedRadio = document.querySelector('input[name="printPriceType"]:checked');
+    
+    if (!selectedRadio) {
+        console.log('No price type selected');
+        return;
+    }
+    
+    const priceType = selectedRadio.value;
+    const currencySymbol = modal.dataset.currencySymbol || 'Rs.';
+    
+    let displayPrice = modal.dataset.tradePrice || '0';
+    
+    console.log('Price Type:', priceType);
+    console.log('TP:', modal.dataset.tradePrice);
+    console.log('Wholesale:', modal.dataset.wholesalePrice);
+    console.log('MRP:', modal.dataset.mrpPrice);
+    
+    if (priceType === 'wholesale') {
+        displayPrice = modal.dataset.wholesalePrice || modal.dataset.tradePrice || '0';
+    } else if (priceType === 'mrp') {
+        displayPrice = modal.dataset.mrpPrice || modal.dataset.tradePrice || '0';
+    }
+    
+    console.log('Display Price:', displayPrice);
+    
+    if (showPrice) {
+        priceDisplay.style.display = 'block';
+        priceDisplay.textContent = currencySymbol + ' ' + parseFloat(displayPrice).toFixed(2);
+    } else {
+        priceDisplay.style.display = 'none';
+    }
+}
+
+function printCode(qr, barcode, productName, productCode, tradePrice, companyName, currencySymbol, wholesalePrice, mrpPrice) {
     const modal = document.getElementById('printCodeModal');
     const content = document.getElementById('printCodeContent');
     content.innerHTML = '';
@@ -666,16 +729,20 @@ function printCode(qr, barcode, productName, productCode, tradePrice, companyNam
     }
     
     let canvas;
+    let imageData = '';
+    
     if (qr) {
         canvas = document.createElement('canvas');
         canvas.width = 200;
         canvas.height = 200;
         new QRious({ element: canvas, value: qr, size: 200 });
         content.appendChild(canvas);
+        imageData = canvas.toDataURL();
     } else if (barcode) {
         canvas = document.createElement('canvas');
         JsBarcode(canvas, barcode, { format: "CODE128", width: 2, height: 80, displayValue: true });
         content.appendChild(canvas);
+        imageData = canvas.toDataURL();
     }
     
     // Add product details below code
@@ -683,44 +750,183 @@ function printCode(qr, barcode, productName, productCode, tradePrice, companyNam
     detailsDiv.style.cssText = 'margin-top: 16px; text-align: center; line-height: 1.6;';
     detailsDiv.innerHTML = `
         <div style="font-size: 16px; font-weight: 600; color: var(--heading); margin-bottom: 8px;">${productName}</div>
-        <div style="font-size: 15px; font-weight: 700; color: var(--primary);">${currencySymbol}${parseFloat(tradePrice).toFixed(2)}</div>
+        <div class="priceDisplay" style="font-size: 15px; font-weight: 700; color: var(--primary);">${currencySymbol} ${parseFloat(tradePrice).toFixed(2)}</div>
     `;
     content.appendChild(detailsDiv);
     
     modal.style.display = 'flex';
     document.getElementById('printCopies').value = 1;
     
-    document.getElementById('closePrintCodeModal').onclick = () => modal.style.display = 'none';
-    document.getElementById('cancelPrintCode').onclick = () => modal.style.display = 'none';
-    document.getElementById('confirmPrintCode').onclick = () => {
-        const copies = parseInt(document.getElementById('printCopies').value) || 1;
-        const printWindow = window.open('', '', 'width=800,height=600');
-        printWindow.document.write('<html><head><title>Print Code</title>');
-        printWindow.document.write('<style>body{font-family:Arial,sans-serif;text-align:center;padding:20px;}.print-item{margin:20px;page-break-inside:avoid;display:inline-block;}.company{font-size:18px;font-weight:700;margin-bottom:10px;}.details{margin-top:10px;}.name{font-size:16px;font-weight:600;margin-bottom:8px;}.price{font-size:15px;font-weight:700;color:#1f7bff;}</style>');
-        printWindow.document.write('</head><body>');
-        
-        const imageData = canvas.toDataURL();
-        for (let i = 0; i < copies; i++) {
-            printWindow.document.write('<div class="print-item">');
-            if (companyName) {
-                printWindow.document.write(`<div class="company">${companyName}</div>`);
+    // Store prices and currency in dataset for easy access
+    modal.dataset.tradePrice = tradePrice.toString();
+    modal.dataset.wholesalePrice = (wholesalePrice || tradePrice).toString();
+    modal.dataset.mrpPrice = (mrpPrice || tradePrice).toString();
+    modal.dataset.currencySymbol = currencySymbol;
+    modal.dataset.imageData = imageData;
+    modal.dataset.productName = productName;
+    modal.dataset.companyName = companyName;
+    
+    // Close handlers
+    const closePrintCodeModal = document.getElementById('closePrintCodeModal');
+    const cancelPrintCode = document.getElementById('cancelPrintCode');
+    
+    if (closePrintCodeModal) {
+        closePrintCodeModal.onclick = () => modal.style.display = 'none';
+    }
+    if (cancelPrintCode) {
+        cancelPrintCode.onclick = () => modal.style.display = 'none';
+    }
+    
+    // Setup event listeners for price type and show price changes
+    const priceTypeRadios = document.querySelectorAll('input[name="printPriceType"]');
+    const showPriceCheckbox = document.getElementById('showPrice');
+    
+    // Setup radio button listeners with arrow function to ensure proper context
+    priceTypeRadios.forEach(radio => {
+        radio.onchange = () => {
+            console.log('Radio changed to:', radio.value);
+            updatePriceTypePreview();
+        };
+    });
+    
+    // Setup checkbox listener
+    if (showPriceCheckbox) {
+        showPriceCheckbox.onchange = () => {
+            console.log('Show price toggled');
+            updatePriceTypePreview();
+        };
+    }
+    
+    // Set confirmPrintCode handler
+    const confirmPrintCode = document.getElementById('confirmPrintCode');
+    if (confirmPrintCode) {
+        confirmPrintCode.onclick = () => {
+            const copies = parseInt(document.getElementById('printCopies').value) || 1;
+            const showPrice = document.getElementById('showPrice').checked;
+            const priceType = document.querySelector('input[name="printPriceType"]:checked').value;
+            
+            let displayPrice = tradePrice;
+            if (priceType === 'wholesale') {
+                displayPrice = wholesalePrice || tradePrice;
+            } else if (priceType === 'mrp') {
+                displayPrice = mrpPrice || tradePrice;
             }
-            printWindow.document.write(`<img src="${imageData}">`);
-            printWindow.document.write('<div class="details">');
-            printWindow.document.write(`<div class="name">${productName}</div>`);
-            printWindow.document.write(`<div class="price">${currencySymbol}${parseFloat(tradePrice).toFixed(2)}</div>`);
-            printWindow.document.write('</div></div>');
-        }
-        
-        printWindow.document.write('</body></html>');
-        printWindow.document.close();
-        printWindow.focus();
-        setTimeout(() => {
-            printWindow.print();
-            printWindow.close();
-        }, 250);
-        modal.style.display = 'none';
-    };
+            
+            const printWindow = window.open('', '', 'width=800,height=600');
+            printWindow.document.write('<html><head><title>Print Code</title>');
+            printWindow.document.write('<style>body{font-family:Arial,sans-serif;text-align:center;padding:20px;}.print-item{margin:20px;page-break-inside:avoid;display:inline-block;}.company{font-size:18px;font-weight:700;margin-bottom:10px;}.details{margin-top:10px;}.name{font-size:16px;font-weight:600;margin-bottom:8px;}.price{font-size:15px;font-weight:700;color:#1f7bff;}</style>');
+            printWindow.document.write('</head><body>');
+            
+            for (let i = 0; i < copies; i++) {
+                printWindow.document.write('<div class="print-item">');
+                if (companyName) {
+                    printWindow.document.write(`<div class="company">${companyName}</div>`);
+                }
+                if (modal.dataset.imageData) {
+                    printWindow.document.write(`<img src="${modal.dataset.imageData}">`);
+                }
+                printWindow.document.write('<div class="details">');
+                printWindow.document.write(`<div class="name">${productName}</div>`);
+                if (showPrice) {
+                    printWindow.document.write(`<div class="price">${currencySymbol}${parseFloat(displayPrice).toFixed(2)}</div>`);
+                }
+                printWindow.document.write('</div></div>');
+            }
+            
+            printWindow.document.write('</body></html>');
+            printWindow.document.close();
+            printWindow.focus();
+            setTimeout(() => {
+                printWindow.print();
+                printWindow.close();
+            }, 250);
+            modal.style.display = 'none';
+        };
+    }
     
     modal.onclick = (e) => { if (e.target === modal) modal.style.display = 'none'; };
+    
+    // Update preview on initial load
+    updatePriceTypePreview();
+}
+
+function openAiqModal() {
+    const aiqModal = document.getElementById('aiqModal');
+    if (!aiqModal) return;
+    
+    const mfgDateInput = document.getElementById('aiqMfgDate');
+    const expDateInput = document.getElementById('aiqExpDate');
+    const copiesInput = document.getElementById('aiqCopies');
+    
+    if (mfgDateInput) mfgDateInput.value = '';
+    if (expDateInput) expDateInput.value = '';
+    if (copiesInput) copiesInput.value = '1';
+    
+    aiqModal.style.display = 'flex';
+}
+
+function closeAiqModal() {
+    const aiqModal = document.getElementById('aiqModal');
+    if (aiqModal) aiqModal.style.display = 'none';
+}
+
+function handleAiqPrint() {
+    const mfgDateInput = document.getElementById('aiqMfgDate');
+    const expDateInput = document.getElementById('aiqExpDate');
+    const copiesInput = document.getElementById('aiqCopies');
+    
+    if (!mfgDateInput || !expDateInput || !copiesInput) return;
+    
+    const mfgDate = mfgDateInput.value;
+    const expDate = expDateInput.value;
+    const copies = parseInt(copiesInput.value) || 1;
+    
+    const printWindow = window.open('', '', 'width=800,height=600');
+    printWindow.document.write('<html><head><title></title>');
+    printWindow.document.write(`<style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 10px; background: white; }
+        .page { page-break-after: always; display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; padding: 10px; }
+        .label { border: 2px solid #333; padding: 12px; width: 100%; box-sizing: border-box; background: white; }
+        .label-header { font-size: 11px; font-weight: bold; text-align: center; margin-bottom: 8px; color: #333; }
+        .label-row { display: flex; justify-content: space-between; margin: 6px 0; font-size: 10px; }
+        .label-key { font-weight: 600; width: 45%; }
+        .label-value { border-bottom: 1px solid #333; width: 50%; text-align: center; }
+        @media print { body { margin: 0; padding: 5px; } .page { page-break-after: always; } }
+    </style>`);
+    printWindow.document.write('</head><body>');
+    
+    let labelCount = 0;
+    let pageLabels = 0;
+    
+    for (let i = 0; i < copies; i++) {
+        if (labelCount === 0) {
+            if (pageLabels > 0) printWindow.document.write('</div>');
+            printWindow.document.write('<div class="page">');
+            pageLabels++;
+        }
+        
+        printWindow.document.write('<div class="label">');
+        printWindow.document.write('<div class="label-header"></div>');
+        if (mfgDate) {
+            printWindow.document.write('<div class="label-row"><span class="label-key">Mfg Date:</span><div class="label-value">' + mfgDate + '</div></div>');
+        }
+        if (expDate) {
+            printWindow.document.write('<div class="label-row"><span class="label-key">Exp Date:</span><div class="label-value">' + expDate + '</div></div>');
+        }
+        printWindow.document.write('</div>');
+        
+        labelCount++;
+        if (labelCount === 20) {
+            labelCount = 0;
+        }
+    }
+    
+    printWindow.document.write('</div></body></html>');
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+        printWindow.print();
+        printWindow.close();
+    }, 250);
+    closeAiqModal();
 }

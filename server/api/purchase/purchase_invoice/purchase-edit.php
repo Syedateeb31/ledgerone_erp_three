@@ -184,7 +184,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
             UPDATE purchase_invoice SET
                 company_id = ?, currency_id = ?, purchase_date = ?, supplier_id = ?, branch_id = ?,
                 previous_balance = ?, total_bill = ?, total_discount_percent = ?,
-                total_discount_amount = ?, total_gst_percent = ?, total_gst_amount = ?,
+                total_discount_amount = ?, total_tax_percent = ?, total_tax_amount = ?,
                 shipping_fees = ?, shipping_fees_type = ?, net_amount = ?, supplier_invoice_no = ?, 
                 supplier_invoice_date = ?, purchase_order_id = ?, bilty_no = ?, transport_name = ?, remarks = ?, sub_account_id = ?, updated_by = ?
             WHERE id = ? AND tenant_id = ?
@@ -199,8 +199,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
             $input['totalBill'],
             $input['totalDiscountPercent'] ?? 0.00,
             $input['totalDiscountAmount'] ?? 0.00,
-            $input['totalGSTPercent'] ?? 0.00,
-            $input['totalGSTAmount'] ?? 0.00,
+            $input['totalTaxPercent'] ?? 0.00,
+            $input['totalTaxAmount'] ?? 0.00,
             $input['shippingFees'] ?? 0.00,
             $input['shippingFeesType'] ?? 'add',
             $input['netAmount'],
@@ -227,7 +227,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
                 tenant_id, purchase_invoice_id, product_id, uom_id,
                 quantity, purchase_price, gross_amount, discount_percent,
                 discount_amount, trade_offer_percent, trade_offer_amount,
-                gst_percent, gst_amount, foc_quantity, net_amount,
+                tax_percent, tax_amount, foc_quantity, net_amount,
                 created_by, updated_by
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ");
@@ -247,8 +247,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
                     $isFirstEntry ? $item['discountAmount'] : 0,
                     $item['tradeOfferPercent'] ?? 0.00,
                     $isFirstEntry ? $item['tradeOfferAmount'] : 0,
-                    $item['gstPercent'] ?? 0.00,
-                    $isFirstEntry ? $item['gstAmount'] : 0,
+                    $item['taxPercent'] ?? 0.00,
+                    $isFirstEntry ? $item['taxAmount'] : 0,
                     $item['focQty'] ?? 0,
                     $isFirstEntry ? $item['netAmount'] : 0,
                     $user_id,
@@ -302,8 +302,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
         $ledger_stmt->execute([$tenant_id, $invoice_id, 19, $input['purchaseDate'], 'Purchase Invoice - ' . $billNo, $purchaseAmount, 0]);
         
         // 2. Debit - Input Tax Receivable
-        if ($input['totalGSTAmount'] > 0) {
-            $ledger_stmt->execute([$tenant_id, $invoice_id, 107, $input['purchaseDate'], 'Purchase Invoice - ' . $billNo, $input['totalGSTAmount'], 0]);
+        if ($input['totalTaxAmount'] > 0) {
+            $ledger_stmt->execute([$tenant_id, $invoice_id, 107, $input['purchaseDate'], 'Purchase Invoice - ' . $billNo, $input['totalTaxAmount'], 0]);
         }
         
         // 3. Debit - Freight Inward

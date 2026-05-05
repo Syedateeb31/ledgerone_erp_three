@@ -67,12 +67,14 @@ if ($company_id) {
 // Fetch report data
 if ($report_type === 'item-wise') {
     $sql = "SELECT 
+                p.id,
                 p.name as product,
+                p.parent_product_id,
                 u.uom_name as unit,
-                SUM(sii.quantity) as qty,
-                SUM(sii.foc_quantity) as foc_qty,
-                AVG(sii.sale_price) as rate,
-                SUM(sii.net_amount) as amount,
+                sii.quantity as qty,
+                sii.foc_quantity as foc_qty,
+                sii.sale_price as rate,
+                sii.net_amount as amount,
                 CASE WHEN sii.parent_row_id IS NOT NULL THEN 1 ELSE 0 END as is_child
             FROM sale_invoice_items sii
             JOIN sale_invoice si ON sii.sale_invoice_id = si.id
@@ -103,11 +105,52 @@ if ($report_type === 'item-wise') {
         $params[] = $company_id;
     }
     
-    $sql .= " GROUP BY p.id, p.name, u.uom_name, is_child ORDER BY p.parent_product_id IS NULL DESC, p.parent_product_id, amount DESC";
+    $sql .= " ORDER BY p.id, u.uom_name";
     
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
-    $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $rawData = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    $grouped = [];
+    foreach ($rawData as $item) {
+        $key = $item['id'];
+        if (!isset($grouped[$key])) {
+            $grouped[$key] = [
+                'id' => $item['id'],
+                'product' => $item['product'],
+                'parent_product_id' => $item['parent_product_id'],
+                'is_child' => $item['is_child'],
+                'foc_qty' => 0,
+                'rate' => $item['rate'],
+                'amount' => 0,
+                'units' => []
+            ];
+        }
+        
+        $unitName = $item['unit'] ?? '-';
+        // Check if this unit already exists for this product
+        $unitExists = false;
+        foreach ($grouped[$key]['units'] as &$existingUnit) {
+            if ($existingUnit['unit'] === $unitName) {
+                $existingUnit['qty'] += $item['qty'];
+                $unitExists = true;
+                break;
+            }
+        }
+        
+        // If unit doesn't exist, add it
+        if (!$unitExists) {
+            $grouped[$key]['units'][] = [
+                'unit' => $unitName,
+                'qty' => $item['qty']
+            ];
+        }
+        
+        $grouped[$key]['foc_qty'] += $item['foc_qty'];
+        $grouped[$key]['amount'] += $item['amount'];
+    }
+    
+    $data = array_values($grouped);
 } else {
     $sql = "SELECT 
                 si.bill_no as invoiceNo,
@@ -324,7 +367,6 @@ if ($report_type === 'item-wise') {
                     <tr>
                         <th class="text-center">S#</th>
                         <th>Product</th>
-                        <th>Unit</th>
                         <th class="text-right">Quantity</th>
                         <th class="text-right">FOC Qty</th>
                         <th class="text-right">Rate</th>
@@ -333,12 +375,9 @@ if ($report_type === 'item-wise') {
                 </thead>
                 <tbody>
                     <?php 
-                    $totalQty = 0;
                     $totalAmount = 0;
                     foreach ($data as $index => $item): 
-                        // Only add to totals if not a child product
                         if (!$item['is_child']) {
-                            $totalQty += $item['qty'];
                             $totalAmount += $item['amount'];
                         }
                         $indent = $item['is_child'] ? 'padding-left: 30px;' : '';
@@ -347,8 +386,7 @@ if ($report_type === 'item-wise') {
                         <tr>
                             <td class="text-center"><?php echo $index + 1; ?></td>
                             <td style="<?php echo $indent; ?>"><?php echo $arrow . htmlspecialchars($item['product']); ?></td>
-                            <td><?php echo htmlspecialchars($item['unit'] ?? '-'); ?></td>
-                            <td class="text-right"><?php echo number_format($item['qty'], 2); ?></td>
+                            <td class="text-right"><?php echo implode(', ', array_map(function($u) { return $u['unit'] . ' ' . intval($u['qty']); }, $item['units'])); ?></td>
                             <td class="text-right"><?php echo number_format($item['foc_qty'], 2); ?></td>
                             <td class="text-right"><?php echo $currency_symbol . number_format($item['rate'], 2); ?></td>
                             <td class="text-right"><?php echo $currency_symbol . number_format($item['amount'], 2); ?></td>
@@ -358,10 +396,6 @@ if ($report_type === 'item-wise') {
             </table>
             
             <div class="summary">
-                <div class="summary-row">
-                    <div class="summary-label">Total Quantity:</div>
-                    <div class="summary-value"><?php echo number_format($totalQty, 2); ?></div>
-                </div>
                 <div class="summary-row">
                     <div class="summary-label">Total Amount:</div>
                     <div class="summary-value"><?php echo $currency_symbol . number_format($totalAmount, 2); ?></div>

@@ -84,9 +84,51 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             LEFT JOIN products p ON sii.product_id = p.id
             LEFT JOIN uom u ON sii.uom_id = u.id
             WHERE sii.sale_invoice_id = ? AND sii.tenant_id = ?
+            ORDER BY sii.product_id, sii.id
         ");
         $itemStmt->execute([$invoice_id, $tenant_id]);
-        $items = $itemStmt->fetchAll(PDO::FETCH_ASSOC);
+        $rawItems = $itemStmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Group items by product_id and create unit_entries
+        $groupedItems = [];
+        foreach ($rawItems as $item) {
+            $productId = $item['product_id'];
+            
+            if (!isset($groupedItems[$productId])) {
+                $groupedItems[$productId] = [
+                    'product_id' => $item['product_id'],
+                    'product_name' => $item['product_name'],
+                    'product_code' => $item['product_code'],
+                    'sale_price' => $item['sale_price'],
+                    'discount_percent' => $item['discount_percent'],
+                    'discount_amount' => 0,
+                    'trade_offer_percent' => $item['trade_offer_percent'],
+                    'trade_offer_amount' => 0,
+                    'gst_percent' => $item['gst_percent'],
+                    'gst_amount' => 0,
+                    'foc_quantity' => $item['foc_quantity'],
+                    'gross_amount' => 0,
+                    'net_amount' => 0,
+                    'unit_entries' => []
+                ];
+            }
+            
+            // Add unit entry
+            $groupedItems[$productId]['unit_entries'][] = [
+                'uom_id' => $item['uom_id'],
+                'uom_name' => $item['uom_name'],
+                'quantity' => $item['quantity']
+            ];
+            
+            // Sum amounts
+            $groupedItems[$productId]['discount_amount'] += floatval($item['discount_amount']);
+            $groupedItems[$productId]['trade_offer_amount'] += floatval($item['trade_offer_amount']);
+            $groupedItems[$productId]['gst_amount'] += floatval($item['gst_amount']);
+            $groupedItems[$productId]['gross_amount'] += floatval($item['gross_amount']);
+            $groupedItems[$productId]['net_amount'] += floatval($item['net_amount']);
+        }
+        
+        $items = array_values($groupedItems);
 
         echo json_encode([
             'success' => true,
@@ -154,7 +196,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
 
         $status = $input['status'] ?? 'Posted';
 
-        // Insert new items
+        // Insert new items - one record per unit entry
         $item_stmt = $pdo->prepare("
             INSERT INTO sale_return_items (
                 tenant_id, sale_invoice_id, product_id, uom_id,
@@ -165,25 +207,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
         ");
 
         foreach ($input['items'] as $item) {
-            $item_stmt->execute([
-                $tenant_id,
-                $invoice_id,
-                $item['productId'],
-                $item['uomId'],
-                $item['quantity'],
-                $item['salePrice'],
-                $item['grossAmount'],
-                $item['discountPercent'] ?? 0.00,
-                $item['discountAmount'] ?? 0.00,
-                $item['tradeOfferPercent'] ?? 0.00,
-                $item['tradeOfferAmount'] ?? 0.00,
-                $item['gstPercent'] ?? 0.00,
-                $item['gstAmount'] ?? 0.00,
-                $item['focQty'] ?? 0.00,
-                $item['netAmount'],
-                $user_id,
-                $user_id
-            ]);
+            if (isset($item['unitEntries']) && is_array($item['unitEntries'])) {
+                // Calculate total quantity in pieces for amount calculations
+                $totalQtyInPieces = 0;
+                foreach ($item['unitEntries'] as $entry) {
+                    if ($entry['quantity'] > 0) {
+                        $totalQtyInPieces += convertToPieces($entry['quantity'], $entry['uomId'], $pdo, $item['productId']);
+                    }
+                }
+                
+                // Insert one record per unit entry
+                foreach ($item['unitEntries'] as $entry) {
+                    if ($entry['quantity'] > 0) {
+                        $qtyInPieces = convertToPieces($entry['quantity'], $entry['uomId'], $pdo, $item['productId']);
+                        $proportionOfTotal = $totalQtyInPieces > 0 ? ($qtyInPieces / $totalQtyInPieces) : 0;
+                        
+                        $item_stmt->execute([
+                            $tenant_id,
+                            $invoice_id,
+                            $item['productId'],
+                            $entry['uomId'],
+                            $entry['quantity'],
+                            $item['salePrice'],
+                            $item['grossAmount'] * $proportionOfTotal,
+                            $item['discountPercent'] ?? 0.00,
+                            $item['discountAmount'] * $proportionOfTotal ?? 0.00,
+                            $item['tradeOfferPercent'] ?? 0.00,
+                            $item['tradeOfferAmount'] * $proportionOfTotal ?? 0.00,
+                            $item['gstPercent'] ?? 0.00,
+                            $item['gstAmount'] * $proportionOfTotal ?? 0.00,
+                            0.00,
+                            $item['netAmount'] * $proportionOfTotal,
+                            $user_id,
+                            $user_id
+                        ]);
+                    }
+                }
+            }
 
             // Skip stock ledger for Draft status
             if ($status === 'Posted') {
@@ -192,32 +252,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
                 $accountStmt->execute([$item['productId']]);
                 $accountId = $accountStmt->fetchColumn() ?: 0;
                 
-                // Convert quantity to pieces based on UOM
-                $qtyInPieces = convertToPieces($item['quantity'], $item['uomId'], $pdo, $item['productId']);
-                
-                // Insert stock ledger for quantity returned
-                $stock_stmt = $pdo->prepare("
-                        INSERT INTO stock_ledger (
-                            tenant_id, account_id, branch_id, product_id, reference_table, reference_id,
-                            qty_in, unit_cost, unit_id, stock_status, transaction_type, transaction_date
-                        ) VALUES (?, ?, ?, ?, 'sale_return', ?, ?, ?, ?, ?, 'Sale Return', ?)
-                    ");
-                $stock_stmt->execute([
-                    $tenant_id,
-                    $accountId,
-                    $input['branchId'],
-                    $item['productId'],
-                    $invoice_id,
-                    $qtyInPieces,
-                    $item['salePrice'],
-                    $item['uomId'],
-                    $item['stockStatus'] ?? 'sellable',
-                    $input['saleDate']
-                ]);
+                // Insert stock ledger entries for each unit - ORIGINAL quantities
+                if (isset($item['unitEntries']) && is_array($item['unitEntries'])) {
+                    foreach ($item['unitEntries'] as $entry) {
+                        if ($entry['quantity'] > 0) {
+                            $stock_stmt = $pdo->prepare("
+                                INSERT INTO stock_ledger (
+                                    tenant_id, account_id, branch_id, product_id, reference_table, reference_id,
+                                    qty_in, unit_cost, unit_id, stock_status, transaction_type, transaction_date
+                                ) VALUES (?, ?, ?, ?, 'sale_return', ?, ?, ?, ?, ?, 'Sale Return', ?)
+                            ");
+                            $stock_stmt->execute([
+                                $tenant_id,
+                                $accountId,
+                                $input['branchId'],
+                                $item['productId'],
+                                $invoice_id,
+                                $entry['quantity'],
+                                $item['salePrice'],
+                                $entry['uomId'],
+                                $item['stockStatus'] ?? 'sellable',
+                                $input['saleDate']
+                            ]);
+                        }
+                    }
+                }
                 
                 // Insert stock ledger for FOC quantity if exists
                 if (isset($item['focQty']) && $item['focQty'] > 0) {
-                    $focQtyInPieces = convertToPieces($item['focQty'], $item['uomId'], $pdo, $item['productId']);
+                    $focUomId = 9;
+                    if (isset($item['unitEntries']) && count($item['unitEntries']) > 0) {
+                        $focUomId = $item['unitEntries'][0]['uomId'];
+                    }
                     
                     $foc_stmt = $pdo->prepare("
                         INSERT INTO stock_ledger (
@@ -231,9 +297,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
                         $input['branchId'],
                         $item['productId'],
                         $invoice_id,
-                        $focQtyInPieces,
+                        $item['focQty'],
                         0,
-                        $item['uomId'],
+                        $focUomId,
                         $item['stockStatus'] ?? 'sellable',
                         $input['saleDate']
                     ]);

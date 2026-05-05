@@ -45,6 +45,9 @@
                     <button class="btn btn-info btn-sm" onclick="viewCompletion(${c.id})">
                         <i class="las la-eye"></i>
                     </button>
+                    <button class="btn btn-secondary btn-sm" onclick="editCompletion(${c.id})">
+                        <i class="las la-edit"></i>
+                    </button>
                     <button class="btn btn-danger btn-sm" onclick="deleteCompletion(${c.id})">
                         <i class="las la-trash"></i>
                     </button>
@@ -56,6 +59,10 @@
 
     window.viewCompletion = function(id) {
         window.location.href = `view.php?id=${id}`;
+    };
+
+    window.editCompletion = function(id) {
+        window.location.href = `index.php?id=${id}`;
     };
 
     window.deleteCompletion = async function(id) {

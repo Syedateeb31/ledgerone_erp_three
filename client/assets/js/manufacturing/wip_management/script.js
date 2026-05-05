@@ -173,6 +173,11 @@
                 calculateTotals();
             });
         });
+
+        const toggle = document.getElementById('autocompleteToggle');
+        if (toggle && toggle.checked) {
+            applyAutoFill();
+        }
     }
     
     function updateTableHeaders() {
@@ -222,6 +227,33 @@
         document.getElementById('totalItems').value = totalItems;
         document.getElementById('totalCost').value = totalCost.toFixed(2);
     }
+
+    function applyAutoFill() {
+        document.querySelectorAll('.issue-qty').forEach(input => {
+            const maxVal = parseFloat(input.max || 0);
+            input.value = maxVal > 0 ? maxVal : 0;
+            const idx = input.getAttribute('data-idx');
+            calculateRowTotal(idx);
+        });
+        calculateTotals();
+    }
+
+    function clearAutoFill() {
+        document.querySelectorAll('.issue-qty').forEach(input => {
+            input.value = 0;
+            const idx = input.getAttribute('data-idx');
+            calculateRowTotal(idx);
+        });
+        calculateTotals();
+    }
+
+    document.getElementById('autocompleteToggle').addEventListener('change', function() {
+        if (this.checked) {
+            applyAutoFill();
+        } else {
+            clearAutoFill();
+        }
+    });
 
     window.clearRow = function(idx) {
         const input = document.querySelector(`.issue-qty[data-idx="${idx}"]`);

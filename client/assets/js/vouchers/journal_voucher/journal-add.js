@@ -327,7 +327,6 @@
         // Validate form for accounting rules
         function validateForm() {
             const date = document.getElementById('date').value;
-            const description = document.getElementById('description').value.trim();
             
             // Check required fields
             if (!date) {
@@ -338,11 +337,6 @@
             const company = document.getElementById('company').value;
             if (!company) {
                 showValidationMessage("Please select a company.", "error");
-                return false;
-            }
-            
-            if (!description) {
-                showValidationMessage("Please enter a description.", "error");
                 return false;
             }
             

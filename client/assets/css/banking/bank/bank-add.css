@@ -226,6 +226,11 @@ body.dark-theme {
   transition: all 0.2s;
 }
 
+.form-input[type="file"] {
+  padding: 8px 14px;
+  cursor: pointer;
+}
+
 .dark-theme .form-input,
 .dark-theme .form-select,
 .dark-theme .form-textarea {

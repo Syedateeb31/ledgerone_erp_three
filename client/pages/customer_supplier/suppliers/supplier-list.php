@@ -123,9 +123,9 @@ $currency_symbol = $currency['symbol'] ?? '$';
                     <thead>
                         <tr>
                             <th>Supplier Code</th>
+                            <th>Brand Name</th>
                             <th>Supplier Name</th>
                             <th>Phone</th>
-                            <th>Email</th>
                             <th>Status</th>
                             <th>Actions</th>
                         </tr>
@@ -179,8 +179,12 @@ $currency_symbol = $currency['symbol'] ?? '$';
                             </select>
                         </div>
                         <div class="form-group col-4">
-                            <label class="required">Supplier Name</label>
+                            <label>Brand Name</label>
                             <input type="text" id="editSupplierName" required>
+                        </div>
+                        <div class="form-group col-4">
+                            <label class="required">Supplier Name</label>
+                            <input type="text" id="editBrandName">
                         </div>
                         <div class="form-group col-12">
                             <label>Address</label>
@@ -302,16 +306,20 @@ $currency_symbol = $currency['symbol'] ?? '$';
             <div class="modal-body">
                 <div class="form-grid">
                     <div class="form-group col-4">
-                        <label>Salesman</label>
-                        <div class="view-field" id="viewSalesman"></div>
-                    </div>
-                    <div class="form-group col-4">
                         <label>Supplier Code</label>
                         <div class="view-field" id="viewSupplierCode"></div>
                     </div>
                     <div class="form-group col-4">
-                        <label>Supplier Name</label>
+                        <label>Salesman</label>
+                        <div class="view-field" id="viewSalesman"></div>
+                    </div>
+                    <div class="form-group col-4">
+                        <label>Brand Name</label>
                         <div class="view-field" id="viewSupplierName"></div>
+                    </div>
+                    <div class="form-group col-4">
+                        <label>Supplier Name</label>
+                        <div class="view-field" id="viewBrandName"></div>
                     </div>
                     <div class="form-group col-12">
                         <label>Address</label>
@@ -388,7 +396,7 @@ $currency_symbol = $currency['symbol'] ?? '$';
     <script>
         const currencySymbol = '<?php echo $currency_symbol; ?>';
     </script>
-    <script src="../../../assets/js/customer_supplier/suppliers/supplier-list.js"></script>
+    <script src="../../../assets/js/customer_supplier/suppliers/supplier-list.js?v=<?php echo time(); ?>"></script>
 </body>
 
 </html>

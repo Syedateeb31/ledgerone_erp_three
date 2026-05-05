@@ -24,6 +24,8 @@ const totalBillsEl = document.getElementById('total-bills');
 const netAmountEl = document.getElementById('net-amount');
 const referenceCard = document.getElementById('reference-card');
 const referenceNumber = document.getElementById('reference-number');
+const itemsSoldItem = document.getElementById('items-sold-item');
+const billsGeneratedItem = document.getElementById('bills-generated-item');
 
 // Initialize the application
 function init() {
@@ -76,6 +78,16 @@ async function loadFilters() {
                 option.value = officer.id;
                 option.textContent = officer.full_name;
                 salesOfficerSelect.appendChild(option);
+            });
+            
+            // Populate supplier men
+            const supplierManSelect = document.getElementById('supplier-man');
+            supplierManSelect.innerHTML = '<option value="">All Supplier Men</option>';
+            result.supplierMen.forEach(man => {
+                const option = document.createElement('option');
+                option.value = man.id;
+                option.textContent = man.full_name;
+                supplierManSelect.appendChild(option);
             });
             
             // Populate vendors
@@ -140,6 +152,7 @@ async function fetchReportData() {
     
     const reportType = itemWiseToggle.classList.contains('active') ? 'item-wise' : 'bill-wise';
     const salesOfficer = document.getElementById('sales-officer').value;
+    const supplierMan = document.getElementById('supplier-man').value;
     const vendor = document.getElementById('vendor').value;
     const company = document.getElementById('company').value;
     const dateFrom = document.getElementById('date-from').value;
@@ -148,6 +161,7 @@ async function fetchReportData() {
     const params = new URLSearchParams({
         report_type: reportType,
         ...(salesOfficer && { sales_officer_id: salesOfficer }),
+        ...(supplierMan && { supplier_man_id: supplierMan }),
         ...(vendor && { vendor_id: vendor }),
         ...(company && { company_id: company }),
         ...(dateFrom && { date_from: dateFrom }),
@@ -183,7 +197,7 @@ function loadItemWiseData() {
     itemWiseDataContainer.innerHTML = '';
 
     if (itemWiseData.length === 0) {
-        itemWiseDataContainer.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 40px;">No data found</td></tr>';
+        itemWiseDataContainer.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 40px;">No data found</td></tr>';
         reportCount.textContent = '0 items found';
         paginationContainer.innerHTML = '';
         return;
@@ -196,11 +210,11 @@ function loadItemWiseData() {
     paginatedData.forEach((item, index) => {
         const row = document.createElement('tr');
         const indent = item.isChild ? 'padding-left: 30px;' : '';
+        const quantityStr = item.units.map(u => `${u.unit} ${parseInt(u.qty)}`).join(', ');
         row.innerHTML = `
                     <td>${startIndex + index + 1}</td>
                     <td style="${indent}">${item.isChild ? '↳ ' : ''}${item.product}</td>
-                    <td>${item.unit || '-'}</td>
-                    <td class="text-right">${parseFloat(item.qty).toLocaleString()}</td>
+                    <td class="text-right">${quantityStr}</td>
                     <td class="text-right">${parseFloat(item.foc_qty || 0).toLocaleString()}</td>
                     <td class="text-right">${currencySymbol}${parseFloat(item.rate).toFixed(2)}</td>
                     <td class="text-right">${currencySymbol}${parseFloat(item.amount).toLocaleString()}</td>
@@ -247,14 +261,19 @@ function loadBillWiseData() {
 // Update summary card
 function updateSummary() {
     if (itemWiseToggle.classList.contains('active')) {
-        // Item-wise summary - exclude child products from totals
-        const totalQty = itemWiseData.filter(item => !item.isChild).reduce((sum, item) => sum + parseFloat(item.qty || 0), 0);
+        // Item-wise summary
+        const totalQty = itemWiseData.filter(item => !item.isChild).reduce((sum, item) => {
+            return sum + item.units.reduce((unitSum, u) => unitSum + parseInt(u.qty), 0);
+        }, 0);
         const totalAmount = itemWiseData.filter(item => !item.isChild).reduce((sum, item) => sum + parseFloat(item.amount || 0), 0);
 
         totalSalesEl.textContent = `${currencySymbol}${totalAmount.toLocaleString()}`;
         totalItemsEl.textContent = totalQty.toLocaleString();
-        totalBillsEl.textContent = itemWiseData.filter(item => !item.isChild).length;
         netAmountEl.textContent = `${currencySymbol}${totalAmount.toLocaleString()}`;
+        
+        // Hide Bills Generated in item-wise view
+        itemsSoldItem.style.display = 'block';
+        billsGeneratedItem.style.display = 'none';
     } else {
         // Bill-wise summary
         const totalBills = billWiseData.length;
@@ -264,6 +283,10 @@ function updateSummary() {
         totalItemsEl.textContent = '-';
         totalBillsEl.textContent = totalBills;
         netAmountEl.textContent = `${currencySymbol}${totalNetAmount.toLocaleString()}`;
+        
+        // Show Bills Generated in bill-wise view
+        itemsSoldItem.style.display = 'none';
+        billsGeneratedItem.style.display = 'block';
     }
 }
 
@@ -279,6 +302,7 @@ function handleSearch() {
 // Handle reset
 function handleReset() {
     document.getElementById('sales-officer').value = '';
+    document.getElementById('supplier-man').value = '';
     document.getElementById('vendor').value = '';
     document.getElementById('company').value = '';
 
@@ -307,6 +331,7 @@ function handleExport() {
 function handlePrint() {
     const reportType = itemWiseToggle.classList.contains('active') ? 'item-wise' : 'bill-wise';
     const salesOfficer = document.getElementById('sales-officer').value;
+    const supplierMan = document.getElementById('supplier-man').value;
     const vendor = document.getElementById('vendor').value;
     const company = document.getElementById('company').value;
     const dateFrom = document.getElementById('date-from').value;
@@ -317,6 +342,7 @@ function handlePrint() {
         report_type: reportType,
         reference: refNum,
         ...(salesOfficer && { sales_officer_id: salesOfficer }),
+        ...(supplierMan && { supplier_man_id: supplierMan }),
         ...(vendor && { vendor_id: vendor }),
         ...(company && { company_id: company }),
         ...(dateFrom && { date_from: dateFrom }),

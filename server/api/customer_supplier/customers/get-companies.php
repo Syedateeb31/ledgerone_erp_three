@@ -12,6 +12,7 @@ if (!$tenant_id) {
 }
 
 try {
+    // Fetch companies for customer form
     $stmt = $pdo->prepare("SELECT id, company_name FROM companies WHERE tenant_id = ? AND is_active = 1 ORDER BY company_name");
     $stmt->execute([$tenant_id]);
     $companies = $stmt->fetchAll(PDO::FETCH_ASSOC);

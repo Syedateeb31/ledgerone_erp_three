@@ -1047,6 +1047,11 @@ tbody tr.selected {
   color: var(--light-text-body);
 }
 
+.form-row input[type="file"] {
+  padding: 8px 14px;
+  cursor: pointer;
+}
+
 .dark-theme .form-row input,
 .dark-theme .form-row select {
   background-color: var(--dark-surface-1);

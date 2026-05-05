@@ -148,16 +148,18 @@ if (!$user_id) {
     "></div>
     <input type="hidden" id="salesmanIds" name="salesmanIds" value="">
 </div>
-                        <!-- Add this BEFORE the address form-group -->
+
                         <div class="form-group col-12">
-                            <label for="brandName">
-                                <i class="fas fa-tag"></i>
+                            <label for="supplierName" class="required">
+                                <i class="fas fa-user"></i>
                                 Brand Name
                             </label>
-                            <input type="text" id="brandName" maxlength="255" placeholder="Enter brand name">
+                            <input type="text" id="supplierName" required placeholder="Enter Brand Name ">
+                            <div class="error-text" id="supplierNameError">
+                                <i class="fas fa-exclamation-circle"></i>
+                                <span>Brand Name is required</span>
+                            </div>
                         </div>
-
-
                     </div>
 
                     <!-- Contact Information Section -->
@@ -168,15 +170,11 @@ if (!$user_id) {
                         </h3>
 
                         <div class="form-group col-8">
-                            <label for="supplierName" class="required">
-                                <i class="fas fa-user"></i>
+                            <label for="brandName">
+                                <i class="fas fa-tag"></i>
                                 Supplier Name
                             </label>
-                            <input type="text" id="supplierName" required placeholder="Enter supplier full name">
-                            <div class="error-text" id="supplierNameError">
-                                <i class="fas fa-exclamation-circle"></i>
-                                <span>Supplier name is required</span>
-                            </div>
+                            <input type="text" id="brandName" maxlength="255" placeholder="Enter Supplier name">
                         </div>
 
                         <div class="form-group col-12">
@@ -362,7 +360,7 @@ if (!$user_id) {
         </button>
     </div>
 
-    <script src="../../../assets/js/customer_supplier/suppliers/supplier-add.js"></script>
+    <script src="../../../assets/js/customer_supplier/suppliers/supplier-add.js?v=<?php echo time(); ?>"></script>
 </body>
 
 </html>

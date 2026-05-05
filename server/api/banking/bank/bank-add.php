@@ -23,13 +23,60 @@ if (!$user_id || !$tenant_id) {
 }
 
 try {
-    $input = json_decode(file_get_contents('php://input'), true);
+    // Get form data from POST
+    $input = $_POST;
     
     // Validate required fields
     $required = ['bankName', 'accountNumber', 'accountType', 'branchName', 'branchCity', 'branchState', 'asOfDate'];
     foreach ($required as $field) {
         if (empty($input[$field])) {
             throw new Exception("$field is required");
+        }
+    }
+    
+    // Handle file upload
+    $bankLogoPath = null;
+    if (isset($_FILES['bankLogo']) && $_FILES['bankLogo']['error'] === UPLOAD_ERR_OK) {
+        try {
+            $baseDir = realpath(__DIR__ . '/../../../../');
+            if (!$baseDir) {
+                throw new Exception('Could not determine base directory');
+            }
+            $uploadDir = $baseDir . DIRECTORY_SEPARATOR . 'client' . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'bank_logo' . DIRECTORY_SEPARATOR;
+            
+            if (!is_dir($uploadDir)) {
+                if (!mkdir($uploadDir, 0777, true)) {
+                    throw new Exception('Could not create upload directory');
+                }
+            }
+            
+            if (!is_writable($uploadDir)) {
+                chmod($uploadDir, 0777);
+            }
+            
+            $fileExtension = strtolower(pathinfo($_FILES['bankLogo']['name'], PATHINFO_EXTENSION));
+            $allowedExtensions = ['jpg', 'jpeg', 'png', 'gif'];
+            
+            if (!in_array($fileExtension, $allowedExtensions)) {
+                throw new Exception('Invalid file type. Only JPG, PNG, and GIF are allowed.');
+            }
+            
+            if ($_FILES['bankLogo']['size'] > 2 * 1024 * 1024) {
+                throw new Exception('File size must be less than 2MB');
+            }
+            
+            $uniqueFilename = uniqid('bank_logo_', true) . '.' . $fileExtension;
+            $uploadPath = $uploadDir . $uniqueFilename;
+            
+            if (!move_uploaded_file($_FILES['bankLogo']['tmp_name'], $uploadPath)) {
+                throw new Exception('move_uploaded_file failed');
+            }
+            
+            $bankLogoPath = 'client/assets/uploads/bank_logo/' . $uniqueFilename;
+        } catch (Exception $uploadError) {
+            // Log error but don't fail the entire request
+            error_log('Bank logo upload error: ' . $uploadError->getMessage());
+            $bankLogoPath = null;
         }
     }
     
@@ -59,14 +106,14 @@ try {
             currency, branch_name, branch_code, branch_city, branch_state, 
             branch_address, account_title, iban, swift_code, contact_person, 
             contact_number, email, notes, balance_type, opening_balance, 
-            as_of_date, is_active, account_id
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            as_of_date, is_active, account_id, bank_logo_path
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ");
     
     $stmt->execute([
         $tenant_id,
         $input['bankName'],
-        $input['isMfb'] ? 1 : 0,
+        $input['isMfb'] === 'true' ? 1 : 0,
         $input['mfbName'] ?? null,
         $input['accountNumber'],
         $input['accountType'],
@@ -86,8 +133,9 @@ try {
         $input['balanceType'] ?? 'debit',
         $input['openingBalance'] ?? 0.00,
         $input['asOfDate'],
-        $input['isActive'] ? 1 : 0,
-        $accountId
+        $input['isActive'] === 'true' ? 1 : 0,
+        $accountId,
+        $bankLogoPath
     ]);
     
     $bankAccountId = $pdo->lastInsertId();

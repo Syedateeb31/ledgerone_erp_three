@@ -26,7 +26,7 @@ try {
     $methods = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     // Get bank accounts
-    $stmt = $pdo->prepare("SELECT id, bank_name FROM bank_accounts WHERE tenant_id = ? AND is_active = 1 ORDER BY bank_name");
+    $stmt = $pdo->prepare("SELECT id, bank_name, account_number, account_title, bank_logo_path FROM bank_accounts WHERE tenant_id = ? AND is_active = 1 ORDER BY bank_name");
     $stmt->execute([$tenant_id]);
     $bank_accounts = $stmt->fetchAll(PDO::FETCH_ASSOC);
 

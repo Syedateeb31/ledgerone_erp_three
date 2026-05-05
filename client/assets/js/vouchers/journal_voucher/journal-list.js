@@ -180,24 +180,30 @@ function renderTable() {
                 break;
         }
 
-        const actionButtons = entry.status === 'draft' 
-            ? `<button class="table-action-btn view" onclick="viewEntry(${entry.id})" title="View">
+        // Action buttons - show delete for all entries
+        let actionButtons = `<button class="table-action-btn view" onclick="viewEntry(${entry.id})" title="View">
                    <i class="fas fa-eye"></i>
-               </button>
+               </button>`;
+        
+        if (entry.status === 'draft') {
+            actionButtons += `
                <button class="table-action-btn edit" onclick="editEntry(${entry.id})" title="Edit">
                    <i class="fas fa-edit"></i>
                </button>
                <button class="table-action-btn" style="color: #2FBF71;" onclick="confirmPostDraft(${entry.id})" title="Post Voucher">
                    <i class="fas fa-check-circle"></i>
-               </button>
-               <button class="table-action-btn delete" onclick="confirmDelete(${entry.id})" title="Delete">
-                   <i class="fas fa-trash"></i>
-               </button>`
-            : `<button class="table-action-btn view" onclick="viewEntry(${entry.id})" title="View">
-                   <i class="fas fa-eye"></i>
-               </button>
+               </button>`;
+        } else {
+            actionButtons += `
                <button class="table-action-btn edit" onclick="reverseEntry(${entry.id})" title="Reverse Journal Entry">
                    <i class="fas fa-undo"></i>
+               </button>`;
+        }
+        
+        // Delete button for all entries
+        actionButtons += `
+               <button class="table-action-btn delete" onclick="confirmDelete(${entry.id})" title="Delete">
+                   <i class="fas fa-trash"></i>
                </button>`;
 
         row.innerHTML = `
@@ -369,6 +375,11 @@ function confirmDelete(id) {
 async function deleteEntry() {
     if (!entryToDelete) return;
 
+    const deleteBtn = document.getElementById('confirmDeleteBtn');
+    const originalHtml = deleteBtn.innerHTML;
+    deleteBtn.disabled = true;
+    deleteBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Deleting...';
+
     try {
         const response = await fetch(`../../../../server/api/vouchers/journal_voucher/journal-delete.php?id=${entryToDelete}`, {
             method: 'DELETE'
@@ -376,14 +387,19 @@ async function deleteEntry() {
         const result = await response.json();
 
         if (response.ok && result.success) {
-            await fetchJournalEntries();
+            console.log(`Deleted: ${result.voucherNumber} (${result.linesDeleted} lines removed)`);
             document.getElementById('deleteModal').classList.remove('show');
             entryToDelete = null;
+            currentPage = 1;
+            await fetchJournalEntries();
         } else {
             alert(result.error || 'Failed to delete entry');
         }
     } catch (error) {
         alert('Error deleting entry: ' + error.message);
+    } finally {
+        deleteBtn.disabled = false;
+        deleteBtn.innerHTML = originalHtml;
     }
 }
 
@@ -422,9 +438,7 @@ async function postDraftEntry() {
 
 // Export data
 function exportData() {
-    // In a real app, this would generate a CSV or PDF
     alert(`Exporting ${filteredEntries.length} journal entries...`);
-    // Simulate download
     const dataStr = JSON.stringify(filteredEntries, null, 2);
     const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
 
@@ -446,7 +460,6 @@ function setupEventListeners() {
     // New entry button
     document.getElementById('newEntryBtn').addEventListener('click', function (e) {
         e.preventDefault();
-        // In a real app, this would redirect to the form
         window.location.href = 'journal-add.php';
     });
 
@@ -477,8 +490,6 @@ function setupEventListeners() {
     document.getElementById('closeModalBtn').addEventListener('click', function () {
         document.getElementById('viewEntryModal').classList.remove('show');
     });
-
-
 
     // Print button
     document.getElementById('printEntryBtn').addEventListener('click', function () {

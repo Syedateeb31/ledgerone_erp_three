@@ -125,7 +125,7 @@ try {
         if ($logoFileName) {
             $sql = "UPDATE companies SET 
                     company_name = ?, legal_name = ?, email = ?, phone = ?, website = ?,
-                    address = ?, country = ?, state = ?, city = ?, zipcode = ?,
+                    address = ?, country_id = ?, country = ?, state = ?, city = ?, zipcode = ?,
                     industry_type = ?, registration_number = ?, tax_identification_number = ?,
                     sales_tax_number = ?, logo_url = ?, language_code = ?, timezone = ?,
                     currency_code = ?, inventory_valuation_method = ?, is_active = ?
@@ -138,6 +138,7 @@ try {
                 $_POST['phone'] ?? null,
                 $_POST['website'] ?? null,
                 $_POST['address'] ?? null,
+                !empty($_POST['country_id']) ? (int)$_POST['country_id'] : null,
                 $_POST['country'] ?? null,
                 $_POST['state'] ?? null,
                 $_POST['city'] ?? null,
@@ -158,7 +159,7 @@ try {
         } else {
             $sql = "UPDATE companies SET 
                     company_name = ?, legal_name = ?, email = ?, phone = ?, website = ?,
-                    address = ?, country = ?, state = ?, city = ?, zipcode = ?,
+                    address = ?, country_id = ?, country = ?, state = ?, city = ?, zipcode = ?,
                     industry_type = ?, registration_number = ?, tax_identification_number = ?,
                     sales_tax_number = ?, language_code = ?, timezone = ?,
                     currency_code = ?, inventory_valuation_method = ?, is_active = ?
@@ -171,6 +172,7 @@ try {
                 $_POST['phone'] ?? null,
                 $_POST['website'] ?? null,
                 $_POST['address'] ?? null,
+                !empty($_POST['country_id']) ? (int)$_POST['country_id'] : null,
                 $_POST['country'] ?? null,
                 $_POST['state'] ?? null,
                 $_POST['city'] ?? null,

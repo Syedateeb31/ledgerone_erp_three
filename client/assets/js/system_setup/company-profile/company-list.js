@@ -249,6 +249,7 @@ async function editCompany(id) {
             document.getElementById('edit_phone').value = company.phone || '';
             document.getElementById('edit_website').value = company.website || '';
             document.getElementById('edit_address').value = company.address || '';
+            document.getElementById('edit_country_id').value = company.country_id || '';
             document.getElementById('edit_country').value = company.country || '';
             document.getElementById('edit_state').value = company.state || '';
             document.getElementById('edit_city').value = company.city || '';
@@ -328,6 +329,7 @@ document.getElementById('editForm').addEventListener('submit', async function (e
     formData.append('phone', document.getElementById('edit_phone').value);
     formData.append('website', document.getElementById('edit_website').value);
     formData.append('address', document.getElementById('edit_address').value);
+    formData.append('country_id', document.getElementById('edit_country_id').value);
     formData.append('country', document.getElementById('edit_country').value);
     formData.append('state', document.getElementById('edit_state').value);
     formData.append('city', document.getElementById('edit_city').value);
@@ -365,6 +367,24 @@ document.getElementById('editForm').addEventListener('submit', async function (e
 });
 
 let deleteCompanyId = null;
+
+// Load countries for dropdown
+function loadCountries() {
+    fetch('../../../../server/api/inventory/countries/countries-list.php')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.countries) {
+                const countrySelect = document.getElementById('edit_country_id');
+                data.countries.forEach(country => {
+                    const option = document.createElement('option');
+                    option.value = country.id;
+                    option.textContent = country.country_name;
+                    countrySelect.appendChild(option);
+                });
+            }
+        })
+        .catch(error => console.error('Error loading countries:', error));
+}
 
 // Delete company
 function deleteCompany(id) {
@@ -422,6 +442,7 @@ window.onclick = function (event) {
 
 // Initialize the table when the page loads
 document.addEventListener('DOMContentLoaded', function () {
+    loadCountries();
     fetchCompanies();
 
     // Add search functionality

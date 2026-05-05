@@ -73,7 +73,7 @@ try {
     $stmt->execute($params);
     $sales_revenue = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    // Get additional Sales Revenue from sale_invoice (non-fuel physical products)
+    // Get additional Sales Revenue from sale_invoice (physical products)
     $sql = "
         SELECT 
             p.name as account,
@@ -86,7 +86,6 @@ try {
         WHERE si.tenant_id = ? 
         AND si.sale_date BETWEEN ? AND ?
         AND p.product_type = 'physical'
-        AND (p.subcategory_id NOT IN (12, 13, 14) OR p.subcategory_id IS NULL)
         $branch_condition
         " . ($company_id ? " AND si.company_id = ?" : "") . "
         ORDER BY p.name
@@ -204,7 +203,7 @@ try {
     $stmt->execute($params);
     $sold_items = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    // Get sold quantities from sale_invoice for non-fuel products
+    // Get sold quantities from sale_invoice for physical products
     $sql = "
         SELECT 
             p.id,
@@ -217,7 +216,6 @@ try {
         WHERE si.tenant_id = ? 
         AND si.sale_date BETWEEN ? AND ?
         AND p.product_type = 'physical'
-        AND (p.subcategory_id NOT IN (12, 13, 14) OR p.subcategory_id IS NULL)
         $branch_condition
         " . ($company_id ? " AND si.company_id = ?" : "") . "
         GROUP BY p.id, p.name

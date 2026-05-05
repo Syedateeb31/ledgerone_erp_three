@@ -257,7 +257,7 @@ function calculateRowAmounts(row, totalQty, price) {
     price = Number(price) || 0;
     
     const discountPercent = parseFloat(row.querySelector('.disc-percent-cell input')?.value) || 0;
-    const gstPercent = parseFloat(row.querySelector('.gst-percent-cell input')?.value) || 0;
+    const taxPercent = parseFloat(row.querySelector('.tax-percent-cell input')?.value) || 0;
     
     const gross = Number(totalQty) * Number(price);
     const grossInput = row.querySelector('.gross-cell input');
@@ -282,12 +282,38 @@ function calculateRowAmounts(row, totalQty, price) {
     // After trade offer
     const afterTradeOffer = afterDiscount - tradeOfferAmt;
     
-    // GST amount
-    const gstAmt = afterTradeOffer * (gstPercent / 100);
-    row.querySelector('.gst-amount-cell input').value = gstAmt.toFixed(2);
+    // Check application level - only apply tax at item level if application_level is 'item'
+    const applicationLevel = row.dataset.applicationLevel || 'item';
+    let taxAmt = 0;
+    
+    if (applicationLevel === 'item') {
+        // Tax amount - use formula from backend if available, otherwise use simple percentage
+        const formulaTemplate = row.dataset.formulaTemplate;
+        const basePrice = parseFloat(row.dataset.basePrice);
+        const taxBase = row.dataset.taxBase;
+        
+        if (formulaTemplate && !isNaN(basePrice) && basePrice > 0) {
+            // For MRP-based formulas (Third Schedule), formula calculates base price
+            // Tax = MRP - base_price
+            if (taxBase === 'mrp') {
+                const totalMrp = basePrice * totalQty;
+                const basePriceTotal = evaluateFormula(formulaTemplate, basePrice, taxPercent) * totalQty;
+                taxAmt = totalMrp - basePriceTotal;
+            } else {
+                // For trade_price formulas (Standard GST), formula calculates tax directly
+                const taxPerUnit = evaluateFormula(formulaTemplate, basePrice, taxPercent);
+                taxAmt = taxPerUnit * totalQty;
+            }
+        } else {
+            taxAmt = afterTradeOffer * (taxPercent / 100);
+        }
+    }
+    // If application_level is 'invoice', tax is NOT applied here (will be applied at invoice level)
+    
+    row.querySelector('.tax-amount-cell input').value = taxAmt.toFixed(2);
     
     // Net amount
-    const net = afterTradeOffer + gstAmt;
+    const net = afterTradeOffer + taxAmt;
     row.querySelector('.net-cell input').value = net.toFixed(2);
     
     // Update summary
@@ -302,29 +328,29 @@ function updateFooterTotals() {
     
     const footerRow = tfoot.rows[0];
     
-    // The first cell should be "Totals" with colspan
-    // We need to update its colspan to account for S# + Product + Scheme + dynamic units
-    const totalsCell = footerRow.cells[0];
-    if (totalsCell) {
-        totalsCell.colSpan = 3 + maxUnitColumns; // S# + Product + Scheme + all unit columns
-    }
-    
-    // Remove old unit total cells (they would be after the Totals cell)
-    // Since Totals has colspan, the next cells are the fixed columns
-    // We need to remove any cells between index 1 and the first known fixed column
+    // Remove old unit total cells that were dynamically inserted
+    // Keep removing cells at index 3 until we reach the known fixed column IDs
     let safetyCounter = 0;
     const knownIds = ['totalSalePrice', 'totalGrossAmount', 'totalDiscountAmountItems', 
                       'totalTradeOfferAmount', 'totalGstAmount', 'totalFocQty', 'totalNetAmountItems'];
     
-    while (footerRow.cells.length > 1 && safetyCounter < 20) {
-        if (footerRow.cells.length <= 1) break;
-        const cell = footerRow.cells[1];
+    while (footerRow.cells.length > 3 && safetyCounter < 20) {
+        const cell = footerRow.cells[3];
         // Stop if we reach a cell with a known fixed id
         if (cell && cell.id && knownIds.includes(cell.id)) {
             break;
         }
-        footerRow.deleteCell(1);
+        footerRow.deleteCell(3);
         safetyCounter++;
+    }
+    
+    // Insert empty cells for dynamic unit columns at index 3
+    for (let i = 0; i < maxUnitColumns; i++) {
+        const cell = footerRow.insertCell(3 + i);
+        cell.textContent = '';
+        cell.style.textAlign = 'center';
+        cell.style.padding = '8px 4px';
+        cell.style.borderTop = '2px solid var(--border-strong, #c9cfda)';
     }
 }
 
@@ -339,7 +365,7 @@ function updateInvoiceSummaryDynamic() {
     let totalGrossAmount = 0;
     let totalDiscountAmountItems = 0;
     let totalTradeOfferAmountItems = 0;
-    let totalGSTAmountItems = 0;
+    let totalTaxAmountItems = 0;
     let totalFOCQty = 0;
     let totalNetAmountItems = 0;
     
@@ -350,7 +376,7 @@ function updateInvoiceSummaryDynamic() {
         const grossInput = row.querySelector('.gross-cell input');
         const discAmtInput = row.querySelector('.disc-amount-cell input');
         const toAmtInput = row.querySelector('.to-amount-cell input');
-        const gstAmtInput = row.querySelector('.gst-amount-cell input');
+        const taxAmtInput = row.querySelector('.tax-amount-cell input');
         const focInput = row.querySelector('.foc-cell input');
         const netInput = row.querySelector('.net-cell input');
         
@@ -359,7 +385,7 @@ function updateInvoiceSummaryDynamic() {
             totalGrossAmount += parseFloat(grossInput?.value) || 0;
             totalDiscountAmountItems += parseFloat(discAmtInput?.value) || 0;
             totalTradeOfferAmountItems += parseFloat(toAmtInput?.value) || 0;
-            totalGSTAmountItems += parseFloat(gstAmtInput?.value) || 0;
+            totalTaxAmountItems += parseFloat(taxAmtInput?.value) || 0;
             totalFOCQty += parseFloat(focInput?.value) || 0;
             totalNetAmountItems += parseFloat(netInput?.value) || 0;
             totalBill += parseFloat(netInput?.value) || 0;
@@ -371,7 +397,7 @@ function updateInvoiceSummaryDynamic() {
     const totalGrossAmountEl = document.getElementById('totalGrossAmount');
     const totalDiscountAmountItemsEl = document.getElementById('totalDiscountAmountItems');
     const totalTradeOfferAmountEl = document.getElementById('totalTradeOfferAmount');
-    const totalGstAmountEl = document.getElementById('totalGstAmount');
+    const totalTaxAmountEl = document.getElementById('totalTaxAmount');
     const totalFocQtyEl = document.getElementById('totalFocQty');
     const totalNetAmountItemsEl = document.getElementById('totalNetAmountItems');
     
@@ -379,7 +405,7 @@ function updateInvoiceSummaryDynamic() {
     if (totalGrossAmountEl) totalGrossAmountEl.textContent = totalGrossAmount.toFixed(2);
     if (totalDiscountAmountItemsEl) totalDiscountAmountItemsEl.textContent = totalDiscountAmountItems.toFixed(2);
     if (totalTradeOfferAmountEl) totalTradeOfferAmountEl.textContent = totalTradeOfferAmountItems.toFixed(2);
-    if (totalGstAmountEl) totalGstAmountEl.textContent = totalGSTAmountItems.toFixed(2);
+    if (totalTaxAmountEl) totalTaxAmountEl.textContent = totalTaxAmountItems.toFixed(2);
     if (totalFocQtyEl) totalFocQtyEl.textContent = totalFOCQty.toFixed(2);
     if (totalNetAmountItemsEl) totalNetAmountItemsEl.textContent = totalNetAmountItems.toFixed(2);
     
@@ -426,6 +452,11 @@ function updateInvoiceSummaryDynamic() {
     const remainingBalanceEl = document.getElementById('remainingBalance');
     if (remainingBalanceEl) {
         remainingBalanceEl.value = remainingBalance.toFixed(2);
+    }
+    
+    // Calculate invoice-level taxes
+    if (typeof calculateInvoiceLevelTaxes === 'function') {
+        calculateInvoiceLevelTaxes();
     }
 }
 

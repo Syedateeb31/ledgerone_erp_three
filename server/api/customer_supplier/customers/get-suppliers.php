@@ -12,7 +12,7 @@ if (!$tenant_id) {
 }
 
 try {
-    $stmt = $pdo->prepare("SELECT id, supplier_name FROM suppliers WHERE tenant_id = ? AND is_blacklisted = 0 ORDER BY supplier_name");
+    $stmt = $pdo->prepare("SELECT id, supplier_name, brand_name FROM suppliers WHERE tenant_id = ? AND is_blacklisted = 0 ORDER BY supplier_name");
     $stmt->execute([$tenant_id]);
     $suppliers = $stmt->fetchAll(PDO::FETCH_ASSOC);
     

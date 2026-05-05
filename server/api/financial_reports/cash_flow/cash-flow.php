@@ -632,16 +632,28 @@ try {
     $soft_opening_cash = 0;
     $soft_opening_bank = 0;
     if ($date_range === 'custom' && $from_date) {
+        // Build the WHERE clause for bank account filtering
+        $bank_filter = '';
+        if ($bank_account !== 'all') {
+            $bank_filter = " AND ba.id = $bank_account";
+        }
+        
+        // When filtering by specific bank, we want total inflow-outflow for that bank only
+        // When showing all, we want to separate cash vs bank
+        $select_clause = ($bank_account !== 'all') 
+            ? "COALESCE(SUM(inflow - outflow), 0) as bank_balance, 0 as cash_balance"
+            : "COALESCE(SUM(CASE WHEN bank_account = '-' THEN inflow - outflow ELSE 0 END), 0) as cash_balance,
+               COALESCE(SUM(CASE WHEN bank_account != '-' THEN inflow - outflow ELSE 0 END), 0) as bank_balance";
+        
         $soft_sql = "
-            SELECT 
-                COALESCE(SUM(CASE WHEN bank_account = '-' THEN inflow - outflow ELSE 0 END), 0) as cash_balance,
-                COALESCE(SUM(CASE WHEN bank_account != '-' THEN inflow - outflow ELSE 0 END), 0) as bank_balance
+            SELECT $select_clause
             FROM (
                 SELECT rv.amount as inflow, 0 as outflow, COALESCE(ba.bank_name, '-') as bank_account
                 FROM receive_voucher rv
                 LEFT JOIN bank_accounts ba ON rv.bank_account_id = ba.id
                 WHERE rv.tenant_id = ? AND rv.voucher_date < ?
                 " . ($company_id ? " AND rv.company_id = ?" : "") . "
+                $bank_filter
                 AND NOT EXISTS (
                     SELECT 1 FROM post_dated_cheques pdc 
                     WHERE pdc.reference_table = 'receive_voucher' 
@@ -655,6 +667,7 @@ try {
                 LEFT JOIN bank_accounts ba ON pv.bank_account_id = ba.id
                 WHERE pv.tenant_id = ? AND pv.voucher_date < ?
                 " . ($company_id ? " AND pv.company_id = ?" : "") . "
+                $bank_filter
                 AND NOT EXISTS (
                     SELECT 1 FROM post_dated_cheques pdc 
                     WHERE pdc.reference_table = 'payment_voucher' 
@@ -668,6 +681,7 @@ try {
                 JOIN station_daily_usage sdu ON rs.station_daily_usage_id = sdu.id
                 LEFT JOIN accounts a ON rs.account_id = a.id
                 WHERE rs.tenant_id = ? AND rs.amount > 0 AND sdu.usage_date < ?
+                " . ($bank_account !== 'all' ? " AND 1=0" : "") . "
                 
                 UNION ALL
                 
@@ -679,6 +693,7 @@ try {
                 LEFT JOIN bank_accounts ba ON pdc.bank_account_id = ba.id
                 WHERE pdc.tenant_id = ? AND pdc.status = 'Approved' AND pdc.cheque_date < ?
                 " . ($company_id ? " AND pdc.company_id = ?" : "") . "
+                $bank_filter
                 
                 UNION ALL
                 
@@ -690,6 +705,7 @@ try {
                 JOIN journal_voucher_line jvl ON jv.id = jvl.voucher_id
                 JOIN accounts a ON jvl.account_id = a.id
                 LEFT JOIN accounts bank_acc ON jvl.account_id = bank_acc.id
+                " . ($bank_account !== 'all' ? "JOIN bank_accounts ba ON jvl.account_id = ba.account_id AND ba.id = $bank_account" : "") . "
                 WHERE jv.tenant_id = ? AND jv.status = 'posted' AND jv.voucher_date < ?
                 " . ($company_id ? " AND jv.company_id = ?" : "") . "
                 AND (jvl.account_id = 1 OR a.sub_account_id = 75 OR jvl.account_id IN (78, 79))
@@ -704,6 +720,7 @@ try {
                 LEFT JOIN bank_accounts ba ON sr.bank_account_id = ba.id
                 WHERE sr.tenant_id = ? AND sr.status = 'Posted' AND sr.amount_refunded > 0 AND sr.sale_date < ?
                 " . ($company_id ? " AND sr.company_id = ?" : "") . "
+                $bank_filter
                 
                 UNION ALL
                 
@@ -716,6 +733,7 @@ try {
                 LEFT JOIN bank_accounts ba ON evl.bank_account_id = ba.id
                 WHERE evl.tenant_id = ? AND evl.cheque_date IS NULL AND ev.date < ?
                 " . ($company_id ? " AND ev.company_id = ?" : "") . "
+                $bank_filter
                 
                 UNION ALL
                 
@@ -726,6 +744,7 @@ try {
                 FROM purchase_return pr
                 WHERE pr.tenant_id = ? AND pr.net_amount > 0 AND pr.purchase_date < ?
                 " . ($company_id ? " AND pr.company_id = ?" : "") . "
+                " . ($bank_account !== 'all' ? " AND 1=0" : "") . "
                 
                 UNION ALL
                 
@@ -739,6 +758,7 @@ try {
                 LEFT JOIN bank_accounts ba ON pei.bank_account_id = ba.id
                 WHERE pei.tenant_id = ? AND pei.cheque_date IS NULL AND pe.payroll_date < ?
                 " . ($company_id ? " AND pe.company_id = ?" : "") . "
+                $bank_filter
             ) as soft_transactions
         ";
         $soft_stmt = $pdo->prepare($soft_sql);
@@ -762,8 +782,22 @@ try {
         if ($company_id) $params_soft[] = $company_id;
         $soft_stmt->execute($params_soft);
         $soft_result = $soft_stmt->fetch();
-        $soft_opening_cash = $soft_result['cash_balance'] ?? 0;
-        $soft_opening_bank = $soft_result['bank_balance'] ?? 0;
+        
+        // DEBUG: Log the actual query for inspection
+        error_log("DEBUG [Soft Opening SQL]: " . substr($soft_sql, 0, 500));
+        error_log("DEBUG [Soft Opening Params Count]: " . count($params_soft));
+        
+        // When filtering by specific bank, only use bank_balance from soft opening
+        if ($bank_account !== 'all') {
+            $soft_opening_cash = 0;
+            $soft_opening_bank = $soft_result['bank_balance'] ?? 0;
+        } else {
+            $soft_opening_cash = $soft_result['cash_balance'] ?? 0;
+            $soft_opening_bank = $soft_result['bank_balance'] ?? 0;
+        }
+        
+        error_log("DEBUG [Soft Opening Query Result]: cash_balance=" . ($soft_result['cash_balance'] ?? 0) . ", bank_balance=" . ($soft_result['bank_balance'] ?? 0));
+        error_log("DEBUG [Soft Opening Final]: soft_opening_cash=$soft_opening_cash, soft_opening_bank=$soft_opening_bank, bank_account_filter=$bank_account, from_date=$from_date");
         
         // Convert soft opening from base currency to target currency
         if ($base_currency_id != $target_currency_id) {
@@ -783,8 +817,15 @@ try {
         $transaction['inflow'] = (float)$transaction['inflow'];
         $transaction['outflow'] = (float)$transaction['outflow'];
         
-        $cash_balance += ($transaction['bank_account'] === '-') ? ($transaction['inflow'] - $transaction['outflow']) : 0;
-        $bank_balance += ($transaction['bank_account'] !== '-') ? ($transaction['inflow'] - $transaction['outflow']) : 0;
+        // When filtering by specific bank, only update bank_balance for that bank's transactions
+        if ($bank_account !== 'all') {
+            // All filtered transactions are for this bank, so update bank_balance
+            $bank_balance += $transaction['inflow'] - $transaction['outflow'];
+        } else {
+            // Update cash or bank balance based on transaction type
+            $cash_balance += ($transaction['bank_account'] === '-') ? ($transaction['inflow'] - $transaction['outflow']) : 0;
+            $bank_balance += ($transaction['bank_account'] !== '-') ? ($transaction['inflow'] - $transaction['outflow']) : 0;
+        }
         
         $transaction['cash_balance'] = $cash_balance;
         $transaction['bank_balance'] = $bank_balance;

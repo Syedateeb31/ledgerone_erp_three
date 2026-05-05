@@ -73,6 +73,6 @@ if (strpos($host, 'unisensystems.com') !== false) {
     <script>
         const BASE_URL = '<?php echo $base_url; ?>';
     </script>
-    <script src="../../../assets/js/manufacturing/production_completion/list.js"></script>
+    <script src="../../../assets/js/manufacturing/production_completion/list.js?v=<?php echo time(); ?>"></script>
 </body>
 </html>

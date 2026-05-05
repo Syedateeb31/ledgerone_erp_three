@@ -25,6 +25,11 @@ try {
     $stmt->execute([$tenant_id]);
     $salesOfficers = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
+    // Get supplier men (employees)
+    $stmt = $pdo->prepare("SELECT id, full_name FROM employees WHERE tenant_id = ? AND is_active = 1 ORDER BY full_name");
+    $stmt->execute([$tenant_id]);
+    $supplierMen = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
     // Get vendors (suppliers)
     $stmt = $pdo->prepare("SELECT id, supplier_name FROM suppliers WHERE tenant_id = ? AND status = 'ACTIVE' ORDER BY supplier_name");
     $stmt->execute([$tenant_id]);
@@ -33,6 +38,7 @@ try {
     echo json_encode([
         'success' => true,
         'salesOfficers' => $salesOfficers,
+        'supplierMen' => $supplierMen,
         'vendors' => $vendors
     ]);
     

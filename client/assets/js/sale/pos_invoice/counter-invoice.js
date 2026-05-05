@@ -609,7 +609,16 @@ document.addEventListener('DOMContentLoaded', async function() {
         e.preventDefault();
         saveInvoice('Draft');
     });
-    document.getElementById('amountReceived').addEventListener('input', updateSummary);
+    document.getElementById('amountReceived').addEventListener('input', function() {
+        autoCalculateAmountReturned();
+        updateSummary();
+    });
+    document.getElementById('amountReturned').addEventListener('input', function() {
+        updateBalanceFromReturned();
+    });
+    document.getElementById('amountReturned').addEventListener('input', function() {
+        updateBalanceFromReturned();
+    });
     document.getElementById('invoiceDiscountPercent').addEventListener('input', updateInvoiceDiscount);
     document.getElementById('invoiceDiscountAmount').addEventListener('input', updateInvoiceDiscount);
 });
@@ -1510,8 +1519,6 @@ function updateSummary() {
     const netAmount = currentInvoice.items.reduce((sum, item) => sum + item.net, 0) - invoiceDiscountAmount;
     
     const amountReceived = parseFloat(document.getElementById('amountReceived').value) || 0;
-    const amountReturned = parseFloat(document.getElementById('amountReturned').value) || 0;
-    const balance = (amountReceived - amountReturned) - netAmount;
     
     // Update totals footer
     const totalQty = currentInvoice.items.reduce((sum, item) => sum + item.qty, 0);
@@ -1524,9 +1531,36 @@ function updateSummary() {
     document.getElementById('totalGst').textContent = formatCurrency(totalGst);
     document.getElementById('netAmount').textContent = formatCurrency(netAmount);
     document.getElementById('summaryReceived').textContent = formatCurrency(amountReceived);
+    document.getElementById('itemCount').textContent = currentInvoice.items.length;
+}
+
+function updateReturnedAndBalance() {
+    const amountReceived = parseFloat(document.getElementById('amountReceived').value) || 0;
+    const invoiceDiscountAmount = parseFloat(document.getElementById('invoiceDiscountAmount').value) || 0;
+    const netAmount = currentInvoice.items.reduce((sum, item) => sum + item.net, 0) - invoiceDiscountAmount;
+    
+    const difference = amountReceived - netAmount;
+    const amountReturned = difference > 0 ? difference : 0;
+    const balance = difference < 0 ? Math.abs(difference) : 0;
+    
+    document.getElementById('amountReturned').value = amountReturned.toFixed(2);
     document.getElementById('summaryReturned').textContent = formatCurrency(amountReturned);
     document.getElementById('balanceAmount').textContent = formatCurrency(balance);
-    document.getElementById('itemCount').textContent = currentInvoice.items.length;
+    
+    const balanceEl = document.getElementById('balanceAmount');
+    balanceEl.style.color = balance === 0 ? 'var(--success)' : 'var(--error)';
+}
+
+function updateBalanceFromReturned() {
+    const amountReceived = parseFloat(document.getElementById('amountReceived').value) || 0;
+    const amountReturned = parseFloat(document.getElementById('amountReturned').value) || 0;
+    const invoiceDiscountAmount = parseFloat(document.getElementById('invoiceDiscountAmount').value) || 0;
+    const netAmount = currentInvoice.items.reduce((sum, item) => sum + item.net, 0) - invoiceDiscountAmount;
+    
+    const balance = (amountReceived - amountReturned) - netAmount;
+    
+    document.getElementById('balanceAmount').textContent = formatCurrency(balance);
+    document.getElementById('summaryReturned').textContent = formatCurrency(amountReturned);
     
     const balanceEl = document.getElementById('balanceAmount');
     balanceEl.style.color = balance >= 0 ? 'var(--success)' : 'var(--error)';
@@ -1546,6 +1580,11 @@ function updateInvoiceDiscount() {
     }
     
     updateSummary();
+    updateReturnedAndBalance();
+}
+
+function autoCalculateAmountReturned() {
+    updateReturnedAndBalance();
 }
 
 function quickPay() {

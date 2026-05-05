@@ -3,7 +3,7 @@ require_once '../../../../includes/connection.php';
 
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, POST');
+header('Access-Control-Allow-Methods: GET, POST, PUT');
 header('Access-Control-Allow-Headers: Content-Type');
 
 session_start();
@@ -14,21 +14,42 @@ $tenant_id = $_SESSION['tenant_id'] ?? 1;
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     $action = $_GET['action'] ?? '';
     
-    // Load Production Orders (In Progress only)
+    // Load Production Orders (In Progress only, or specific order for edit)
     if ($action === 'production_orders') {
-        $stmt = $pdo->prepare("
-            SELECT 
-                po.id,
-                po.order_no,
-                po.status,
-                p.name as product_name
-            FROM production_orders po
-            JOIN products p ON po.product_id = p.id
-            WHERE po.tenant_id = ?
-            AND po.status = 'In Progress'
-            ORDER BY po.created_at DESC
-        ");
-        $stmt->execute([$tenant_id]);
+        $edit_po_id = $_GET['edit_po_id'] ?? null;
+        
+        if ($edit_po_id) {
+            // Include the specific production order for editing, regardless of status
+            $stmt = $pdo->prepare("
+                SELECT 
+                    po.id,
+                    po.order_no,
+                    po.status,
+                    p.name as product_name
+                FROM production_orders po
+                JOIN products p ON po.product_id = p.id
+                WHERE po.tenant_id = ?
+                AND (po.status = 'In Progress' OR po.id = ?)
+                ORDER BY po.created_at DESC
+            ");
+            $stmt->execute([$tenant_id, $edit_po_id]);
+        } else {
+            // Normal mode: only In Progress orders
+            $stmt = $pdo->prepare("
+                SELECT 
+                    po.id,
+                    po.order_no,
+                    po.status,
+                    p.name as product_name
+                FROM production_orders po
+                JOIN products p ON po.product_id = p.id
+                WHERE po.tenant_id = ?
+                AND po.status = 'In Progress'
+                ORDER BY po.created_at DESC
+            ");
+            $stmt->execute([$tenant_id]);
+        }
+        
         echo json_encode(['success' => true, 'data' => $stmt->fetchAll(PDO::FETCH_ASSOC)]);
         exit;
     }
@@ -357,6 +378,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $remaining_qty -= $prod['completed_qty'];
         }
         
+        // Calculate completion ratio for WIP material consumption
+        $completion_ratio = $planned_qty > 0 ? $totalQuantity / $planned_qty : 0;
+        
         // Get WIP materials from work_in_progress_items
         $wipStmt = $pdo->prepare("
             SELECT wpi.material_id, wpi.issue_qty, wpi.uom_id, wpi.unit_cost
@@ -367,8 +391,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $wipStmt->execute([$po_id]);
         $wipMaterials = $wipStmt->fetchAll(PDO::FETCH_ASSOC);
         
-        // 1. Raw Materials OUT from WIP (account_id = 116)
+        // 1. Calculate and store actual WIP materials consumed for this completion
         foreach ($wipMaterials as $material) {
+            $consumed_qty = $material['issue_qty'] * $completion_ratio;
+            $consumed_cost = $consumed_qty * $material['unit_cost'];
+            
+            // Store in production_completion_materials
+            $stmt = $pdo->prepare("
+                INSERT INTO production_completion_materials
+                (production_completion_id, material_id, consumed_qty, uom_id, unit_cost, total_cost)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ");
+            $stmt->execute([
+                $completion_id,
+                $material['material_id'],
+                $consumed_qty,
+                $material['uom_id'],
+                $material['unit_cost'],
+                $consumed_cost
+            ]);
+            
+            // 2. Raw Materials OUT from WIP (account_id = 116)
             $stmt = $pdo->prepare("
                 INSERT INTO stock_ledger
                 (tenant_id, account_id, branch_id, product_id, reference_table, reference_id,
@@ -380,14 +423,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $branch_id,
                 $material['material_id'],
                 $completion_id,
-                $material['issue_qty'],
+                $consumed_qty,
                 $material['unit_cost'],
                 $material['uom_id'],
                 $complete_date
             ]);
         }
         
-        // 2. Finished Goods IN (account_id = 117)
+        // 3. Finished Goods IN (account_id = 117)
         foreach ($products as $prod) {
             $stmt = $pdo->prepare("
                 INSERT INTO stock_ledger
@@ -426,6 +469,218 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         $pdo->commit();
         echo json_encode(['success' => true, 'message' => 'Production completed successfully']);
+    } catch (Exception $e) {
+        $pdo->rollBack();
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+    }
+    exit;
+}
+
+// PUT - Update Production Completion
+if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
+    $data = json_decode(file_get_contents('php://input'), true);
+    
+    $completion_id = $data['completion_id'] ?? null;
+    $po_id = $data['po_id'] ?? null;
+    $branch_id = $data['branch_id'] ?? null;
+    $complete_date = $data['complete_date'] ?? null;
+    $products = $data['products'] ?? [];
+    
+    if (!$completion_id || !$po_id || !$branch_id || !$complete_date || empty($products)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'Missing required fields']);
+        exit;
+    }
+    
+    try {
+        $pdo->beginTransaction();
+        
+        // Get existing completion
+        $stmt = $pdo->prepare("SELECT * FROM production_completions WHERE id = ? AND tenant_id = ?");
+        $stmt->execute([$completion_id, $tenant_id]);
+        $existing = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$existing) {
+            throw new Exception('Completion not found');
+        }
+        
+        // Delete old stock ledger entries
+        $stmt = $pdo->prepare("DELETE FROM stock_ledger WHERE reference_table = 'production_completions' AND reference_id = ?");
+        $stmt->execute([$completion_id]);
+        
+        // Delete old completed products
+        $stmt = $pdo->prepare("DELETE FROM completed_products WHERE production_completion_id = ?");
+        $stmt->execute([$completion_id]);
+        
+        // Delete old completion materials
+        $stmt = $pdo->prepare("DELETE FROM production_completion_materials WHERE production_completion_id = ?");
+        $stmt->execute([$completion_id]);
+        
+        // Get machine_id and planned_qty from production order
+        $stmt = $pdo->prepare("SELECT machine_id, order_qty FROM production_orders WHERE id = ?");
+        $stmt->execute([$po_id]);
+        $order = $stmt->fetch(PDO::FETCH_ASSOC);
+        $machine_id = $order['machine_id'];
+        $planned_qty = $order['order_qty'];
+        
+        // Calculate new totals
+        $totalProducts = count($products);
+        $totalQuantity = 0;
+        $totalCost = 0;
+        
+        foreach ($products as $prod) {
+            $totalQuantity += $prod['completed_qty'];
+            $totalCost += $prod['completed_qty'] * $prod['unit_cost'];
+        }
+        
+        // Update production_completions header
+        $stmt = $pdo->prepare("
+            UPDATE production_completions
+            SET branch_id = ?, machine_id = ?, complete_date = ?,
+                total_products = ?, total_quantity = ?, total_cost = ?,
+                updated_at = NOW()
+            WHERE id = ?
+        ");
+        $stmt->execute([
+            $branch_id,
+            $machine_id,
+            $complete_date,
+            $totalProducts,
+            $totalQuantity,
+            $totalCost,
+            $completion_id
+        ]);
+        
+        // Get previous completed qty (excluding current completion)
+        $stmt = $pdo->prepare("
+            SELECT COALESCE(SUM(cp.completed_qty), 0) as total_completed 
+            FROM completed_products cp 
+            JOIN production_completions pc ON cp.production_completion_id = pc.id 
+            WHERE pc.production_order_id = ? AND pc.id != ?
+        ");
+        $stmt->execute([$po_id, $completion_id]);
+        $prev = $stmt->fetch(PDO::FETCH_ASSOC);
+        $remaining_qty = $planned_qty - $prev['total_completed'];
+        
+        // Insert new completed products
+        foreach ($products as $prod) {
+            $prodTotalCost = $prod['completed_qty'] * $prod['unit_cost'];
+            
+            $stmt = $pdo->prepare("
+                INSERT INTO completed_products
+                (production_completion_id, product_id, planned_qty, remaining_qty, 
+                 completed_qty, uom_id, unit_cost, total_cost)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ");
+            $stmt->execute([
+                $completion_id,
+                $prod['product_id'],
+                $planned_qty,
+                $remaining_qty,
+                $prod['completed_qty'],
+                $prod['uom_id'],
+                $prod['unit_cost'],
+                $prodTotalCost
+            ]);
+            
+            $remaining_qty -= $prod['completed_qty'];
+        }
+        
+        // Calculate new completion ratio for WIP material consumption
+        $completion_ratio = $planned_qty > 0 ? $totalQuantity / $planned_qty : 0;
+        
+        // Get WIP materials
+        $wipStmt = $pdo->prepare("
+            SELECT wpi.material_id, wpi.issue_qty, wpi.uom_id, wpi.unit_cost
+            FROM work_in_progress_items wpi
+            JOIN work_in_progress wp ON wpi.work_in_progress_id = wp.id
+            WHERE wp.production_order_id = ?
+        ");
+        $wipStmt->execute([$po_id]);
+        $wipMaterials = $wipStmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Insert new completion materials and stock ledger entries - Raw Materials OUT from WIP
+        foreach ($wipMaterials as $material) {
+            $consumed_qty = $material['issue_qty'] * $completion_ratio;
+            $consumed_cost = $consumed_qty * $material['unit_cost'];
+            
+            // Store in production_completion_materials
+            $stmt = $pdo->prepare("
+                INSERT INTO production_completion_materials
+                (production_completion_id, material_id, consumed_qty, uom_id, unit_cost, total_cost)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ");
+            $stmt->execute([
+                $completion_id,
+                $material['material_id'],
+                $consumed_qty,
+                $material['uom_id'],
+                $material['unit_cost'],
+                $consumed_cost
+            ]);
+            
+            // Insert stock ledger entry
+            $stmt = $pdo->prepare("
+                INSERT INTO stock_ledger
+                (tenant_id, account_id, branch_id, product_id, reference_table, reference_id,
+                 qty_out, unit_cost, unit_id, transaction_type, transaction_date, created_at)
+                VALUES (?, 116, ?, ?, 'production_completions', ?, ?, ?, ?, 'WIP_OUT', ?, NOW())
+            ");
+            $stmt->execute([
+                $tenant_id,
+                $branch_id,
+                $material['material_id'],
+                $completion_id,
+                $consumed_qty,
+                $material['unit_cost'],
+                $material['uom_id'],
+                $complete_date
+            ]);
+        }
+        
+        // Insert new stock ledger entries - Finished Goods IN
+        foreach ($products as $prod) {
+            $stmt = $pdo->prepare("
+                INSERT INTO stock_ledger
+                (tenant_id, account_id, branch_id, product_id, reference_table, reference_id,
+                 qty_in, unit_cost, unit_id, transaction_type, transaction_date, created_at)
+                VALUES (?, 117, ?, ?, 'production_completions', ?, ?, ?, ?, 'PRODUCTION_RECEIVE', ?, NOW())
+            ");
+            $stmt->execute([
+                $tenant_id,
+                $branch_id,
+                $prod['product_id'],
+                $completion_id,
+                $prod['completed_qty'],
+                $prod['unit_cost'],
+                $prod['uom_id'],
+                $complete_date
+            ]);
+        }
+        
+        // Check if production order should be marked as completed
+        $stmt = $pdo->prepare("
+            SELECT order_qty, 
+                   (SELECT COALESCE(SUM(cp.completed_qty), 0) 
+                    FROM completed_products cp 
+                    JOIN production_completions pc ON cp.production_completion_id = pc.id 
+                    WHERE pc.production_order_id = ?) as total_completed
+            FROM production_orders WHERE id = ?
+        ");
+        $stmt->execute([$po_id, $po_id]);
+        $check = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($check['total_completed'] >= $check['order_qty']) {
+            $stmt = $pdo->prepare("UPDATE production_orders SET status = 'Completed', updated_at = NOW() WHERE id = ?");
+            $stmt->execute([$po_id]);
+        } else {
+            $stmt = $pdo->prepare("UPDATE production_orders SET status = 'In Progress', updated_at = NOW() WHERE id = ?");
+            $stmt->execute([$po_id]);
+        }
+        
+        $pdo->commit();
+        echo json_encode(['success' => true, 'message' => 'Production completion updated successfully']);
     } catch (Exception $e) {
         $pdo->rollBack();
         http_response_code(500);

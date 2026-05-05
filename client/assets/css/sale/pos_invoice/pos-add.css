@@ -256,7 +256,22 @@ tbody tr:hover {
 .summary-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 12px;
+  gap: 16px;
+  padding: 20px;
+  background: linear-gradient(135deg, var(--card-bg) 0%, var(--card-bg) 100%);
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+}
+
+.card-title {
+  color: var(--heading);
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 20px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid var(--primary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .summary-item select.table-input {
@@ -267,18 +282,54 @@ tbody tr:hover {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
+  padding: 12px;
+  background: var(--input-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.summary-item:hover {
+  border-color: var(--primary);
+  background-color: var(--card-bg);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 .summary-label {
-  font-size: 11px;
+  font-size: 10px;
   color: var(--subtext);
-  margin-bottom: 3px;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: 0.3px;
 }
 
 .summary-value {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--heading);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--primary);
+  letter-spacing: -0.3px;
+}
+
+#invoiceLevelTaxesContainer {
+  display: contents;
+}
+
+.invoice-tax-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  padding: 12px;
+  background: linear-gradient(135deg, var(--input-bg) 0%, rgba(var(--primary-rgb), 0.03) 100%);
+  border: 1px solid rgba(var(--primary-rgb), 0.2);
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.invoice-tax-item:hover {
+  border-color: var(--primary);
+  background-color: rgba(var(--primary-rgb), 0.05);
+  box-shadow: 0 2px 8px rgba(var(--primary-rgb), 0.15);
 }
 
 .modal {
@@ -683,6 +734,14 @@ td:not(:has(.unit-input)):not(:has(button)):not(.price-cell):not(.gross-cell):no
 /* GST cells styling */
 .gst-percent-cell input,
 .gst-amount-cell input {
+  background: linear-gradient(135deg, #fce7f3 0%, #ffffff 100%);
+  border-color: #ec4899;
+  color: #db2777;
+}
+
+/* Tax cells styling */
+.tax-percent-cell input,
+.tax-amount-cell input {
   background: linear-gradient(135deg, #fce7f3 0%, #ffffff 100%);
   border-color: #ec4899;
   color: #db2777;

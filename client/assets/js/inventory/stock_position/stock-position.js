@@ -108,7 +108,8 @@ function toggleChildren(productId) {
 function printList() {
     const branch = document.getElementById('branch').value;
     const product = document.getElementById('product').value;
-    const company = document.getElementById('company').value;
+    const inventoryType = document.getElementById('inventory-type').value;
+    const stockStatus = document.getElementById('stock-status').value;
     const status = document.getElementById('status').value;
     const stockLevelFilter = document.getElementById('stock-level-filter').value;
     const fromDate = document.getElementById('from-date').value;
@@ -118,7 +119,8 @@ function printList() {
     let url = 'print.php?';
     if (branch) url += `branch_id=${branch}&`;
     if (product) url += `product_id=${product}&`;
-    if (company) url += `company_id=${company}&`;
+    if (inventoryType) url += `inventory_type_id=${inventoryType}&`;
+    if (stockStatus) url += `stock_status=${stockStatus}&`;
     if (status) url += `status=${status}&`;
     if (stockLevelFilter) url += `stock_level=${stockLevelFilter}&`;
     if (fromDate) url += `from_date=${fromDate}&`;
@@ -159,7 +161,6 @@ async function loadStockPosition() {
     try {
         const branchInput = document.getElementById('branch').value;
         const product = document.getElementById('product').value;
-        const company = document.getElementById('company').value;
         const inventoryType = document.getElementById('inventory-type').value;
         const distribution = document.getElementById('distribution').value;
         const stockStatus = document.getElementById('stock-status').value;
@@ -202,10 +203,14 @@ async function loadStockPosition() {
             }
         }
         
+        console.log('=== Filter Debug ===');
+        console.log('Show Base Units Checkbox:', showBaseUnits);
+        console.log('Branch ID:', branchId);
+        console.log('Product ID:', productId);
+        
         let url = `${API_BASE}?action=position`;
         if (branchId) url += `&branch_id=${branchId}`;
         if (productId) url += `&product_id=${productId}`;
-        if (company) url += `&company_id=${company}`;
         if (inventoryType) url += `&inventory_type_id=${inventoryType}`;
         if (distribution) url += `&vendor_id=${distribution}`;
         if (stockStatus) url += `&stock_status=${stockStatus}`;
@@ -214,6 +219,8 @@ async function loadStockPosition() {
         if (toDate) url += `&to_date=${toDate}`;
         if (valuationMethod) url += `&valuation_method=${valuationMethod}`;
         if (showBaseUnits) url += `&show_base_units=true`;
+        
+        console.log('API URL:', url);
         
         const response = await fetch(url);
         const data = await response.json();
@@ -398,10 +405,40 @@ function updateItemPaginationControls() {
 // Load Detailed Ledger
 async function loadDetailedLedger() {
     try {
-        const company = document.getElementById('company').value;
+        const branchInput = document.getElementById('detailed-branch').value;
+        const productInput = document.getElementById('detailed-product').value;
+        const fromDate = document.getElementById('detailed-from-date').value;
+        const toDate = document.getElementById('detailed-to-date').value;
+        
+        // Find branch ID from datalist
+        let branchId = null;
+        if (branchInput) {
+            const options = document.querySelectorAll('#detailed-branch-list option');
+            for (let option of options) {
+                if (option.value === branchInput) {
+                    branchId = option.getAttribute('data-id');
+                    break;
+                }
+            }
+        }
+        
+        // Find product ID from datalist
+        let productId = null;
+        if (productInput) {
+            const options = document.querySelectorAll('#detailed-product-list option');
+            for (let option of options) {
+                if (option.value === productInput) {
+                    productId = option.getAttribute('data-id');
+                    break;
+                }
+            }
+        }
         
         let url = `${API_BASE}?action=detailed-ledger`;
-        if (company) url += `&company_id=${company}`;
+        if (branchId) url += `&branch_id=${branchId}`;
+        if (productId) url += `&product_id=${productId}`;
+        if (fromDate) url += `&from_date=${fromDate}`;
+        if (toDate) url += `&to_date=${toDate}`;
         
         console.log('Fetching Detailed Ledger from URL:', url);
         const response = await fetch(url);
@@ -455,11 +492,21 @@ function renderDetailedLedgerTable(currency = '$') {
     const endIndex = startIndex + itemsPerPage;
     const pageData = processedLedger.slice(startIndex, endIndex);
     
-    // Calculate totals for all data
-    const totalQtyIn = allDetailedEntries.reduce((sum, entry) => sum + parseFloat(entry.qty_in || 0), 0);
-    const totalQtyOut = allDetailedEntries.reduce((sum, entry) => sum + parseFloat(entry.qty_out || 0), 0);
+    // Calculate totals - simple sum of all displayed transactions
+    const totalQtyIn = processedLedger.reduce((sum, entry) => sum + parseFloat(entry.qty_in || 0), 0);
+    const totalQtyOut = processedLedger.reduce((sum, entry) => sum + parseFloat(entry.qty_out || 0), 0);
     
-    // Get final balance and value per product-branch
+    console.log('=== Detailed Ledger Totals Debug ===');
+    console.log('Total transactions:', processedLedger.length);
+    console.log('Total Qty In:', totalQtyIn);
+    console.log('Total Qty Out:', totalQtyOut);
+    console.log('All OUT transactions:', processedLedger.filter(e => parseFloat(e.qty_out) > 0).map(e => ({ type: e.transaction_type, out: e.qty_out })));
+    console.log('Manual sum check:', processedLedger.reduce((sum, e) => sum + parseFloat(e.qty_out || 0), 0));
+    
+    // Calculate total balance - sum of all final balances per product-branch
+    const totalBalance = Object.values(balances).reduce((sum, balance) => sum + balance, 0);
+    
+    // Calculate total value - sum of final values per product-branch
     const finalValues = {};
     Object.keys(balances).forEach(key => {
         const entries = processedLedger.filter(e => `${e.product_name}-${e.branch_name}` === key);
@@ -468,13 +515,7 @@ function renderDetailedLedgerTable(currency = '$') {
             finalValues[key] = parseFloat(lastEntry.value);
         }
     });
-    
-    const totalBalance = Object.values(balances).reduce((sum, balance) => sum + balance, 0);
     const totalValue = Object.values(finalValues).reduce((sum, value) => sum + value, 0);
-    
-    console.log('Balances:', balances);
-    console.log('Final Values:', finalValues);
-    console.log('Total Value:', totalValue);
     
     tbody.innerHTML = pageData.map(entry => `
         <tr>
@@ -574,10 +615,8 @@ function updateBranchPaginationControls() {
 // Load Dashboard Stats
 async function loadDashboardStats() {
     try {
-        const company = document.getElementById('company').value;
         const valuationMethod = document.getElementById('valuation-method').value;
         let url = `${API_BASE}?action=stats`;
-        if (company) url += `&company_id=${company}`;
         if (valuationMethod) url += `&valuation_method=${valuationMethod}`;
         
         const response = await fetch(url);
@@ -614,7 +653,7 @@ async function loadBranches() {
 }
 
 function populateBranchDropdowns(branches) {
-    const branchLists = ['#branch-list', '#branch-ledger-list'];
+    const branchLists = ['#branch-list', '#branch-ledger-list', '#detailed-branch-list'];
     branchLists.forEach(selector => {
         const datalist = document.querySelector(selector);
         if (datalist) {
@@ -638,7 +677,7 @@ async function loadProducts() {
 }
 
 function populateProductDropdowns(products) {
-    const productLists = ['#product-list', '#item-list'];
+    const productLists = ['#product-list', '#item-list', '#detailed-product-list'];
     productLists.forEach(selector => {
         const datalist = document.querySelector(selector);
         if (datalist) {
@@ -689,22 +728,7 @@ async function loadDistributions() {
 
 // Load Companies
 async function loadCompanies() {
-    try {
-        const response = await fetch(`${API_BASE}?action=companies`);
-        const data = await response.json();
-        
-        if (data.success) {
-            const select = document.getElementById('company');
-            data.data.forEach(company => {
-                const option = document.createElement('option');
-                option.value = company.id;
-                option.textContent = company.company_name;
-                select.appendChild(option);
-            });
-        }
-    } catch (error) {
-        console.error('Error loading companies:', error);
-    }
+    // Removed - no longer needed
 }
 
 // DOMContentLoaded event handler
@@ -743,7 +767,6 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('clearPositionFilters').addEventListener('click', () => {
         document.getElementById('branch').value = '';
         document.getElementById('product').value = '';
-        document.getElementById('company').value = '';
         document.getElementById('inventory-type').value = '';
         document.getElementById('distribution').value = '';
         document.getElementById('stock-status').value = '';
@@ -936,13 +959,26 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // Apply Detailed Filters
+    document.getElementById('applyDetailedFilters').addEventListener('click', () => {
+        loadDetailedLedger();
+    });
+
+    // Clear Detailed Filters
+    document.getElementById('clearDetailedFilters').addEventListener('click', () => {
+        document.getElementById('detailed-branch').value = '';
+        document.getElementById('detailed-product').value = '';
+        document.getElementById('detailed-from-date').value = '';
+        document.getElementById('detailed-to-date').value = '';
+        loadDetailedLedger();
+    });
+
     // Load initial data
     loadDashboardStats();
     loadBranches();
     loadProducts();
     loadInventoryTypes();
     loadDistributions();
-    loadCompanies();
     loadStockPosition();
     
     // Expand/Collapse functionality

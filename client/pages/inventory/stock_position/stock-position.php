@@ -158,12 +158,7 @@ $currency_symbol = $currency['symbol'];
                         <input type="text" class="form-control" id="branch" list="branch-list" placeholder="All Branches">
                         <datalist id="branch-list"></datalist>
                     </div>
-                    <div class="form-group">
-                        <label class="form-label" for="company">Company</label>
-                        <select class="form-control" id="company">
-                            <option value="">All Companies</option>
-                        </select>
-                    </div>
+
                     <div class="form-group">
                         <label class="form-label" for="product">Product</label>
                         <input type="text" class="form-control" id="product" list="product-list" placeholder="All Products">
@@ -438,6 +433,34 @@ $currency_symbol = $currency['symbol'];
                         </div>
                     </div>
                 </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label" for="detailed-branch">Branch</label>
+                        <input type="text" class="form-control" id="detailed-branch" list="detailed-branch-list" placeholder="All Branches">
+                        <datalist id="detailed-branch-list"></datalist>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="detailed-product">Product</label>
+                        <input type="text" class="form-control" id="detailed-product" list="detailed-product-list" placeholder="All Products">
+                        <datalist id="detailed-product-list"></datalist>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="detailed-from-date">From Date</label>
+                        <input type="date" class="form-control" id="detailed-from-date">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="detailed-to-date">To Date</label>
+                        <input type="date" class="form-control" id="detailed-to-date">
+                    </div>
+                    <div class="form-group" style="display: flex; align-items: flex-end; gap: 8px;">
+                        <button class="btn btn-primary" id="applyDetailedFilters">
+                            <i class="fas fa-filter"></i> Apply Filters
+                        </button>
+                        <button class="btn btn-secondary" id="clearDetailedFilters">
+                            <i class="fas fa-times"></i> Clear
+                        </button>
+                    </div>
+                </div>
                 <div class="table-container">
                     <table class="table">
                         <thead>
@@ -471,6 +494,6 @@ $currency_symbol = $currency['symbol'];
         </div>
     </main>
 
-    <script src="../../../assets/js/inventory/stock_position/stock-position.js"></script>
+    <script src="../../../assets/js/inventory/stock_position/stock-position.js?v=<?= time() ?>"></script>
 </body>
 </html>

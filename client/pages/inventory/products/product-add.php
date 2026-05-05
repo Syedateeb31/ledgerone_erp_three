@@ -301,22 +301,11 @@ if (!$user_id) {
                 <div class="form-row">
                     <div class="form-group">
                         <label>Sales Tax Type</label>
-                        <select id="salesTaxType" name="salesTaxType">
-                            <option value="">Select Tax Type</option>
-                            <option value="MRP">Maximum Retail Price (MRP)</option>
-                            <option value="TP">Trade Price (TP)</option>
-                            <option value="EXP">Exempt (EXP)</option>
-                        </select>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label>Sales Tax (%)</label>
-                        <input type="number" id="salesTax" name="salesTax" step="0.01" min="0" max="100">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label>Further Tax (%)</label>
-                        <input type="number" id="furtherTax" name="furtherTax" step="0.01" min="0" max="100">
+                        <div class="custom-dropdown">
+                            <input type="text" id="salesTaxTypeSearch" class="tax-regime-search" placeholder="Search tax types..." autocomplete="off">
+                            <input type="hidden" id="salesTaxType" name="salesTaxType">
+                            <div class="dropdown-list" id="taxRegimeDropdown" style="display: none;"></div>
+                        </div>
                     </div>
                 </div>
             </div>

@@ -24,7 +24,7 @@ try {
             throw new Exception('Customer ID is required');
         }
         
-        $stmt = $pdo->prepare("SELECT * FROM customers WHERE id = ? AND tenant_id = ?");
+        $stmt = $pdo->prepare("SELECT c.*, cc.category_name as customer_category_name, s.brand_name FROM customers c LEFT JOIN customer_categories cc ON c.customer_category_id = cc.id LEFT JOIN suppliers s ON c.brand_id = s.id WHERE c.id = ? AND c.tenant_id = ?");
         $stmt->execute([$customer_id, $tenant_id]);
         $customer = $stmt->fetch(PDO::FETCH_ASSOC);
         
@@ -54,6 +54,8 @@ try {
         $sql = "UPDATE customers SET 
                 company_id = ?, 
                 customer_type_id = ?, 
+                customer_category_id = ?,
+                brand_id = ?,
                 customer_name = ?, 
                 address = ?, 
                 primary_phone = ?, 
@@ -87,6 +89,8 @@ try {
         $stmt->execute([
             !empty($input['companyId']) ? (int)$input['companyId'] : null,
             !empty($input['customerTypeId']) ? (int)$input['customerTypeId'] : null,
+            !empty($input['customerCategoryId']) ? (int)$input['customerCategoryId'] : null,
+            !empty($input['brandId']) ? (int)$input['brandId'] : null,
             trim($input['customerName']),
             !empty($input['address']) ? trim($input['address']) : null,
             !empty($input['primaryPhone']) ? trim($input['primaryPhone']) : null,

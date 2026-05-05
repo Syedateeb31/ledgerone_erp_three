@@ -212,11 +212,10 @@ $user_employee_id = $user['employee_id'] ?? null;
             </div>
 
             <div class="items-container">
-                <div class="items-header">
+                <div class="items-header" id="itemsHeader">
                     <div class="col-header text-center">#</div>
                     <div class="col-header">PRODUCT</div>
-                    <div class="col-header">UNIT</div>
-                    <div class="col-header text-right">QTY</div>
+                    <!-- Dynamic unit columns will be inserted here -->
                     <div class="col-header text-right">PRICE</div>
                     <div class="col-header text-right">GROSS</div>
                     <div class="col-header text-right">DISC%</div>
@@ -226,11 +225,10 @@ $user_employee_id = $user['employee_id'] ?? null;
                     <div class="col-header text-center">ACT</div>
                 </div>
                 <div class="items-body" id="itemsBody"></div>
-                <div style="padding: 8px 12px; background: var(--surface-2); border-top: 2px solid var(--border-strong); display: grid; grid-template-columns: 30px 120px 60px 60px 70px 70px 70px 70px 60px 80px 40px; gap: 4px; align-items: center; font-weight: 600;">
+                <div id="itemsFooter" style="padding: 8px 12px; background: var(--surface-2); border-top: 2px solid var(--border-strong); display: grid; gap: 4px; align-items: center; font-weight: 600;">
                     <div></div>
                     <div>TOTALS</div>
-                    <div></div>
-                    <div class="text-right" id="totalQty">0.00</div>
+                    <!-- Dynamic unit totals will be inserted here -->
                     <div></div>
                     <div class="text-right" id="totalGross">0.00</div>
                     <div></div>
@@ -342,6 +340,7 @@ $user_employee_id = $user['employee_id'] ?? null;
     </div>
 
     <script>const userEmployeeId = <?php echo json_encode($user_employee_id); ?>;</script>
-    <script src="../../../assets/js/sale/sale_return/counter-return.js"></script>
+    <script src="../../../assets/js/sale/sale_return/counter-return-uom.js?v=<?php echo time(); ?>"></script>
+    <script src="../../../assets/js/sale/sale_return/counter-return.js?v=<?php echo time(); ?>"></script>
 </body>
 </html>

@@ -187,7 +187,13 @@ if (!$user_id) {
                         <textarea id="edit_address" name="address"></textarea>
                     </div>
                     <div class="form-group">
-                        <label>Country</label>
+                        <label>Country (Dropdown)</label>
+                        <select id="edit_country_id" name="country_id">
+                            <option value="">Select Country</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Country (Text)</label>
                         <input type="text" id="edit_country" name="country">
                     </div>
                     <div class="form-group">

@@ -467,7 +467,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $issue_date
             ]);
             
-            // 2. WIP Product Receive (qty_in) - account_id 116
+            // 2. WIP Inventory Receive (qty_in) - account_id 116 (same material)
             $stockInStmt = $pdo->prepare("
                 INSERT INTO stock_ledger
                 (tenant_id, branch_id, product_id, account_id, reference_table, reference_id,
@@ -477,7 +477,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stockInStmt->execute([
                 $tenant_id,
                 $branch_id,
-                $wip_product_id,
+                $material_id,
                 $wipHeaderId,
                 $issue_qty,
                 $unit_cost,
@@ -607,7 +607,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         ");
                         $updateRawStmt->execute([$mat['issue_qty'], $wip_id, $oldData['material_id'], $oldData['uom_id']]);
                         
-                        // Update WIP product stock ledger entry
+                        // Update WIP inventory stock ledger entry (same material)
                         $updateWIPStmt = $pdo->prepare("
                             UPDATE stock_ledger
                             SET qty_in = ?
@@ -680,7 +680,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ");
             $deleteRawStmt->execute([$wip_id, $item['material_id'], $item['uom_id']]);
             
-            // Delete stock ledger entries for WIP product
+            // Delete stock ledger entries for WIP inventory (same material)
             $deleteWIPStmt = $pdo->prepare("
                 DELETE FROM stock_ledger
                 WHERE reference_table = 'work_in_progress'
@@ -769,7 +769,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ");
                 $deleteRawStmt->execute([$wip_id, $item['material_id'], $item['uom_id']]);
                 
-                // Delete stock ledger entries for WIP product per unit
+                // Delete stock ledger entries for WIP inventory per unit (same material)
                 $deleteWIPStmt = $pdo->prepare("
                     DELETE FROM stock_ledger
                     WHERE reference_table = 'work_in_progress'
@@ -914,11 +914,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $issue_date
             ]);
             
-            // 2. WIP Product Receive (qty_in) - account_id 116
+            // 2. WIP Inventory Receive (qty_in) - account_id 116 (same material)
             $stockInStmt->execute([
                 $tenant_id,
                 $branch_id,
-                $wip_product_id,
+                $mat['material_id'],
                 $wipHeaderId,
                 $mat['issue_qty'],
                 $mat['unit_cost'],

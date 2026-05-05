@@ -101,7 +101,13 @@ if (!$user_id) {
                             <textarea id="address" name="address" placeholder="Enter company address"></textarea>
                         </div>
                         <div class="form-group">
-                            <label for="country">Country</label>
+                            <label for="country_id">Country (Dropdown)</label>
+                            <select id="country_id" name="country_id">
+                                <option value="">Select Country</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="country">Country (Text)</label>
                             <input value="Pakistan" type="text" id="country" name="country" placeholder="United States">
                         </div>
                         <div class="form-group">

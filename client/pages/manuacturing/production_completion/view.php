@@ -58,6 +58,6 @@ $id = $_GET['id'] ?? null;
         const BASE_URL = '<?php echo $base_url; ?>';
         const COMPLETION_ID = <?php echo $id; ?>;
     </script>
-    <script src="../../../assets/js/manufacturing/production_completion/view.js"></script>
+    <script src="../../../assets/js/manufacturing/production_completion/view.js?v=<?php echo time(); ?>"></script>
 </body>
 </html>

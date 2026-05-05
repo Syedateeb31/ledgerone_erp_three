@@ -170,8 +170,8 @@ if (!$user_id) {
                                 <th width="5%">Disc %</th>
                                 <th width="8%"><span id="discountAmountLabel">Disc Amt</span></th>
                                 <th width="8%">T.O Amt</th>
-                                <th width="5%">GST %</th>
-                                <th width="8%">GST Amt</th>
+                                <th width="5%">Tax %</th>
+                                <th width="8%">Tax Amt</th>
                                 <th width="5%">FOC Qty</th>
                                 <th width="8%"><span id="netAmountLabel">Net Amount</span></th>
                                 <th width="3%">Actions</th>
@@ -182,18 +182,20 @@ if (!$user_id) {
                         </tbody>
                         <tfoot>
                             <tr class="totals-row">
-                                <th colspan="2">Totals</th>
+                                <th style="text-align: left;">Totals</th>
+                                <th style="text-align: left;"></th>
+                                <th style="text-align: left;"></th>
                                 <!-- Dynamic unit totals will be inserted here -->
                                 <th id="totalSalePrice">0.00</th>
                                 <th id="totalGrossAmount">0.00</th>
                                 <th></th>
                                 <th id="totalDiscountAmountItems">0.00</th>
-                                <th></th>
                                 <th id="totalTradeOfferAmount">0.00</th>
                                 <th></th>
-                                <th id="totalGstAmount">0.00</th>
+                                <th id="totalTaxAmount">0.00</th>
                                 <th id="totalFocQty">0.00</th>
                                 <th id="totalNetAmountItems">0.00</th>
+                                <th></th>
                                 <th></th>
                             </tr>
                         </tfoot>
@@ -229,14 +231,8 @@ if (!$user_id) {
                         <span class="summary-label" id="netAmountSummaryLabel">Net Amount</span>
                         <span class="summary-value" id="netAmount">0.00</span>
                     </div>
-                    <div class="summary-item">
-                        <span class="summary-label">Advance Income Tax %</span>
-                        <input type="number" id="withholdingTaxPercent" class="table-input" min="0" max="100" step="0.01" value="0" readonly tabindex="-1">
-                    </div>
-                    <div class="summary-item">
-                        <span class="summary-label" id="withholdingTaxAmountLabel">Advance Income Tax Amount</span>
-                        <span class="summary-value" id="withholdingTaxAmount">0.00</span>
-                    </div>
+                    <!-- Dynamic Invoice-Level Taxes will be inserted here -->
+                    <div id="invoiceLevelTaxesContainer"></div>
                     <div class="summary-item">
                         <span class="summary-label" id="netReceivableLabel">Net Receivable</span>
                         <span class="summary-value" id="netReceivable" style="color: var(--primary); font-size: 16px; font-weight: 700;">0.00</span>
@@ -373,7 +369,7 @@ if (!$user_id) {
 
     <!-- Invoice Settings Modal -->
     <div class="modal" id="invoiceSettingsModal">
-        <div class="modal-content">
+        <div class="modal-content" style="max-width: 600px; max-height: 90vh; overflow-y: auto;">
             <h3 class="modal-title">Invoice Settings</h3>
             <div style="margin: 20px 0;">
                 <div style="margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid var(--border-default);">
@@ -395,6 +391,18 @@ if (!$user_id) {
                         <span>Given</span>
                     </label>
                 </div>
+
+                <div style="margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid var(--border-default);">
+                    <p style="margin-bottom: 12px; font-weight: 600; font-size: 14px;">Sale Price (₨):</p>
+                    <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px; cursor: pointer;">
+                        <input type="radio" name="salePriceSetting" value="trade_price" id="salePriceTP" style="width: auto;">
+                        <span>Trade Price (TP)</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                        <input type="radio" name="salePriceSetting" value="mrp" id="salePriceMRP" style="width: auto;">
+                        <span>Maximum Retail Price (MRP)</span>
+                    </label>
+                </div>
                 
                 <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; cursor: pointer;">
                     <input type="checkbox" id="enableTradeOfferAmount" style="width: auto;">
@@ -406,7 +414,7 @@ if (!$user_id) {
                 </label>
                 <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; cursor: pointer;">
                     <input type="checkbox" id="enableTaxation" style="width: auto;">
-                    <span>Enable Taxation</span>
+                    <span>Enable Tax % and Tax Amt</span>
                 </label>
                 <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; cursor: pointer;">
                     <input type="checkbox" id="enableCashDiscountPercent" style="width: auto;">
@@ -799,7 +807,10 @@ if (!$user_id) {
 
     <script src="../../../assets/js/sale/pos_invoice/pos-add-uom.js?v=<?php echo time(); ?>&debug=1"></script>
     <script src="../../../assets/js/sale/pos_invoice/pos-add-scheme.js?v=<?php echo time(); ?>"></script>
+    <script src="../../../assets/js/sale/pos_invoice/invoice-level-taxes-dynamic.js?v=<?php echo time(); ?>"></script>
+    <script src="../../../assets/js/sale/pos_invoice/pos-tax-calculation.js?v=<?php echo time(); ?>"></script>
     <script src="../../../assets/js/sale/pos_invoice/withholding-tax.js?v=<?php echo time(); ?>"></script>
     <script src="../../../assets/js/sale/pos_invoice/pos-add.js?v=<?php echo time(); ?>"></script>
+    <script src="../../../assets/js/sale/pos_invoice/tax-integration.js?v=<?php echo time(); ?>"></script>
 </body>
 </html>
