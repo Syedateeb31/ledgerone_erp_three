@@ -501,7 +501,7 @@ async function applyGivenScheme(row, product) {
 
 /**
  * Calculate amounts for "Given" scheme
- * FOC Qty = sum of (floor(unit_qty / promo_qty) * bonus_qty) for each unit
+ * FOC Qty = floor(qty / promo_qty) * bonus_qty
  * @param {HTMLTableRowElement} row - The table row
  * @param {Object} product - Product object (optional)
  */
@@ -538,37 +538,22 @@ async function calculateGivenSchemeAmounts(row, product) {
     // Get all unit inputs
     const unitInputs = row.querySelectorAll('.unit-input');
     
-    // Calculate total quantity in base units for display
+    // Calculate total quantity
     let totalQty = 0;
+    unitInputs.forEach(input => {
+        const qty = parseFloat(input.value) || 0;
+        const cf = parseFloat(input.dataset.conversionFactor) || 1;
+        totalQty += qty * cf;
+    });
     
-    // Calculate FOC Qty per unit and sum them up
-    if (schemes && schemes.length > 0) {
-        unitInputs.forEach(input => {
-            const qty = parseFloat(input.value) || 0;
-            const unitId = input.dataset.unitId;
-            const cf = parseFloat(input.dataset.conversionFactor) || 1;
-            
-            // Add to total quantity for display
-            totalQty += qty * cf;
-            
-            if (qty > 0) {
-                // Find the scheme for this specific unit
-                const scheme = schemes.find(s => parseFloat(s.unit_id) === parseFloat(unitId));
-                
-                if (scheme && scheme.promo_qty > 0) {
-                    // FOC Qty for this unit: floor(qty / promo_qty) * bonus_qty
-                    const unitFOC = Math.floor(qty / scheme.promo_qty) * scheme.bonus_qty;
-                    totalFOCQty += unitFOC;
-                }
-            }
-        });
-    } else {
-        // If no schemes, just calculate total quantity
-        unitInputs.forEach(input => {
-            const qty = parseFloat(input.value) || 0;
-            const cf = parseFloat(input.dataset.conversionFactor) || 1;
-            totalQty += qty * cf;
-        });
+    // Calculate FOC Qty using promo_qty and bonus_qty
+    if (schemes && schemes.length > 0 && totalQty > 0) {
+        const scheme = schemes[0]; // Use first scheme for calculation
+        
+        if (scheme.promo_qty > 0) {
+            // FOC Qty: floor(total_qty / promo_qty) * bonus_qty
+            totalFOCQty = Math.floor(totalQty / scheme.promo_qty) * scheme.bonus_qty;
+        }
     }
     
     // Update FOC Qty field
