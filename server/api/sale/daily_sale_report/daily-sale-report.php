@@ -22,22 +22,23 @@ if (!$user_id || !$tenant_id) {
 try {
     $report_type = $_GET['report_type'] ?? 'item-wise';
     $sales_officer_id = $_GET['sales_officer_id'] ?? null;
+    $supplier_man_id = $_GET['supplier_man_id'] ?? null;
     $vendor_id = $_GET['vendor_id'] ?? null;
     $company_id = $_GET['company_id'] ?? null;
     $date_from = $_GET['date_from'] ?? null;
     $date_to = $_GET['date_to'] ?? null;
 
     if ($report_type === 'item-wise') {
-        // Item-wise report query
+        // Item-wise report query - get all unit variations
         $sql = "SELECT 
                     p.id,
                     p.name as product,
                     p.parent_product_id,
                     u.uom_name as unit,
-                    SUM(sii.quantity) as qty,
-                    SUM(sii.foc_quantity) as foc_qty,
-                    AVG(sii.sale_price) as rate,
-                    SUM(sii.net_amount) as amount,
+                    sii.quantity as qty,
+                    sii.foc_quantity as foc_qty,
+                    sii.sale_price as rate,
+                    sii.net_amount as amount,
                     CASE WHEN sii.parent_row_id IS NOT NULL THEN 1 ELSE 0 END as is_child
                 FROM sale_invoice_items sii
                 JOIN sale_invoice si ON sii.sale_invoice_id = si.id
@@ -59,6 +60,10 @@ try {
             $sql .= " AND si.sale_officer_id = ?";
             $params[] = $sales_officer_id;
         }
+        if ($supplier_man_id) {
+            $sql .= " AND si.supplier_man_id = ?";
+            $params[] = $supplier_man_id;
+        }
         if ($vendor_id) {
             $sql .= " AND p.vendor_id = ?";
             $params[] = $vendor_id;
@@ -68,13 +73,55 @@ try {
             $params[] = $company_id;
         }
         
-        $sql .= " GROUP BY p.id, p.name, p.parent_product_id, u.uom_name, is_child ORDER BY p.parent_product_id IS NULL DESC, p.parent_product_id, amount DESC";
+        $sql .= " ORDER BY p.id, u.uom_name";
         
         $stmt = $pdo->prepare($sql);
         $stmt->execute($params);
-        $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $rawData = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
-        // Add serial numbers and indentation flag
+        // Group by product and combine units with quantities
+        $grouped = [];
+        foreach ($rawData as $item) {
+            $key = $item['id'];
+            if (!isset($grouped[$key])) {
+                $grouped[$key] = [
+                    'id' => $item['id'],
+                    'product' => $item['product'],
+                    'parent_product_id' => $item['parent_product_id'],
+                    'is_child' => $item['is_child'],
+                    'foc_qty' => 0,
+                    'rate' => $item['rate'],
+                    'amount' => 0,
+                    'units' => []
+                ];
+            }
+            
+            $unitName = $item['unit'] ?? '-';
+            // Check if this unit already exists for this product
+            $unitExists = false;
+            foreach ($grouped[$key]['units'] as &$existingUnit) {
+                if ($existingUnit['unit'] === $unitName) {
+                    $existingUnit['qty'] += $item['qty'];
+                    $unitExists = true;
+                    break;
+                }
+            }
+            
+            // If unit doesn't exist, add it
+            if (!$unitExists) {
+                $grouped[$key]['units'][] = [
+                    'unit' => $unitName,
+                    'qty' => $item['qty']
+                ];
+            }
+            
+            $grouped[$key]['foc_qty'] += $item['foc_qty'];
+            $grouped[$key]['amount'] += $item['amount'];
+        }
+        
+        $data = array_values($grouped);
+        
+        // Add serial numbers
         $data = array_map(function($item, $index) {
             return array_merge(['sNo' => $index + 1, 'isChild' => (bool)$item['is_child']], $item);
         }, $data, array_keys($data));
@@ -109,6 +156,10 @@ try {
         if ($sales_officer_id) {
             $sql .= " AND si.sale_officer_id = ?";
             $params[] = $sales_officer_id;
+        }
+        if ($supplier_man_id) {
+            $sql .= " AND si.supplier_man_id = ?";
+            $params[] = $supplier_man_id;
         }
         if ($company_id) {
             $sql .= " AND si.company_id = ?";

@@ -65,11 +65,11 @@ $currency_symbol = $currency['symbol'];
                 <div class="summary-value" id="total-sales"><?php echo $currency_symbol; ?>0</div>
                 <div class="summary-label">Total Sales</div>
             </div>
-            <div class="summary-item">
+            <div class="summary-item" id="items-sold-item">
                 <div class="summary-value" id="total-items">0</div>
                 <div class="summary-label">Items Sold</div>
             </div>
-            <div class="summary-item">
+            <div class="summary-item" id="bills-generated-item">
                 <div class="summary-value" id="total-bills">0</div>
                 <div class="summary-label">Bills Generated</div>
             </div>
@@ -87,10 +87,13 @@ $currency_symbol = $currency['symbol'];
                     <label class="form-label">Sales Officer</label>
                     <select class="form-input" id="sales-officer">
                         <option value="">All Sales Officers</option>
-                        <option value="so1">John Smith</option>
-                        <option value="so2">Sarah Johnson</option>
-                        <option value="so3">Michael Brown</option>
-                        <option value="so4">Emily Davis</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Supplier Man</label>
+                    <select class="form-input" id="supplier-man">
+                        <option value="">All Supplier Men</option>
                     </select>
                 </div>
                 
@@ -151,7 +154,6 @@ $currency_symbol = $currency['symbol'];
                         <tr>
                             <th>S#</th>
                             <th>Product</th>
-                            <th>Unit</th>
                             <th class="text-right">Quantity</th>
                             <th class="text-right">FOC Qty</th>
                             <th class="text-right">Rate</th>
