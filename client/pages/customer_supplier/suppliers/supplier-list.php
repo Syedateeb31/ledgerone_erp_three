@@ -123,9 +123,9 @@ $currency_symbol = $currency['symbol'] ?? '$';
                     <thead>
                         <tr>
                             <th>Supplier Code</th>
+                            <th>Brand Name</th>
                             <th>Supplier Name</th>
                             <th>Phone</th>
-                            <th>Email</th>
                             <th>Status</th>
                             <th>Actions</th>
                         </tr>
@@ -179,8 +179,12 @@ $currency_symbol = $currency['symbol'] ?? '$';
                             </select>
                         </div>
                         <div class="form-group col-4">
-                            <label class="required">Supplier Name</label>
+                            <label>Brand Name</label>
                             <input type="text" id="editSupplierName" required>
+                        </div>
+                        <div class="form-group col-4">
+                            <label class="required">Supplier Name</label>
+                            <input type="text" id="editBrandName">
                         </div>
                         <div class="form-group col-12">
                             <label>Address</label>
@@ -213,26 +217,6 @@ $currency_symbol = $currency['symbol'] ?? '$';
                         <div class="form-group col-6">
                             <label>AIT %</label>
                             <input type="number" id="editAitPercent" step="0.01" min="0" max="100">
-                        </div>
-                        <div class="form-group col-6">
-                            <div class="checkbox-group">
-                                <input type="checkbox" id="editIsSalesTaxRegistered">
-                                <label for="editIsSalesTaxRegistered">Is Sales Tax Registered?</label>
-                            </div>
-                        </div>
-                        <div class="form-group col-6" id="editStrnGroup" style="display: none;">
-                            <label>Sales Tax Registered Number (STRN)</label>
-                            <input type="text" id="editStrn" maxlength="50">
-                        </div>
-                        <div class="form-group col-6">
-                            <div class="checkbox-group">
-                                <input type="checkbox" id="editIsFiler">
-                                <label for="editIsFiler">Is Filer?</label>
-                            </div>
-                        </div>
-                        <div class="form-group col-6" id="editNtnGroup" style="display: none;">
-                            <label>National Tax Number (NTN)</label>
-                            <input type="text" id="editNtn" maxlength="50">
                         </div>
                         <div class="form-group col-12">
                             <label>Sub Accounts</label>
@@ -322,16 +306,20 @@ $currency_symbol = $currency['symbol'] ?? '$';
             <div class="modal-body">
                 <div class="form-grid">
                     <div class="form-group col-4">
-                        <label>Salesman</label>
-                        <div class="view-field" id="viewSalesman"></div>
-                    </div>
-                    <div class="form-group col-4">
                         <label>Supplier Code</label>
                         <div class="view-field" id="viewSupplierCode"></div>
                     </div>
                     <div class="form-group col-4">
-                        <label>Supplier Name</label>
+                        <label>Salesman</label>
+                        <div class="view-field" id="viewSalesman"></div>
+                    </div>
+                    <div class="form-group col-4">
+                        <label>Brand Name</label>
                         <div class="view-field" id="viewSupplierName"></div>
+                    </div>
+                    <div class="form-group col-4">
+                        <label>Supplier Name</label>
+                        <div class="view-field" id="viewBrandName"></div>
                     </div>
                     <div class="form-group col-12">
                         <label>Address</label>

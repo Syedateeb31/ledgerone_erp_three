@@ -40,8 +40,8 @@ document.addEventListener('DOMContentLoaded', function () {
             row.innerHTML = `
                 <td><span class="customer-code">${supplier.supplier_code}</span></td>
                 <td><span class="customer-name">${supplier.supplier_name}</span></td>
+                <td><span class="customer-name">${supplier.brand_name || '-'}</span></td>
                 <td>${supplier.primary_phone || '-'}</td>
-                <td>${supplier.email || '-'}</td>
                 <td><span class="status-badge status-${status}">${status.charAt(0).toUpperCase() + status.slice(1)}</span></td>
                 <td>
                     <div class="action-buttons">
@@ -152,6 +152,7 @@ document.addEventListener('DOMContentLoaded', function () {
     function populateViewModal(supplier) {
         document.getElementById('viewSupplierCode').textContent = supplier.supplier_code;
         document.getElementById('viewSupplierName').textContent = supplier.supplier_name;
+        document.getElementById('viewBrandName').textContent = supplier.brand_name || '-';
         document.getElementById('viewAddress').textContent = supplier.address || '-';
         document.getElementById('viewPrimaryPhone').textContent = supplier.primary_phone || '-';
         document.getElementById('viewSecondaryPhone').textContent = supplier.secondary_phone || '-';
@@ -226,6 +227,7 @@ document.addEventListener('DOMContentLoaded', function () {
         function populateEditForm(supplier) {
             document.getElementById('editSupplierCode').value = supplier.supplier_code;
             document.getElementById('editSupplierName').value = supplier.supplier_name;
+            document.getElementById('editBrandName').value = supplier.brand_name || '';
             document.getElementById('editAddress').value = supplier.address || '';
             document.getElementById('editPrimaryPhone').value = supplier.primary_phone || '';
             document.getElementById('editSecondaryPhone').value = supplier.secondary_phone || '';
@@ -235,22 +237,6 @@ document.addEventListener('DOMContentLoaded', function () {
             document.getElementById('editOpeningCredit').value = supplier.opening_credit_amount || 0;
             document.getElementById('editAitPercent').value = supplier.ait_percent || 0;
             document.getElementById('editBlacklist').checked = supplier.is_blacklisted == 1;
-            document.getElementById('editIsSalesTaxRegistered').checked = supplier.is_sales_tax_registered == 1;
-            document.getElementById('editStrn').value = supplier.strn || '';
-            document.getElementById('editIsFiler').checked = supplier.is_filer == 1;
-            document.getElementById('editNtn').value = supplier.ntn || '';
-            
-            // Show/hide taxation fields
-            document.getElementById('editStrnGroup').style.display = supplier.is_sales_tax_registered == 1 ? 'flex' : 'none';
-            document.getElementById('editNtnGroup').style.display = supplier.is_filer == 1 ? 'flex' : 'none';
-            
-            // Add event listeners for taxation checkboxes
-            document.getElementById('editIsSalesTaxRegistered').addEventListener('change', function() {
-                document.getElementById('editStrnGroup').style.display = this.checked ? 'flex' : 'none';
-            });
-            document.getElementById('editIsFiler').addEventListener('change', function() {
-                document.getElementById('editNtnGroup').style.display = this.checked ? 'flex' : 'none';
-            });
             
             // Load companies
             fetch('../../../../server/api/customer_supplier/suppliers/get-companies.php')
@@ -417,6 +403,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 companyId: document.getElementById('editCompany').value,
                 salesmanId: document.getElementById('editSalesman').value || null,
                 supplierName: document.getElementById('editSupplierName').value.trim(),
+                brandName: document.getElementById('editBrandName').value.trim(),
                 address: document.getElementById('editAddress').value.trim(),
                 primaryPhone: document.getElementById('editPrimaryPhone').value.trim(),
                 secondaryPhone: document.getElementById('editSecondaryPhone').value.trim(),
@@ -426,10 +413,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 openingCredit: document.getElementById('editOpeningCredit').value || 0,
                 aitPercent: document.getElementById('editAitPercent').value || 0,
                 blacklist: document.getElementById('editBlacklist').checked,
-                isSalesTaxRegistered: document.getElementById('editIsSalesTaxRegistered').checked,
-                strn: document.getElementById('editStrn').value.trim(),
-                isFiler: document.getElementById('editIsFiler').checked,
-                ntn: document.getElementById('editNtn').value.trim(),
                 subAccounts: subAccounts
             };
             

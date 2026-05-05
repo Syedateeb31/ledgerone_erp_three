@@ -75,14 +75,14 @@ if (!$user_id) {
                             </div>
                         </div>
 
-                        <div class="form-group col-4">
-                            <label for="customerType">
+                        <div class="form-group col-3">
+                            <label for="customerGroup">
                                 <i class="fas fa-tag"></i>
-                                Customer Type
+                                Customer Group
                             </label>
                             <div style="display: flex; gap: 8px;">
-                                <select id="customerType" style="flex: 1;">
-                                    <option value="">Select Customer Type</option>
+                                <select id="customerGroup" style="flex: 1;">
+                                    <option value="">Select Customer Group</option>
                                 </select>
                                 <button type="button" class="btn btn-secondary btn-sm" id="manageTypesBtn" style="padding: 0 16px;">
                                     <i class="fas fa-cog"></i>
@@ -90,7 +90,32 @@ if (!$user_id) {
                             </div>
                         </div>
 
-                        <div class="form-group col-8">
+                        <div class="form-group col-3">
+                            <label for="customerCategory">
+                                <i class="fas fa-folder"></i>
+                                Customer Category
+                            </label>
+                            <div style="display: flex; gap: 8px;">
+                                <select id="customerCategory" style="flex: 1;">
+                                    <option value="">Select Customer Category</option>
+                                </select>
+                                <button type="button" class="btn btn-secondary btn-sm" id="manageCategoriesBtn" style="padding: 0 16px;">
+                                    <i class="fas fa-cog"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="form-group col-3">
+                            <label for="brandName">
+                                <i class="fas fa-tag"></i>
+                                Brand Name
+                            </label>
+                            <select id="brandName">
+                                <option value="">Select Brand</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group col-6">
                             <label for="customerName" class="required">
                                 <i class="fas fa-user"></i>
                                 Customer Name
@@ -553,6 +578,40 @@ if (!$user_id) {
         </div>
     </div>
 
+    <!-- Customer Categories Modal -->
+    <div class="modal" id="categoriesModal">
+        <div class="modal-content" style="max-width: 700px;">
+            <div class="modal-header">
+                <h3><i class="fas fa-folder-open"></i> Manage Customer Categories</h3>
+                <button class="modal-close" id="categoriesModalClose">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div style="margin-bottom: 20px;">
+                    <button type="button" class="btn btn-primary btn-sm" id="addCategoryBtn">
+                        <i class="fas fa-plus"></i> Add New Category
+                    </button>
+                </div>
+                <div class="table-container" style="border-radius: 12px; border: 1px solid var(--border-default);">
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <thead style="background: var(--surface-2);">
+                            <tr>
+                                <th style="padding: 12px; text-align: left; border-bottom: 1px solid var(--border-default);">Category Name</th>
+                                <th style="padding: 12px; text-align: center; width: 100px; border-bottom: 1px solid var(--border-default);">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="categoriesTableBody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="categoriesCloseBtn">Close</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Customize Fields Modal -->
     <div class="modal" id="customizeFieldsModal">
         <div class="modal-content" style="max-width: 500px; max-height: 80vh; overflow-y: auto;">
@@ -601,6 +660,32 @@ if (!$user_id) {
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" id="typeFormCancelBtn">Cancel</button>
                     <button type="submit" class="btn btn-primary" id="typeFormSaveBtn">
+                        <i class="fas fa-save"></i> Save
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add/Edit Category Modal -->
+    <div class="modal" id="categoryFormModal">
+        <div class="modal-content" style="max-width: 400px;">
+            <div class="modal-header">
+                <h3 id="categoryFormTitle"><i class="fas fa-plus"></i> Add Customer Category</h3>
+                <button class="modal-close" id="categoryFormModalClose">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form id="categoryForm">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="categoryName" class="required">Category Name</label>
+                        <input type="text" id="categoryName" required placeholder="Enter category name">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" id="categoryFormCancelBtn">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="categoryFormSaveBtn">
                         <i class="fas fa-save"></i> Save
                     </button>
                 </div>

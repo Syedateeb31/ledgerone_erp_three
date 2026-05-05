@@ -12,11 +12,11 @@ if (!$tenant_id) {
 }
 
 try {
-    $stmt = $pdo->prepare("SELECT id, supplier_name, brand_name FROM suppliers WHERE tenant_id = ? AND is_blacklisted = 0 ORDER BY supplier_name");
+    $stmt = $pdo->prepare("SELECT id, area_name FROM areas WHERE tenant_id = ? ORDER BY area_name");
     $stmt->execute([$tenant_id]);
-    $suppliers = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $areas = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
-    echo json_encode(['success' => true, 'suppliers' => $suppliers]);
+    echo json_encode(['success' => true, 'areas' => $areas]);
 } catch (Exception $e) {
     echo json_encode(['success' => false, 'message' => $e->getMessage()]);
 }

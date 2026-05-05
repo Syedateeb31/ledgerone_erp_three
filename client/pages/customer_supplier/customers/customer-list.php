@@ -89,9 +89,17 @@ $currency_symbol = $currency['symbol'] ?? '$';
             <div class="filters-bar">
                 <div class="search-box">
                     <i class="fas fa-search"></i>
-                    <input type="text" id="searchInput" placeholder="Search customers...">
+                    <input type="text" id="searchInput" placeholder="Search by any field...">
                 </div>
                 <div class="filter-options">
+                    <select class="filter-select" id="rowsPerPage">
+                        <option value="10">Show 10</option>
+                        <option value="25">Show 25</option>
+                        <option value="50">Show 50</option>
+                        <option value="100">Show 100</option>
+                        <option value="500">Show 500</option>
+                        <option value="all">Show All</option>
+                    </select>
                     <select class="filter-select" id="companyFilter">
                         <option value="">All Companies</option>
                     </select>
@@ -127,9 +135,9 @@ $currency_symbol = $currency['symbol'] ?? '$';
                         <tr>
                             <th>Customer Code</th>
                             <th>Customer Name</th>
-                            <th>Customer Type</th>
+                            <th>Customer Group</th>
+                            <th>Customer Category</th>
                             <th>Phone</th>
-                            <th>Email</th>
                             <th>Status</th>
                             <th>Actions</th>
                         </tr>
@@ -177,9 +185,21 @@ $currency_symbol = $currency['symbol'] ?? '$';
                             <input type="text" id="editCustomerCode" readonly>
                         </div>
                         <div class="form-group col-4">
-                            <label>Customer Type</label>
+                            <label>Customer Group</label>
                             <select id="editCustomerType">
-                                <option value="">Select Customer Type</option>
+                                <option value="">Select Customer Group</option>
+                            </select>
+                        </div>
+                        <div class="form-group col-4">
+                            <label>Customer Category</label>
+                            <select id="editCustomerCategory">
+                                <option value="">Select Customer Category</option>
+                            </select>
+                        </div>
+                        <div class="form-group col-4">
+                            <label>Brand Name</label>
+                            <select id="editBrandName">
+                                <option value="">Select Brand</option>
                             </select>
                         </div>
                         <div class="form-group col-12">
@@ -426,8 +446,16 @@ $currency_symbol = $currency['symbol'] ?? '$';
                         <div class="view-field" id="viewCustomerCode"></div>
                     </div>
                     <div class="form-group col-4">
-                        <label>Customer Type</label>
+                        <label>Customer Group</label>
                         <div class="view-field" id="viewCustomerType"></div>
+                    </div>
+                    <div class="form-group col-4">
+                        <label>Customer Category</label>
+                        <div class="view-field" id="viewCustomerCategory"></div>
+                    </div>
+                    <div class="form-group col-4">
+                        <label>Brand Name</label>
+                        <div class="view-field" id="viewBrandName"></div>
                     </div>
                     <div class="form-group col-8">
                         <label>Customer Name</label>

@@ -70,7 +70,7 @@ try {
     $total = $stmt->fetch()['total'];
 
     // Get suppliers
-    $sql = "SELECT id, supplier_code, supplier_name, primary_phone, email, current_balance, is_blacklisted, created_at 
+    $sql = "SELECT id, supplier_code, supplier_name, brand_name, primary_phone, email, current_balance, is_blacklisted, created_at 
             FROM suppliers $whereClause 
             ORDER BY created_at DESC 
             LIMIT $limit OFFSET $offset";

@@ -106,56 +106,59 @@ if (!$user_id) {
                                 Automatically generated
                             </div>
                         </div>
-
-                        <div class="form-group col-4">
-                            <label for="salesmanSearch">
-                                <i class="fas fa-user-tie"></i>
-                                Salesman
-                            </label>
-                            <div id="salesmanChipsContainer" style="
-                                border: 1px solid var(--input-border, #ccc);
-                                border-radius: 8px;
-                                padding: 6px 8px;
-                                background: var(--input-bg, #fff);
-                                cursor: text;
-                            ">
-                                <div id="salesmanChipsList" style="
-                                    display: flex;
-                                    flex-wrap: wrap;
-                                    gap: 6px;
-                                    margin-bottom: 4px;
-                                ">
-                                    <!-- chips render here -->
-                                </div>
-                                <input type="text" id="salesmanSearch" placeholder="Search salesman..." autocomplete="off" style="
-                                    border: none;
-                                    outline: none;
-                                    background: transparent;
-                                    width: 100%;
-                                    font-size: 14px;
-                                    padding: 2px 4px;
-                                ">
-                            </div>
-                            <div id="salesmanDropdown" style="
-                                display: none;
-                                position: absolute;
-                                z-index: 999;
-                                background: var(--surface-1, #fff);
-                                border: 1px solid var(--border-default, #ccc);
-                                border-radius: 8px;
-                                max-height: 200px;
-                                overflow-y: auto;
-                                box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-                            "></div>
-                            <input type="hidden" id="salesmanIds" name="salesmanIds" value="">
-                        </div>
+<div class="form-group col-4">
+    <label for="salesmanSearch">
+        <i class="fas fa-user-tie"></i>
+        Salesman
+    </label>
+    <div id="salesmanChipsContainer" style="
+        border: 1px solid var(--input-border, #ccc);
+        border-radius: 8px;
+        padding: 6px 8px;
+        background: var(--input-bg, #fff);
+        cursor: text;
+    ">
+        <div id="salesmanChipsList" style="
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-bottom: 4px;
+        ">
+            <!-- chips render here -->
+        </div>
+        <input type="text" id="salesmanSearch" placeholder="Search salesman..." autocomplete="off" style="
+            border: none;
+            outline: none;
+            background: transparent;
+            width: 100%;
+            font-size: 14px;
+            padding: 2px 4px;
+        ">
+    </div>
+    <div id="salesmanDropdown" style="
+        display: none;
+        position: absolute;
+        z-index: 999;
+        background: var(--surface-1, #fff);
+        border: 1px solid var(--border-default, #ccc);
+        border-radius: 8px;
+        max-height: 200px;
+        overflow-y: auto;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    "></div>
+    <input type="hidden" id="salesmanIds" name="salesmanIds" value="">
+</div>
 
                         <div class="form-group col-12">
-                            <label for="brandName">
-                                <i class="fas fa-tag"></i>
+                            <label for="supplierName" class="required">
+                                <i class="fas fa-user"></i>
                                 Brand Name
                             </label>
-                            <input type="text" id="brandName" maxlength="255" placeholder="Enter brand name">
+                            <input type="text" id="supplierName" required placeholder="Enter Brand Name ">
+                            <div class="error-text" id="supplierNameError">
+                                <i class="fas fa-exclamation-circle"></i>
+                                <span>Brand Name is required</span>
+                            </div>
                         </div>
                     </div>
 
@@ -167,15 +170,11 @@ if (!$user_id) {
                         </h3>
 
                         <div class="form-group col-8">
-                            <label for="supplierName" class="required">
-                                <i class="fas fa-user"></i>
+                            <label for="brandName">
+                                <i class="fas fa-tag"></i>
                                 Supplier Name
                             </label>
-                            <input type="text" id="supplierName" required placeholder="Enter supplier full name">
-                            <div class="error-text" id="supplierNameError">
-                                <i class="fas fa-exclamation-circle"></i>
-                                <span>Supplier name is required</span>
-                            </div>
+                            <input type="text" id="brandName" maxlength="255" placeholder="Enter Supplier name">
                         </div>
 
                         <div class="form-group col-12">
@@ -232,50 +231,6 @@ if (!$user_id) {
                                 <i class="fas fa-exclamation-circle"></i>
                                 <span>Identity card can only contain numbers</span>
                             </div>
-                        </div>
-                    </div>
-
-                    <!-- Taxation Section -->
-                    <div class="form-section">
-                        <h3 class="section-title">
-                            <i class="fas fa-receipt"></i>
-                            Taxation
-                        </h3>
-
-                        <div class="form-group col-6">
-                            <div class="checkbox-group">
-                                <input type="checkbox" id="isSalesTaxRegistered">
-                                <label for="isSalesTaxRegistered">
-                                    <i class="fas fa-check-circle"></i>
-                                    Is Sales Tax Registered?
-                                </label>
-                            </div>
-                        </div>
-
-                        <div class="form-group col-6" id="strnGroup" style="display: none;">
-                            <label for="strn">
-                                <i class="fas fa-hashtag"></i>
-                                Sales Tax Registered Number (STRN)
-                            </label>
-                            <input type="text" id="strn" maxlength="50" placeholder="Enter STRN">
-                        </div>
-
-                        <div class="form-group col-6">
-                            <div class="checkbox-group">
-                                <input type="checkbox" id="isFiler">
-                                <label for="isFiler">
-                                    <i class="fas fa-check-circle"></i>
-                                    Is Filer?
-                                </label>
-                            </div>
-                        </div>
-
-                        <div class="form-group col-6" id="ntnGroup" style="display: none;">
-                            <label for="ntn">
-                                <i class="fas fa-hashtag"></i>
-                                National Tax Number (NTN)
-                            </label>
-                            <input type="text" id="ntn" maxlength="50" placeholder="Enter NTN">
                         </div>
                     </div>
 

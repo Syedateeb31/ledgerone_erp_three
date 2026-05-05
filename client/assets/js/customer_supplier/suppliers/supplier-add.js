@@ -19,20 +19,6 @@ document.addEventListener('DOMContentLoaded', function () {
     let selectedSalesmen = [];
     let isSubmitting = false;
 
-    // Taxation field visibility
-    const isSalesTaxRegistered = document.getElementById('isSalesTaxRegistered');
-    const strnGroup = document.getElementById('strnGroup');
-    const isFiler = document.getElementById('isFiler');
-    const ntnGroup = document.getElementById('ntnGroup');
-
-    isSalesTaxRegistered.addEventListener('change', function() {
-        strnGroup.style.display = this.checked ? 'flex' : 'none';
-    });
-
-    isFiler.addEventListener('change', function() {
-        ntnGroup.style.display = this.checked ? 'flex' : 'none';
-    });
-
     // Load companies and employees
     loadCompanies();
     loadEmployees();
@@ -118,7 +104,7 @@ document.addEventListener('DOMContentLoaded', function () {
         salesmanChipsList.innerHTML = selectedSalesmen.map(s => `
             <div class="salesman-chip">
                 <span>${s.name}</span>
-                <span class="chip-remove" data-id="${s.id}">Ã—</span>
+                <span class="chip-remove" data-id="${s.id}">×</span>
             </div>
         `).join('');
 
@@ -268,10 +254,6 @@ document.addEventListener('DOMContentLoaded', function () {
             openingCredit: document.getElementById('openingCredit').value || 0,
             aitPercent: document.getElementById('aitPercent').value || 0,
             blacklist: document.getElementById('blacklist').checked,
-            isSalesTaxRegistered: document.getElementById('isSalesTaxRegistered').checked,
-            strn: document.getElementById('strn').value.trim(),
-            isFiler: document.getElementById('isFiler').checked,
-            ntn: document.getElementById('ntn').value.trim(),
             subAccounts: subAccounts
         };
 

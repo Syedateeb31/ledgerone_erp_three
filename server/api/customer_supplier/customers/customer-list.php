@@ -36,9 +36,9 @@ try {
     $params = [$tenant_id];
     
     if ($search) {
-        $where[] = '(c.customer_name LIKE ? OR c.customer_code LIKE ? OR c.email LIKE ? OR c.primary_phone LIKE ?)';
+        $where[] = '(c.customer_name LIKE ? OR c.customer_code LIKE ? OR c.email LIKE ? OR c.primary_phone LIKE ? OR ct.type_name LIKE ? OR cc.category_name LIKE ? OR s.brand_name LIKE ?)';
         $searchTerm = '%' . $search . '%';
-        $params = array_merge($params, [$searchTerm, $searchTerm, $searchTerm, $searchTerm]);
+        $params = array_merge($params, [$searchTerm, $searchTerm, $searchTerm, $searchTerm, $searchTerm, $searchTerm, $searchTerm]);
     }
     
     if ($status === 'active') {
@@ -55,15 +55,24 @@ try {
     $whereClause = 'WHERE ' . implode(' AND ', $where);
     
     // Get total count
-    $countSql = "SELECT COUNT(*) as total FROM customers c $whereClause";
+    $countSql = "SELECT COUNT(*) as total FROM customers c
+            LEFT JOIN customer_types ct ON c.customer_type_id = ct.id AND (ct.tenant_id = 0 OR ct.tenant_id = c.tenant_id)
+            LEFT JOIN customer_categories cc ON c.customer_category_id = cc.id AND cc.tenant_id = c.tenant_id
+            LEFT JOIN suppliers s ON c.brand_id = s.id
+            $whereClause";
     $stmt = $pdo->prepare($countSql);
     $stmt->execute($params);
     $total = $stmt->fetch()['total'];
     
     // Get customers
-    $sql = "SELECT c.id, c.customer_code, c.customer_name, c.primary_phone, c.email, c.current_balance, c.is_blacklisted, c.created_at, ct.type_name as customer_type_name 
+    $sql = "SELECT c.id, c.customer_code, c.customer_name, c.primary_phone, c.email, c.current_balance, c.is_blacklisted, c.created_at, 
+            ct.type_name as customer_group_name,
+            cc.category_name as customer_category_name,
+            s.brand_name as brand_name
             FROM customers c
-            LEFT JOIN customer_types ct ON c.customer_type_id = ct.id
+            LEFT JOIN customer_types ct ON c.customer_type_id = ct.id AND (ct.tenant_id = 0 OR ct.tenant_id = c.tenant_id)
+            LEFT JOIN customer_categories cc ON c.customer_category_id = cc.id AND cc.tenant_id = c.tenant_id
+            LEFT JOIN suppliers s ON c.brand_id = s.id
             $whereClause 
             ORDER BY c.created_at DESC 
             LIMIT $limit OFFSET $offset";
