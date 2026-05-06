@@ -250,7 +250,7 @@ if (!$user_id) {
                                 <i class="fas fa-map"></i>
                                 Region
                             </label>
-                            <select id="region" disabled>
+                            <select id="region">
                                 <option value="">Select Region</option>
                             </select>
                         </div>
@@ -260,7 +260,7 @@ if (!$user_id) {
                                 <i class="fas fa-city"></i>
                                 City
                             </label>
-                            <select id="city" disabled>
+                            <select id="city">
                                 <option value="">Select City</option>
                             </select>
                         </div>
@@ -270,7 +270,7 @@ if (!$user_id) {
                                 <i class="fas fa-map-pin"></i>
                                 City Zone
                             </label>
-                            <select id="cityZone" disabled>
+                            <select id="cityZone">
                                 <option value="">Select City Zone</option>
                             </select>
                         </div>
@@ -280,7 +280,7 @@ if (!$user_id) {
                                 <i class="fas fa-map-marker-alt"></i>
                                 Area
                             </label>
-                            <select id="area" disabled>
+                            <select id="area">
                                 <option value="">Select Area</option>
                             </select>
                         </div>
