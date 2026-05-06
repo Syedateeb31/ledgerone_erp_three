@@ -1,9 +1,9 @@
 /* =========================================================
-   Production Report — report.css
-   Design tokens: Inter font · #1F7BFF primary · #F7F9FC bg
+   Production Report â€” report.css
+   Design tokens: Inter font Â· #1F7BFF primary Â· #F7F9FC bg
    ========================================================= */
 
-/* ── Reset & Base ──────────────────────────────────────── */
+/* â”€â”€ Reset & Base â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
@@ -13,7 +13,7 @@ body {
     font-size: 14px;
 }
 
-/* ── Layout ────────────────────────────────────────────── */
+/* â”€â”€ Layout â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .report-wrap {
     max-width: 1280px;
     width: 100%;
@@ -24,7 +24,7 @@ body {
     gap: 20px;
 }
 
-/* ── Page Header ───────────────────────────────────────── */
+/* â”€â”€ Page Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .page-header {
     display: flex;
     align-items: flex-start;
@@ -45,7 +45,7 @@ body {
     margin-top: 4px;
 }
 
-/* ── Buttons ───────────────────────────────────────────── */
+/* â”€â”€ Buttons â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .btn {
     height: 38px;
     padding: 0 18px;
@@ -116,7 +116,7 @@ body {
 
 .btn-print { flex-shrink: 0; }
 
-/* ── Form Controls ─────────────────────────────────────── */
+/* â”€â”€ Form Controls â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .form-control {
     height: 38px;
     padding: 0 13px;
@@ -145,7 +145,7 @@ select.form-control {
     cursor: pointer;
 }
 
-/* ── Filter Card ───────────────────────────────────────── */
+/* â”€â”€ Filter Card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .filter-card {
     background: #fff;
     border-radius: 12px;
@@ -200,7 +200,7 @@ select.form-control {
     flex-shrink: 0;
 }
 
-/* ── Preset Pills ──────────────────────────────────────── */
+/* â”€â”€ Preset Pills â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .preset-pills,
 .status-pills {
     display: flex;
@@ -238,7 +238,7 @@ select.form-control {
     color: #fff;
 }
 
-/* ── Tab Navigation ────────────────────────────────────── */
+/* â”€â”€ Tab Navigation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .tab-nav {
     display: flex;
     gap: 4px;
@@ -274,11 +274,11 @@ select.form-control {
 }
 .tab-btn i { font-size: 16px; }
 
-/* ── Tab Panels ────────────────────────────────────────── */
+/* â”€â”€ Tab Panels â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .tab-panel { display: none; flex-direction: column; gap: 20px; }
 .tab-panel.active { display: flex; }
 
-/* ── KPI Grid ──────────────────────────────────────────── */
+/* â”€â”€ KPI Grid â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .kpi-grid {
     display: grid;
     grid-template-columns: repeat(5, 1fr);
@@ -359,7 +359,7 @@ select.form-control {
 .ks-blue   { background: #EBF3FF; color: #1D4ED8; }
 .ks-purple { background: #F4F0FF; color: #6D28D9; }
 
-/* ── Skeleton Loading ──────────────────────────────────── */
+/* â”€â”€ Skeleton Loading â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 @keyframes shimmer {
     0%   { background-position: -600px 0; }
     100% { background-position: 600px 0; }
@@ -373,7 +373,7 @@ select.form-control {
     min-height: 90px;
 }
 
-/* ── Chart Grid ────────────────────────────────────────── */
+/* â”€â”€ Chart Grid â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .chart-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -422,7 +422,7 @@ select.form-control {
     justify-content: center;
 }
 
-/* ── Period Toggle ─────────────────────────────────────── */
+/* â”€â”€ Period Toggle â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .period-toggle {
     display: flex;
     gap: 2px;
@@ -447,7 +447,7 @@ select.form-control {
 .period-btn:hover { background: #E4E8EF; color: #2F3B4C; }
 .period-btn.active { background: #fff; color: #1F7BFF; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
 
-/* ── Report Card (Table Container) ────────────────────── */
+/* â”€â”€ Report Card (Table Container) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .report-card {
     background: #fff;
     border-radius: 12px;
@@ -480,7 +480,7 @@ select.form-control {
     border-radius: 20px;
 }
 
-/* ── Tables ────────────────────────────────────────────── */
+/* â”€â”€ Tables â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .table-responsive {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
@@ -530,7 +530,7 @@ tbody tr:hover { background: #F5F8FE; }
     height: auto !important;
 }
 
-/* ── Status Badges (table) ─────────────────────────────── */
+/* â”€â”€ Status Badges (table) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .badge {
     display: inline-block;
     padding: 3px 10px;
@@ -546,7 +546,7 @@ tbody tr:hover { background: #F5F8FE; }
 .badge-completed   { background: #EDFBF3; color: #15803D; }
 .badge-cancelled   { background: #F3F4F6; color: #6B7280; }
 
-/* ── Progress Bars ─────────────────────────────────────── */
+/* â”€â”€ Progress Bars â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .progress-wrap {
     display: flex;
     align-items: center;
@@ -589,7 +589,7 @@ tbody tr:hover { background: #F5F8FE; }
     text-align: right;
 }
 
-/* ── Wastage Badges ────────────────────────────────────── */
+/* â”€â”€ Wastage Badges â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .waste-badge {
     display: inline-block;
     padding: 2px 9px;
@@ -602,7 +602,7 @@ tbody tr:hover { background: #F5F8FE; }
 .waste-med  { background: #FEF9EC; color: #B45309; }
 .waste-high { background: #FEF2F2; color: #B91C1C; }
 
-/* ── Cost Summary Strip ────────────────────────────────── */
+/* â”€â”€ Cost Summary Strip â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .cost-summary-strip {
     background: #fff;
     border-radius: 12px;
@@ -646,7 +646,7 @@ tbody tr:hover { background: #F5F8FE; }
     font-size: 22px;
 }
 
-/* ── Drill-Down Overlay ────────────────────────────────── */
+/* â”€â”€ Drill-Down Overlay â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .drill-backdrop {
     position: fixed;
     inset: 0;
@@ -894,7 +894,7 @@ tbody tr:hover { background: #F5F8FE; }
 .cost-block-dark   .cb-value { color: #fff; }
 .cost-block-teal   .cb-value { color: #0D9488; }
 
-/* ── Responsive ────────────────────────────────────────── */
+/* â”€â”€ Responsive â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 @media (max-width: 1100px) {
     .kpi-grid { grid-template-columns: repeat(3, 1fr); }
 }
@@ -919,7 +919,7 @@ tbody tr:hover { background: #F5F8FE; }
     .tab-btn { padding: 0 12px; font-size: 12px; }
 }
 
-/* ── Print Styles ──────────────────────────────────────── */
+/* â”€â”€ Print Styles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 @media print {
     body { background: #fff; }
 

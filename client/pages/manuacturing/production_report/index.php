@@ -103,6 +103,7 @@ $base_url = $protocol . '://' . $_SERVER['HTTP_HOST'] . '/ledgerone_erp';
             <div class="kpi-card skeleton"></div>
             <div class="kpi-card skeleton"></div>
             <div class="kpi-card skeleton"></div>
+            <div class="kpi-card skeleton"></div>
         </div>
 
         <!-- Charts -->

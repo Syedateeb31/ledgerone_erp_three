@@ -241,6 +241,13 @@
                     </div>
                 </div>
             </div>
+            <div class="kpi-card">
+                <div class="kpi-icon kpi-blue"><i class="las la-chart-line"></i></div>
+                <div class="kpi-body">
+                    <div class="kpi-label">Total Production Value</div>
+                    <div class="kpi-value">${fmtC(d.total_production_value)}</div>
+                </div>
+            </div>
         `;
     }
 

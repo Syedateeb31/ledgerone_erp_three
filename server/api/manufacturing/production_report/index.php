@@ -146,19 +146,32 @@ try {
             $stmt->execute($p6);
             $ovhCost = $stmt->fetchColumn();
 
+            $p7 = [$tenant_id]; $f7 = buildPoFilter($filters, $p7);
+            $stmt = $pdo->prepare("
+                SELECT COALESCE(SUM(cp.completed_qty * p.trade_price),0)
+                FROM completed_products cp
+                JOIN production_completions pc ON cp.production_completion_id = pc.id
+                JOIN production_orders po ON pc.production_order_id = po.id
+                JOIN products p ON cp.product_id = p.id
+                WHERE po.tenant_id = ? $f7
+            ");
+            $stmt->execute($p7);
+            $prodValue = $stmt->fetchColumn();
+
             echo json_encode(['success' => true, 'data' => [
-                'total_orders'    => (int)$orders['total_orders'],
-                'cnt_completed'   => (int)$orders['cnt_completed'],
-                'cnt_in_progress' => (int)$orders['cnt_in_progress'],
-                'cnt_planned'     => (int)$orders['cnt_planned'],
-                'cnt_cancelled'   => (int)$orders['cnt_cancelled'],
-                'total_ordered'   => (float)$orders['total_ordered'],
-                'total_produced'  => (float)$produced,
-                'raw_wastage'     => (float)$rawWastage,
-                'fg_wastage'      => (float)$fgWastage,
-                'material_cost'   => (float)$matCost,
-                'overhead_cost'   => (float)$ovhCost,
-                'total_cost'      => (float)$matCost + (float)$ovhCost,
+                'total_orders'         => (int)$orders['total_orders'],
+                'cnt_completed'        => (int)$orders['cnt_completed'],
+                'cnt_in_progress'      => (int)$orders['cnt_in_progress'],
+                'cnt_planned'          => (int)$orders['cnt_planned'],
+                'cnt_cancelled'        => (int)$orders['cnt_cancelled'],
+                'total_ordered'        => (float)$orders['total_ordered'],
+                'total_produced'       => (float)$produced,
+                'raw_wastage'          => (float)$rawWastage,
+                'fg_wastage'           => (float)$fgWastage,
+                'material_cost'        => (float)$matCost,
+                'overhead_cost'        => (float)$ovhCost,
+                'total_cost'           => (float)$matCost + (float)$ovhCost,
+                'total_production_value' => (float)$prodValue,
             ]]);
             break;
         }
