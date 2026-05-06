@@ -143,11 +143,152 @@
         .print-btn:hover {
             background: #0056b3;
         }
+        
+        .note-btn {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-bottom: 10px;
+            display: block;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        
+        .note-btn:hover {
+            background: #218838;
+        }
+        
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+        
+        .modal.show {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal-content {
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            width: 90%;
+            max-width: 500px;
+            min-height: 300px;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .modal-header {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            color: #333;
+        }
+        
+        .modal-body {
+            flex: 1;
+            margin-bottom: 20px;
+        }
+        
+        .note-textarea {
+            width: 100%;
+            height: 150px;
+            padding: 10px;
+            font-size: 14px;
+            font-family: 'Courier New', monospace;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            resize: vertical;
+        }
+        
+        .modal-footer {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+        
+        .modal-footer button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .btn-save {
+            background-color: #28a745;
+            color: white;
+        }
+        
+        .btn-save:hover {
+            background-color: #218838;
+        }
+        
+        .btn-cancel {
+            background-color: #6c757d;
+            color: white;
+        }
+        
+        .btn-cancel:hover {
+            background-color: #5a6268;
+        }
+        
+        .btn-clear {
+            background-color: #dc3545;
+            color: white;
+        }
+        
+        .btn-clear:hover {
+            background-color: #c82333;
+        }
+        
+        .notes-section {
+            margin-top: 5px;
+            font-size: 10px;
+            font-weight: bold;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            line-height: 1.3;
+            display: none;
+        }
+        
+        .notes-section.show {
+            display: block;
+        }
     </style>
 </head>
 <body>
     <div class="no-print">
+        <button class="note-btn" onclick="openBrandNoteModal()">Add Brand Note</button>
         <button class="print-btn" onclick="window.print()">Print Receipt</button>
+    </div>
+    
+    <!-- Brand Note Modal -->
+    <div id="brandNoteModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">Add Brand Note</div>
+            <div class="modal-body">
+                <textarea id="brandNoteTextarea" class="note-textarea" placeholder="Enter your brand note here..."></textarea>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-clear" onclick="clearBrandNote()">Clear Brand Note</button>
+                <button class="btn-cancel" onclick="closeBrandNoteModal()">Cancel</button>
+                <button class="btn-save" onclick="saveBrandNote()">Save Brand Note</button>
+            </div>
+        </div>
     </div>
     
     <div class="thermal-receipt">
@@ -180,6 +321,10 @@
         <div class="info-row">
             <span>Branch:</span>
             <span id="branchName">Loading...</span>
+        </div>
+        <div class="info-row" id="supplierManRow" style="display: none;">
+            <span>Supplier Man:</span>
+            <span id="supplierManName">-</span>
         </div>
         
         <div class="divider"></div>
@@ -232,6 +377,10 @@
             <span id="remainingBalance">0.00</span>
         </div>
         
+        <div id="notesSection" class="notes-section">
+            <div id="notesContent"></div>
+        </div>
+        
         <div class="divider"></div>
         
         <div class="footer text-center">
@@ -267,6 +416,7 @@
         
         const urlParams = new URLSearchParams(window.location.search);
         const invoiceId = urlParams.get('id');
+        let tenantId = null; // Will be set after loading invoice data
         
         if (!invoiceId) {
             alert('Invoice ID is required');
@@ -304,6 +454,8 @@
                         }
                     }
                     populateInvoiceData(invoiceData.invoice, invoiceData.items);
+                    // Set tenant ID after loading invoice
+                    tenantId = invoiceData.invoice.tenant_id;
                 } else {
                     alert('Error loading invoice: ' + invoiceData.message);
                 }
@@ -345,6 +497,13 @@
                 `${invoice.branch_name} - ${invoice.parent_branch_name}` : 
                 invoice.branch_name;
             document.getElementById('branchName').textContent = branchText;
+            
+            // Show supplier man if exists
+            if (invoice.supplier_man_id) {
+                document.getElementById('supplierManRow').style.display = 'flex';
+                const supplierManName = invoice.supplier_man_name || '-';
+                document.getElementById('supplierManName').textContent = supplierManName;
+            }
             
             const currencySymbol = invoice.currency_symbol || '';
             
@@ -531,6 +690,76 @@
                         });
                     }
                 }, 1000);
+            }
+        });
+        
+        // Brand Note Modal Functions
+        function openBrandNoteModal() {
+            const modal = document.getElementById('brandNoteModal');
+            const textarea = document.getElementById('brandNoteTextarea');
+            const brandNoteKey = `brand_print_note_${tenantId}`;
+            const brandNote = localStorage.getItem(brandNoteKey) || '';
+            textarea.value = brandNote;
+            modal.classList.add('show');
+        }
+        
+        function closeBrandNoteModal() {
+            const modal = document.getElementById('brandNoteModal');
+            modal.classList.remove('show');
+        }
+        
+        function saveBrandNote() {
+            const textarea = document.getElementById('brandNoteTextarea');
+            const noteText = textarea.value.trim();
+            const brandNoteKey = `brand_print_note_${tenantId}`;
+            
+            if (noteText) {
+                localStorage.setItem(brandNoteKey, noteText);
+                displayBrandNote(noteText);
+                closeBrandNoteModal();
+                alert('Brand note saved successfully!');
+            } else {
+                alert('Please enter a note before saving.');
+            }
+        }
+        
+        function clearBrandNote() {
+            if (confirm('Are you sure you want to clear the brand note? It will be removed from all invoices.')) {
+                document.getElementById('brandNoteTextarea').value = '';
+                const brandNoteKey = `brand_print_note_${tenantId}`;
+                localStorage.removeItem(brandNoteKey);
+                const notesSection = document.getElementById('notesSection');
+                notesSection.classList.remove('show');
+                closeBrandNoteModal();
+            }
+        }
+        
+        function displayBrandNote(noteText) {
+            if (noteText) {
+                const notesSection = document.getElementById('notesSection');
+                const notesContent = document.getElementById('notesContent');
+                notesContent.textContent = noteText;
+                notesSection.classList.add('show');
+            }
+        }
+        
+        // Load brand note on page load
+        window.addEventListener('load', function() {
+            setTimeout(() => {
+                if (tenantId) {
+                    const brandNoteKey = `brand_print_note_${tenantId}`;
+                    const brandNote = localStorage.getItem(brandNoteKey);
+                    if (brandNote) {
+                        displayBrandNote(brandNote);
+                    }
+                }
+            }, 1000);
+        });
+        
+        // Close modal when clicking outside
+        document.getElementById('brandNoteModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeBrandNoteModal();
             }
         });
     </script>
