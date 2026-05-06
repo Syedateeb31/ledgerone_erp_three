@@ -9,7 +9,7 @@
   class DashboardCore {
     constructor() {
       this.isInitialized = false;
-      this.basePath = "";
+      this.basePath = "/ledgerone_erp";
       this.permissions = {};
       this.init();
     }
@@ -119,7 +119,6 @@
           <div class="dropdown-content">
             <button data-action="customer-add">New Customer</button>
             <button data-action="supplier-add">New Supplier</button>
-            <button data-action="lead-add">New Leads</button>
           </div>
         </div>
 
@@ -248,6 +247,8 @@
             <button data-action="wip-management">WIP Management</button>
             <button data-action="production-completion">Production Completion</button>
             <button data-action="production-expenses">Production Expenses</button>
+            <button data-action="wastage-entry">Production Wastage</button>
+            <button data-action="production-report">Production Report</button>
           </div>
         </div>
 
@@ -1096,18 +1097,15 @@
         customer: {
           "customer-add": `${this.basePath}/client/pages/customer_supplier/customers/customer-list.php`,
           "supplier-add": `${this.basePath}/client/pages/customer_supplier/suppliers/supplier-list.php`,
-           "lead-add": `${this.basePath}/client/pages/customer_supplier/leads/lead-add.php`,
-
         },
-sale: {
-  "create-quotation": `${this.basePath}/client/pages/sale/quotation/quotation-add.php`, 
-  "sale-invoice": `${this.basePath}/client/pages/sale/pos_invoice/pos-list.php`,
-  "pos-invoice": `${this.basePath}/client/pages/sale/pos_invoice/counter-invoice.php`,
-  "sale-return": `${this.basePath}/client/pages/sale/sale_return/return-list.php`,
-  "sale-reports": `${this.basePath}/client/pages/sale/sales_report/sales-report.php`,
-  "sale-order": `${this.basePath}/client/pages/sale/sale_order/order-list.php`,
-  "daily-sale-report": `${this.basePath}/client/pages/sale/daily_sale_report/daily-sale-report.php`,
-},
+        sale: {
+          "sale-invoice": `${this.basePath}/client/pages/sale/pos_invoice/pos-list.php`,
+          "pos-invoice": `${this.basePath}/client/pages/sale/pos_invoice/counter-invoice.php`,
+          "sale-return": `${this.basePath}/client/pages/sale/sale_return/return-list.php`,
+          "sale-reports": `${this.basePath}/client/pages/sale/sales_report/sales-report.php`,
+          "sale-order": `${this.basePath}/client/pages/sale/sale_order/order-list.php`,
+          "daily-sale-report": `${this.basePath}/client/pages/sale/daily_sale_report/daily-sale-report.php`,
+        },
         purchase: {
           "purchase-order": `${this.basePath}/client/pages/purchase/purchase_order/order-list.php`,
           "new-invoice": `${this.basePath}/client/pages/purchase/purchase_invoice/purchase-list.php`,
@@ -1166,7 +1164,9 @@ sale: {
           "production-order": `${this.basePath}/client/pages/manuacturing/production_order/list.php`,
           "wip-management": `${this.basePath}/client/pages/manuacturing/wip_management/list.php`,
           "production-completion": `${this.basePath}/client/pages/manuacturing/production_completion/list.php`,
-          "production-expenses": `${this.basePath}/client/pages/manuacturing/production_expenses/list.php`,
+          "production-expenses": `${this.basePath}/client/pages/manuacturing/production_expenses/expense-list.php`,
+          "wastage-entry": `${this.basePath}/client/pages/manuacturing/wastage_entry/list.php`,
+          "production-report": `${this.basePath}/client/pages/manuacturing/production_report/index.php`,
         },
         "master-setup": {
           "branch-setup": `${this.basePath}/client/pages/master_setup/branch_setup/branch-list.php`,
@@ -1201,8 +1201,6 @@ sale: {
 
     applyPermissions() {
       const actionMap = {
-        'create-quotation': 'Create Quotation',  // ← YEH ADD KAREIN
-        'lead-add': 'Create Lead',  // ← YEH ADD KAREIN
         'customer-add': 'New Customer',
         'supplier-add': 'New Supplier',
         'sale-invoice': 'Sale Invoice',
@@ -1261,7 +1259,9 @@ sale: {
         'production-order': 'Production Order',
         'wip-management': 'WIP Management',
         'production-completion': 'Production Completion',
-        'production-expenses': 'Production Expenses'
+        'production-expenses': 'Production Expenses',
+        'wastage-entry': 'Production Wastage',
+        'production-report': 'Production Report'
       };
 
       document.querySelectorAll('[data-section]').forEach(el => {

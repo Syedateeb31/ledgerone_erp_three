@@ -51,6 +51,12 @@ if (!$user_id) {
                         <label for="saleDate" class="required">Sale Date</label>
                         <input type="date" id="saleDate" required tabindex="-1">
                     </div>
+                    <div class="form-group" id="areaCityGroup">
+                        <label for="areaCity">Area/City</label>
+                        <select id="areaCity" tabindex="-1">
+                            <option value="">All Areas</option>
+                        </select>
+                    </div>
                     <div class="form-group">
                         <label for="customerCode" class="required">Customer Code</label>
                         <div style="display: flex; gap: 8px; align-items: flex-start;">

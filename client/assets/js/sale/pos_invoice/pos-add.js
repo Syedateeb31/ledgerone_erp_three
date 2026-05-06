@@ -719,6 +719,7 @@ function initializePage(permissions) {
     // Load customers from API
     async function loadCustomersLocal() {
         await loadCustomers();
+        populateAreaCityDropdown();
     }
 
     // Load branches from API
@@ -760,6 +761,46 @@ function initializePage(permissions) {
         } catch (error) {
             console.error('Error loading branches:', error);
         }
+    }
+
+    function populateAreaCityDropdown() {
+        const areaCitySelect = document.getElementById('areaCity');
+        const areas = new Set();
+        
+        customersData.forEach(customer => {
+            if (customer.area) areas.add(customer.area);
+            else if (customer.city) areas.add(customer.city);
+        });
+        
+        areaCitySelect.innerHTML = '<option value="">All Areas</option>';
+        Array.from(areas).sort().forEach(area => {
+            const option = document.createElement('option');
+            option.value = area;
+            option.textContent = area;
+            areaCitySelect.appendChild(option);
+        });
+        
+        areaCitySelect.addEventListener('change', filterCustomersByArea);
+    }
+    
+    function filterCustomersByArea() {
+        const selectedArea = document.getElementById('areaCity').value;
+        const customerCodeOptions = document.getElementById('customerCodeOptions');
+        customerCodeOptions.innerHTML = '';
+        
+        const filteredCustomers = selectedArea
+            ? customersData.filter(c => c.area === selectedArea || c.city === selectedArea)
+            : customersData;
+        
+        const fragment = document.createDocumentFragment();
+        filteredCustomers.forEach(customer => {
+            const option = document.createElement('div');
+            option.className = 'dropdown-option';
+            option.setAttribute('data-value', customer.id);
+            option.textContent = `${customer.customer_code} - ${customer.customer_name}`;
+            fragment.appendChild(option);
+        });
+        customerCodeOptions.appendChild(fragment);
     }
 
     // Load companies from API
