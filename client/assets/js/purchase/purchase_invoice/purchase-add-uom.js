@@ -346,19 +346,12 @@ function updateInvoiceSummaryDynamic() {
     const discountAmount = totalBill * (discountPercent / 100);
     const afterDiscount = totalBill - discountAmount;
     
-    const gstPercentElement = document.getElementById('totalGSTPercent');
-    const gstPercent = gstPercentElement ? parseFloat(gstPercentElement.value) || 0 : 0;
-    const gstAmount = afterDiscount * (gstPercent / 100);
-    
     const shippingFeesElement = document.getElementById('shippingFees');
     const shippingFees = shippingFeesElement ? parseFloat(shippingFeesElement.value) || 0 : 0;
-    const netAmount = afterDiscount + gstAmount + shippingFees;
+    const netAmount = afterDiscount + shippingFees;
     
     const discountAmountElement = document.getElementById('totalDiscountAmount');
     if (discountAmountElement) discountAmountElement.value = discountAmount.toFixed(2);
-    
-    const gstAmountElement = document.getElementById('totalGSTAmount');
-    if (gstAmountElement) gstAmountElement.value = gstAmount.toFixed(2);
     
     const netAmountElement = document.getElementById('netAmount');
     if (netAmountElement) netAmountElement.textContent = netAmount.toFixed(2);
