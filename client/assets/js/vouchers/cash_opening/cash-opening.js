@@ -1,23 +1,55 @@
-// DOM Elements
-const branchSelect = document.getElementById('branch');
-const asOfDateInput = document.getElementById('asOfDate');
-const openingCashInput = document.getElementById('openingCash');
-const currencyInput = document.getElementById('currency');
-const saveBtn = document.getElementById('saveBtn');
-const resetBtn = document.getElementById('resetBtn');
-const tableBody = document.getElementById('tableBody');
-const emptyState = document.getElementById('emptyState');
-const statusMessage = document.getElementById('statusMessage');
-const formContainer = document.getElementById('formContainer');
-const lockOverlay = document.getElementById('lockOverlay');
-const currentDateDisplay = document.getElementById('currentDateDisplay');
+// DOM Elements - will be initialized in initializeForm
+let branchSelect;
+let asOfDateInput;
+let openingCashInput;
+let currencyInput;
+let saveBtn;
+let resetBtn;
+let tableBody;
+let emptyState;
+let statusMessage;
+let formContainer;
+let lockOverlay;
+let currentDateDisplay;
+let editModal;
+let deleteModal;
+let closeEditModal;
+let closeDeleteModal;
+let cancelEditBtn;
+let cancelDeleteBtn;
+let updateBtn;
+let confirmDeleteBtn;
 
 // Data storage
 let cashRecords = [];
 let companies = [];
+let currentEditId = null;
+let currentDeleteId = null;
 
 // Initialize the form
 function initializeForm() {
+    // Get DOM elements
+    branchSelect = document.getElementById('branch');
+    asOfDateInput = document.getElementById('asOfDate');
+    openingCashInput = document.getElementById('openingCash');
+    currencyInput = document.getElementById('currency');
+    saveBtn = document.getElementById('saveBtn');
+    resetBtn = document.getElementById('resetBtn');
+    tableBody = document.getElementById('tableBody');
+    emptyState = document.getElementById('emptyState');
+    statusMessage = document.getElementById('statusMessage');
+    formContainer = document.getElementById('formContainer');
+    lockOverlay = document.getElementById('lockOverlay');
+    currentDateDisplay = document.getElementById('currentDateDisplay');
+    editModal = document.getElementById('editModal');
+    deleteModal = document.getElementById('deleteModal');
+    closeEditModal = document.getElementById('closeEditModal');
+    closeDeleteModal = document.getElementById('closeDeleteModal');
+    cancelEditBtn = document.getElementById('cancelEditBtn');
+    cancelDeleteBtn = document.getElementById('cancelDeleteBtn');
+    updateBtn = document.getElementById('updateBtn');
+    confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
+    
     // Set default date to today
     const today = new Date().toISOString().split('T')[0];
     asOfDateInput.value = today;
@@ -47,6 +79,20 @@ function initializeForm() {
     branchSelect.addEventListener('change', validateBranch);
     asOfDateInput.addEventListener('change', validateDate);
     openingCashInput.addEventListener('input', validateAmount);
+    
+    // Modal event listeners
+    closeEditModal.addEventListener('click', () => editModal.style.display = 'none');
+    closeDeleteModal.addEventListener('click', () => deleteModal.style.display = 'none');
+    cancelEditBtn.addEventListener('click', () => editModal.style.display = 'none');
+    cancelDeleteBtn.addEventListener('click', () => deleteModal.style.display = 'none');
+    updateBtn.addEventListener('click', updateRecord);
+    confirmDeleteBtn.addEventListener('click', deleteRecord);
+    
+    // Close modals on outside click
+    window.addEventListener('click', (e) => {
+        if (e.target === editModal) editModal.style.display = 'none';
+        if (e.target === deleteModal) deleteModal.style.display = 'none';
+    });
 }
 
 // Load branches from API
@@ -265,6 +311,16 @@ async function loadRecords() {
                     <td>${record.currency}</td>
                     <td>${record.entered_by}</td>
                     <td>${formatDateTime(record.updated_at)}</td>
+                    <td>
+                        <div class="action-buttons">
+                            <button class="btn-icon btn-edit" title="Edit" onclick="openEditModal(${record.id})">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="btn-icon btn-delete" title="Delete" onclick="openDeleteModal(${record.id})">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </td>
                 `;
                 tableBody.appendChild(row);
             });
@@ -341,6 +397,99 @@ function formatDateTime(dateTimeString) {
         minute: '2-digit'
     };
     return new Date(dateTimeString).toLocaleDateString('en-US', options);
+}
+
+// Open edit modal
+function openEditModal(recordId) {
+    const record = cashRecords.find(r => r.id === recordId);
+    if (!record) return;
+    
+    currentEditId = recordId;
+    document.getElementById('editBranch').value = record.branch_name || '-';
+    document.getElementById('editCompany').value = record.company_name || '-';
+    document.getElementById('editAsOfDate').value = record.as_of_date;
+    document.getElementById('editOpeningCash').value = record.opening_amount;
+    document.getElementById('editCurrency').value = record.currency;
+    document.getElementById('editOpeningCashError').style.display = 'none';
+    
+    editModal.style.display = 'block';
+}
+
+// Update record
+async function updateRecord() {
+    const editOpeningCash = document.getElementById('editOpeningCash');
+    const editOpeningCashError = document.getElementById('editOpeningCashError');
+    
+    if (!editOpeningCash.value || editOpeningCash.value <= 0) {
+        editOpeningCashError.textContent = 'Please enter a valid amount greater than 0';
+        editOpeningCashError.style.display = 'block';
+        return;
+    }
+    
+    updateBtn.disabled = true;
+    updateBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Updating...';
+    
+    try {
+        const response = await fetch('../../../../server/api/vouchers/cash_opening/update.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                id: currentEditId,
+                opening_amount: editOpeningCash.value
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showStatusMessage('Opening cash updated successfully.', 'success');
+            editModal.style.display = 'none';
+            await loadRecords();
+        } else {
+            showStatusMessage(data.error || 'Failed to update record', 'error');
+        }
+    } catch (error) {
+        showStatusMessage('Failed to update record. Please try again.', 'error');
+    } finally {
+        updateBtn.disabled = false;
+        updateBtn.innerHTML = '<i class="fas fa-save"></i> Update';
+    }
+}
+
+// Open delete modal
+function openDeleteModal(recordId) {
+    currentDeleteId = recordId;
+    deleteModal.style.display = 'block';
+}
+
+// Delete record
+async function deleteRecord() {
+    confirmDeleteBtn.disabled = true;
+    confirmDeleteBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Deleting...';
+    
+    try {
+        const response = await fetch('../../../../server/api/vouchers/cash_opening/delete.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: currentDeleteId })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showStatusMessage('Opening cash record deleted successfully.', 'success');
+            deleteModal.style.display = 'none';
+            await loadRecords();
+            checkFormLock();
+        } else {
+            showStatusMessage(data.error || 'Failed to delete record', 'error');
+        }
+    } catch (error) {
+        showStatusMessage('Failed to delete record. Please try again.', 'error');
+    } finally {
+        confirmDeleteBtn.disabled = false;
+        confirmDeleteBtn.innerHTML = '<i class="fas fa-trash"></i> Delete';
+    }
 }
 
 // Initialize the application

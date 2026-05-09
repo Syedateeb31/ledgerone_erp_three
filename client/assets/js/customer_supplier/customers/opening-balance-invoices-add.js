@@ -145,7 +145,7 @@ function addInvoiceRow() {
             <button type="button" class="btn btn-success btn-sm add-row-btn" data-row-id="${rowCounter}" title="Add new row">
                 <i class="fas fa-plus"></i>
             </button>
-            <button type="button" class="btn btn-danger btn-sm delete-row-btn" data-row-id="${rowCounter}" title="Delete this row" style="display: none;">
+            <button type="button" class="btn btn-danger btn-sm delete-row-btn" data-row-id="${rowCounter}" title="Delete this row">
                 <i class="fas fa-trash"></i>
             </button>
         </td>
@@ -244,9 +244,9 @@ function updateDeleteButtons() {
         const deleteBtn = row.querySelector('.delete-row-btn');
         
         if (index === rows.length - 1) {
-            // Last row - show add button, hide delete
+            // Last row - show both add and delete buttons
             if (addBtn) addBtn.style.display = 'inline-block';
-            if (deleteBtn) deleteBtn.style.display = 'none';
+            if (deleteBtn) deleteBtn.style.display = 'inline-block';
         } else {
             // Not last row - hide add button, show delete
             if (addBtn) addBtn.style.display = 'none';

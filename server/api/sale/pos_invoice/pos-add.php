@@ -113,7 +113,7 @@ try {
             tenant_id, sale_invoice_id, product_id, uom_id,
             quantity, sale_price, gross_amount, discount_percent,
             discount_amount, trade_offer_percent, trade_offer_amount,
-            gst_percent, gst_amount, foc_quantity, net_amount, parent_row_id,
+            tax_percent, tax_amount, foc_quantity, net_amount, parent_row_id,
             piece, carton, dozen, scheme, created_by, updated_by
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ");
@@ -142,8 +142,8 @@ try {
             $item['discountAmount'] ?? 0.00,
             $item['tradeOfferPercent'] ?? 0.00,
             $item['tradeOfferAmount'] ?? 0.00,
-            $item['gstPercent'] ?? 0.00,
-            $item['gstAmount'] ?? 0.00,
+            $item['taxPercent'] ?? 0.00,
+            $item['taxAmount'] ?? 0.00,
             $item['focQty'] ?? 0.00,
             $item['netAmount'],
             $parentRowId,
@@ -231,12 +231,12 @@ try {
     if ($status === 'Posted') {
         // Calculate totals for accounting entries
         $totalTradeOffer = 0;
-        $totalGST = 0;
+        $totalTax = 0;
         $totalGrossAmount = 0;
         
         foreach ($input['items'] as $item) {
             $totalTradeOffer += floatval($item['tradeOfferAmount'] ?? 0);
-            $totalGST += floatval($item['gstAmount'] ?? 0);
+            $totalTax += floatval($item['taxAmount'] ?? 0);
             $totalGrossAmount += floatval($item['grossAmount']);
         }
         
@@ -306,8 +306,8 @@ try {
             'Sale Invoice - ' . $billNo, $totalGrossAmount
         ]);
         
-        // Credit: Sales Tax Payable (GST)
-        if ($totalGST > 0) {
+        // Credit: Sales Tax Payable
+        if ($totalTax > 0) {
             $pdo->prepare("
                 INSERT INTO accounting_ledger (
                     tenant_id, transaction_type, reference_table, reference_id,
@@ -315,7 +315,7 @@ try {
                 ) VALUES (?, 'Sale Invoice', 'sale_invoice', ?, 106, ?, ?, ?)
             ")->execute([
                 $tenant_id, $invoice_id, $input['saleDate'],
-                'Sale Invoice - ' . $billNo, $totalGST
+                'Sale Invoice - ' . $billNo, $totalTax
             ]);
         }
     }

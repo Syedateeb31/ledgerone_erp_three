@@ -653,8 +653,8 @@
                     case 'disc_pct': th.textContent = 'Disc %'; th.width = '5%'; break;
                     case 'disc_amt': th.textContent = 'Disc Amt'; th.width = '8%'; break;
                     case 'to_amt': th.textContent = 'T.O Amt'; th.width = '8%'; break;
-                    case 'gst_pct': th.textContent = 'GST %'; th.width = '5%'; break;
-                    case 'gst_amt': th.textContent = 'GST Amt'; th.width = '8%'; break;
+                    case 'gst_pct': th.textContent = 'Tax %'; th.width = '5%'; break;
+                    case 'gst_amt': th.textContent = 'Tax Amt'; th.width = '8%'; break;
                     case 'foc': th.textContent = 'FOC Qty'; th.width = '5%'; break;
                     case 'net': th.textContent = 'Net Amt'; th.width = '9%'; break;
                 }
@@ -1054,8 +1054,8 @@
                     { id: 'disc_pct', value: parseFloat(item.discount_percent || 0).toFixed(2) + '%', visible: enableCashDiscountPercent },
                     { id: 'disc_amt', value: currencySymbol + ' ' + parseFloat(item.discount_amount || 0).toFixed(2), visible: enableCashDiscountAmount },
                     { id: 'to_amt', value: currencySymbol + ' ' + parseFloat(item.trade_offer_amount || 0).toFixed(2), visible: enableTradeOfferAmount },
-                    { id: 'gst_pct', value: parseFloat(item.gst_percent || 0).toFixed(2) + '%', visible: enableTaxation },
-                    { id: 'gst_amt', value: currencySymbol + ' ' + parseFloat(item.gst_amount || 0).toFixed(2), visible: enableTaxation },
+                    { id: 'gst_pct', value: parseFloat(item.tax_percent || 0).toFixed(2) + '%', visible: enableTaxation },
+                    { id: 'gst_amt', value: currencySymbol + ' ' + parseFloat(item.tax_amount || 0).toFixed(2), visible: enableTaxation },
                     { id: 'foc', value: parseFloat(item.foc_quantity || 0).toFixed(2), visible: enableFOC },
                     { id: 'net', value: currencySymbol + ' ' + parseFloat(item.net_amount).toFixed(2), visible: true }
                 ];
@@ -1083,7 +1083,7 @@
                 totalGrossAmount += parseFloat(item.gross_amount);
                 totalDiscountAmountItems += parseFloat(item.discount_amount || 0);
                 totalTradeOfferAmountItems += parseFloat(item.trade_offer_amount || 0);
-                totalGstAmountItems += parseFloat(item.gst_amount || 0);
+                totalGstAmountItems += parseFloat(item.tax_amount || 0);
                 totalFocQty += parseFloat(item.foc_quantity || 0);
                 totalNetAmountItems += parseFloat(item.net_amount);
             });

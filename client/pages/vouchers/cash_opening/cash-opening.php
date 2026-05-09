@@ -157,6 +157,7 @@ if (!$user_id) {
                             <th>Currency</th>
                             <th>Entered By</th>
                             <th>Last Updated</th>
+                            <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody id="tableBody">
@@ -170,6 +171,60 @@ if (!$user_id) {
                     <h3>No Opening Cash Records Found</h3>
                     <p>Once you save an opening cash record, it will appear here.</p>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Modal -->
+    <div id="editModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Edit Opening Cash</h2>
+                <button type="button" class="modal-close" id="closeEditModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-field">
+                    <label for="editBranch" class="form-label">Branch</label>
+                    <input type="text" id="editBranch" class="form-input" readonly>
+                </div>
+                <div class="form-field">
+                    <label for="editCompany" class="form-label">Company</label>
+                    <input type="text" id="editCompany" class="form-input" readonly>
+                </div>
+                <div class="form-field">
+                    <label for="editAsOfDate" class="form-label">As of Date</label>
+                    <input type="date" id="editAsOfDate" class="form-input" readonly>
+                </div>
+                <div class="form-field">
+                    <label for="editOpeningCash" class="form-label required">Opening Cash Amount</label>
+                    <input type="number" id="editOpeningCash" class="form-input" placeholder="0.00" min="0" step="0.01" required>
+                    <div id="editOpeningCashError" class="error-text" style="display: none;"></div>
+                </div>
+                <div class="form-field">
+                    <label for="editCurrency" class="form-label">Currency</label>
+                    <input type="text" id="editCurrency" class="form-input" readonly>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="cancelEditBtn">Cancel</button>
+                <button type="button" class="btn btn-primary" id="updateBtn">Update</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div id="deleteModal" class="modal" style="display: none;">
+        <div class="modal-content modal-sm">
+            <div class="modal-header">
+                <h2>Delete Opening Cash</h2>
+                <button type="button" class="modal-close" id="closeDeleteModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete this opening cash record? This action cannot be undone.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="cancelDeleteBtn">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteBtn">Delete</button>
             </div>
         </div>
     </div>
