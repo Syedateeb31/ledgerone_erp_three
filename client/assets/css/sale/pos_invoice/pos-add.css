@@ -752,6 +752,9 @@ td:not(:has(.unit-input)):not(:has(button)):not(.price-cell):not(.gross-cell):no
   background: linear-gradient(135deg, #dbeafe 0%, #ffffff 100%);
   border-color: #3b82f6;
   color: #2563eb;
+  min-width: 100px !important;
+  font-size: 14px !important;
+  padding: 8px 12px !important;
 }
 
 /* Net amount cell styling */
@@ -920,4 +923,168 @@ td:has(.unit-label) {
 
 td:has(.unit-label) .unit-input {
   margin-top: 0;
+}
+
+/* Hide Net Receivable field */
+#netReceivableLabel,
+#netReceivable {
+  display: none !important;
+}
+
+.summary-item:has(#netReceivable) {
+  display: none !important;
+}
+
+/* Hide Bank Account by default */
+#bankAccountContainer {
+  display: none !important;
+}
+
+
+/* Invoice Summary Sections */
+.summary-section {
+  margin-bottom: 24px;
+  padding: 16px;
+  background: linear-gradient(135deg, var(--surface-1) 0%, var(--surface-0) 100%);
+  border-radius: var(--radius);
+  border: 1px solid var(--border-default);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.summary-section:last-child {
+  margin-bottom: 0;
+}
+
+.summary-section-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--heading);
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--primary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+
+.summary-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+  background: var(--surface-0);
+  border: 1.5px solid var(--border-default);
+  border-radius: var(--radius);
+  transition: all 0.2s ease;
+}
+
+.summary-item:hover {
+  border-color: var(--primary);
+  box-shadow: 0 2px 8px rgba(31, 123, 255, 0.1);
+}
+
+.summary-item.summary-display {
+  background: linear-gradient(135deg, #f0f7ff 0%, #ffffff 100%);
+  border-color: var(--primary);
+  box-shadow: 0 2px 8px rgba(31, 123, 255, 0.08);
+}
+
+.summary-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--subtext);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.summary-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--primary);
+  letter-spacing: -0.3px;
+}
+
+.summary-item.summary-display .summary-value {
+  color: var(--primary);
+  font-size: 20px;
+}
+
+.summary-item input.table-input,
+.summary-item select.table-input {
+  height: 40px;
+  padding: 8px 12px;
+  font-size: 13px;
+  border: 1.5px solid var(--border-default);
+  border-radius: 6px;
+  background: var(--surface-0);
+  color: var(--body);
+  transition: all 0.2s ease;
+}
+
+.summary-item input.table-input:focus,
+.summary-item select.table-input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(31, 123, 255, 0.1);
+  outline: none;
+}
+
+.summary-item input[readonly] {
+  background: var(--surface-2);
+  color: var(--subtext);
+  cursor: not-allowed;
+}
+
+/* Responsive Grid */
+@media (max-width: 1024px) {
+  .summary-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .summary-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .summary-section {
+    padding: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .summary-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .summary-item {
+    padding: 10px;
+  }
+}
+
+/* Dark Theme */
+.dark-theme .summary-section {
+  background: linear-gradient(135deg, var(--surface-1) 0%, var(--surface-0) 100%);
+  border-color: var(--border-default);
+}
+
+.dark-theme .summary-item {
+  background: var(--surface-0);
+  border-color: var(--border-default);
+}
+
+.dark-theme .summary-item.summary-display {
+  background: linear-gradient(135deg, #1e3a5f 0%, #2a4a6f 100%);
+  border-color: var(--primary);
+}
+
+.dark-theme .summary-item input.table-input,
+.dark-theme .summary-item select.table-input {
+  background: var(--surface-1);
+  color: var(--body);
+  border-color: var(--border-default);
 }

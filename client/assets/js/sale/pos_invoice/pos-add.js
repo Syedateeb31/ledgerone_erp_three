@@ -77,6 +77,9 @@ function initializePage(permissions) {
     // Load invoice settings on page load
     loadInvoiceSettings();
     
+    // Apply invoice settings to show/hide columns on page load
+    applyInvoiceSettings();
+    
     // Toggle settings buttons
     const toggleSettingsBtn = document.getElementById('toggleSettingsBtn');
     const settingsButtons = document.getElementById('settingsButtons');
@@ -107,6 +110,14 @@ function initializePage(permissions) {
             document.getElementById('invoiceSettingsModal').style.display = 'none';
         });
     }
+    
+    // Close Invoice Settings (alternate button)
+    const closeInvoiceSettingsBtn2 = document.getElementById('closeInvoiceSettingsBtn2');
+    if (closeInvoiceSettingsBtn2) {
+        closeInvoiceSettingsBtn2.addEventListener('click', function () {
+            document.getElementById('invoiceSettingsModal').style.display = 'none';
+        });
+    }
 
     // Save Invoice Settings
     const saveInvoiceSettingsBtn = document.getElementById('saveInvoiceSettingsBtn');
@@ -115,8 +126,35 @@ function initializePage(permissions) {
             saveInvoiceSettings();
             document.getElementById('invoiceSettingsModal').style.display = 'none';
             applyInvoiceSettings();
+            updateInvoiceSummary();
         });
     }
+
+    // Add real-time listeners to invoice settings checkboxes
+    const invoiceSettingCheckboxes = [
+        'enableTradeOfferAmount',
+        'enableFOC',
+        'enableTaxation',
+        'enableCashDiscountPercent',
+        'enableCashDiscountAmount',
+        'enableInvoiceCashDiscountPercent',
+        'enableInvoiceCashDiscountAmount',
+        'enableShippingFees',
+        'enableAmountPaidPaymentMethod'
+    ];
+
+    invoiceSettingCheckboxes.forEach(checkboxId => {
+        const checkbox = document.getElementById(checkboxId);
+        if (checkbox) {
+            checkbox.addEventListener('change', function () {
+                // Save to localStorage immediately when checkbox changes
+                localStorage.setItem(checkboxId, this.checked);
+                // Apply settings immediately to show/hide columns
+                applyInvoiceSettings();
+                updateInvoiceSummary();
+            });
+        }
+    });
 
     // Close modal on outside click
     const invoiceSettingsModal = document.getElementById('invoiceSettingsModal');
@@ -321,6 +359,9 @@ function initializePage(permissions) {
 
         // Apply invoice settings
         applyInvoiceSettings();
+        
+        // Setup payment method listener after bank accounts are loaded
+        setupPaymentMethodListener();
 
         if (isEditMode) {
             loadInvoiceData(editId);
@@ -347,7 +388,7 @@ function initializePage(permissions) {
             alert('You do not have permission to edit invoices.');
             return;
         }
-        if (validateFormLocal()) {
+        if (validateFormLocal() && validateStockBeforeSave()) {
             hideBalanceNotification();
             saveInvoice('Posted');
         }
@@ -483,10 +524,10 @@ function initializePage(permissions) {
             addRowDynamic();
         } else if (combo === shortcuts.save) {
             e.preventDefault();
-            if (validateForm()) saveInvoice('Posted');
+            if (validateForm() && validateStockBeforeSave()) saveInvoice('Posted');
         } else if (combo === shortcuts.draft) {
             e.preventDefault();
-            saveInvoice('Draft');
+            if (validateStockBeforeSave()) saveInvoice('Draft');
         } else if (combo === shortcuts.reset) {
             e.preventDefault();
             resetForm();
@@ -780,6 +821,21 @@ function initializePage(permissions) {
             areaCitySelect.appendChild(option);
         });
         
+        // Populate initial customer options with all customers
+        const customerCodeOptions = document.getElementById('customerCodeOptions');
+        customerCodeOptions.innerHTML = '';
+        const fragment = document.createDocumentFragment();
+        customersData.forEach(customer => {
+            const option = document.createElement('div');
+            option.className = 'dropdown-option';
+            option.setAttribute('data-value', customer.id);
+            option.setAttribute('data-supplier-man', customer.associated_sales_officer_id || '');
+            option.setAttribute('data-sales-officer', customer.associated_sales_officer_id || '');
+            option.textContent = `${customer.customer_code} - ${customer.customer_name}`;
+            fragment.appendChild(option);
+        });
+        customerCodeOptions.appendChild(fragment);
+        
         areaCitySelect.addEventListener('change', filterCustomersByArea);
     }
     
@@ -797,6 +853,8 @@ function initializePage(permissions) {
             const option = document.createElement('div');
             option.className = 'dropdown-option';
             option.setAttribute('data-value', customer.id);
+            option.setAttribute('data-supplier-man', customer.associated_sales_officer_id || '');
+            option.setAttribute('data-sales-officer', customer.associated_sales_officer_id || '');
             option.textContent = `${customer.customer_code} - ${customer.customer_name}`;
             fragment.appendChild(option);
         });
@@ -875,6 +933,12 @@ function initializePage(permissions) {
                     option.textContent = `${account.account_title} - ${account.account_number}`;
                     bankAccountSelect.appendChild(option);
                 });
+                
+                // Hide bank account container by default (Cash is selected)
+                const bankAccountContainer = document.getElementById('bankAccountContainer');
+                if (bankAccountContainer) {
+                    bankAccountContainer.style.display = 'none';
+                }
             }
         } catch (error) {
             console.error('Error loading bank accounts:', error);
@@ -1270,6 +1334,8 @@ function initializePage(permissions) {
                     await loadInvoiceLevelTaxRegimes(invoice.customer_id, companyId);
                 }
                 
+                // Apply invoice settings after loading data
+                applyInvoiceSettings();
                 updateInvoiceSummary();
 
                 // Update page title
@@ -1398,6 +1464,8 @@ function initializePage(permissions) {
                 document.getElementById('totalDiscountPercent').value = order.total_discount_percent || 0;
                 document.getElementById('totalDiscountAmount').value = order.total_discount_amount || 0;
 
+                // Apply invoice settings after loading data
+                applyInvoiceSettings();
                 updateInvoiceSummary();
             } else {
                 alert('Error loading sale order: ' + data.message);
@@ -2542,6 +2610,10 @@ function initializePage(permissions) {
             if (invoiceDiscountPercent > 0) {
                 invoiceDiscountAmount = totalNetAmountItems * (invoiceDiscountPercent / 100);
                 document.getElementById('totalDiscountAmount').value = invoiceDiscountAmount.toFixed(2);
+            } else if (invoiceDiscountAmount > 0) {
+                // If discount amount is manually entered, recalculate percentage
+                const discountPct = totalNetAmountItems > 0 ? (invoiceDiscountAmount / totalNetAmountItems) * 100 : 0;
+                document.getElementById('totalDiscountPercent').value = discountPct.toFixed(2);
             }
 
             const afterDiscount = totalNetAmountItems - invoiceDiscountAmount;
@@ -2599,9 +2671,9 @@ function initializePage(permissions) {
 
     // Update remaining balance
     function updateRemainingBalance() {
-        const netReceivable = parseFloat(document.getElementById('netReceivable').textContent) || 0;
+        const netAmount = parseFloat(document.getElementById('netAmount').textContent) || 0;
         const amountPaid = parseFloat(document.getElementById('amountPaid').value) || 0;
-        const remainingBalance = netReceivable - amountPaid;
+        const remainingBalance = netAmount - amountPaid;
         document.getElementById('remainingBalance').value = remainingBalance.toFixed(2);
     }
 
@@ -2763,21 +2835,28 @@ function initializePage(permissions) {
         });
     });
 
-    // Add event listener for payment method to show/hide bank account
-    const paymentMethod = document.getElementById('paymentMethod');
-    if (paymentMethod) {
-        paymentMethod.addEventListener('change', function () {
-            const bankAccountContainer = document.getElementById('bankAccountContainer');
-            if (bankAccountContainer) {
-                if (this.value === 'bank_transfer') {
-                    bankAccountContainer.style.display = 'flex';
-                } else {
-                    bankAccountContainer.style.display = 'none';
-                    const bankAccount = document.getElementById('bankAccount');
-                    if (bankAccount) bankAccount.value = '';
+    // Setup payment method listener (called after bank accounts are loaded)
+    function setupPaymentMethodListener() {
+        const paymentMethod = document.getElementById('paymentMethod');
+        if (paymentMethod) {
+            paymentMethod.addEventListener('change', function () {
+                const bankAccountContainer = document.getElementById('bankAccountContainer');
+                if (bankAccountContainer) {
+                    if (this.value === 'bank_transfer') {
+                        bankAccountContainer.style.setProperty('display', 'flex', 'important');
+                    } else {
+                        bankAccountContainer.style.setProperty('display', 'none', 'important');
+                        const bankAccount = document.getElementById('bankAccount');
+                        if (bankAccount) bankAccount.value = '';
+                    }
                 }
-            }
-        });
+            });
+            
+            // Set initial state on page load
+            setTimeout(() => {
+                paymentMethod.dispatchEvent(new Event('change'));
+            }, 100);
+        }
     }
 
     // Update invoice summary from discount amount
@@ -3519,6 +3598,11 @@ function loadInvoiceSettings() {
     const salePriceRadio = document.querySelector(`input[name="salePriceSetting"][value="${salePriceSetting}"]`);
     if (salePriceRadio) salePriceRadio.checked = true;
     
+    // Load product filtering preference
+    const productFilteringMode = localStorage.getItem('productFilteringMode') || 'showAll';
+    const filteringRadio = document.querySelector(`input[name="productFilteringMode"][value="${productFilteringMode}"]`);
+    if (filteringRadio) filteringRadio.checked = true;
+    
     // Load other settings
     document.getElementById('enableTradeOfferAmount').checked = localStorage.getItem('enableTradeOfferAmount') === 'true';
     document.getElementById('enableFOC').checked = localStorage.getItem('enableFOC') === 'true';
@@ -3541,6 +3625,10 @@ function saveInvoiceSettings() {
     // Save sale price preference
     const selectedSalePrice = document.querySelector('input[name="salePriceSetting"]:checked')?.value || 'trade_price';
     localStorage.setItem('salePriceSetting', selectedSalePrice);
+    
+    // Save product filtering preference
+    const selectedFilteringMode = document.querySelector('input[name="productFilteringMode"]:checked')?.value || 'showAll';
+    localStorage.setItem('productFilteringMode', selectedFilteringMode);
     
     // Save other settings
     localStorage.setItem('enableTradeOfferAmount', document.getElementById('enableTradeOfferAmount').checked);
@@ -3567,7 +3655,108 @@ function applyInvoiceSettings() {
     const enableInvoiceCashDiscountAmount = localStorage.getItem('enableInvoiceCashDiscountAmount') === 'true';
     const enableShippingFees = localStorage.getItem('enableShippingFees') === 'true';
 
-    // Hide/show invoice summary fields
+    // Hide/show table columns by class name (works with dynamic unit columns)
+    const itemsTable = document.getElementById('itemsTable');
+    if (itemsTable) {
+        const thead = itemsTable.getElementsByTagName('thead')[0];
+        const tbody = itemsTable.getElementsByTagName('tbody')[0];
+        const tfoot = itemsTable.getElementsByTagName('tfoot')[0];
+        
+        // Apply visibility to header
+        if (thead) {
+            const discPercentHeaders = thead.querySelectorAll('.disc-percent-cell');
+            const discAmountHeaders = thead.querySelectorAll('.disc-amount-cell');
+            const toAmountHeaders = thead.querySelectorAll('.to-amount-cell');
+            const taxPercentHeaders = thead.querySelectorAll('.tax-percent-cell');
+            const taxAmountHeaders = thead.querySelectorAll('.tax-amount-cell');
+            const focHeaders = thead.querySelectorAll('.foc-cell');
+            
+            discPercentHeaders.forEach(cell => cell.style.display = enableCashDiscountPercent ? '' : 'none');
+            discAmountHeaders.forEach(cell => cell.style.display = enableCashDiscountAmount ? '' : 'none');
+            toAmountHeaders.forEach(cell => cell.style.display = enableTradeOfferAmount ? '' : 'none');
+            taxPercentHeaders.forEach(cell => cell.style.display = enableTaxation ? '' : 'none');
+            taxAmountHeaders.forEach(cell => cell.style.display = enableTaxation ? '' : 'none');
+            focHeaders.forEach(cell => cell.style.display = enableFOC ? '' : 'none');
+        }
+        
+        // Apply visibility to body rows AND disable/enable inputs
+        if (tbody) {
+            const discPercentCells = tbody.querySelectorAll('.disc-percent-cell');
+            const discAmountCells = tbody.querySelectorAll('.disc-amount-cell');
+            const toAmountCells = tbody.querySelectorAll('.to-amount-cell');
+            const taxPercentCells = tbody.querySelectorAll('.tax-percent-cell');
+            const taxAmountCells = tbody.querySelectorAll('.tax-amount-cell');
+            const focCells = tbody.querySelectorAll('.foc-cell');
+            
+            discPercentCells.forEach(cell => {
+                cell.style.display = enableCashDiscountPercent ? '' : 'none';
+                const input = cell.querySelector('input');
+                if (input) {
+                    input.disabled = !enableCashDiscountPercent;
+                    if (!enableCashDiscountPercent) input.value = '0';
+                }
+            });
+            discAmountCells.forEach(cell => {
+                cell.style.display = enableCashDiscountAmount ? '' : 'none';
+                const input = cell.querySelector('input');
+                if (input) {
+                    input.disabled = !enableCashDiscountAmount;
+                    if (!enableCashDiscountAmount) input.value = '0.00';
+                }
+            });
+            toAmountCells.forEach(cell => {
+                cell.style.display = enableTradeOfferAmount ? '' : 'none';
+                const input = cell.querySelector('input');
+                if (input) {
+                    input.disabled = !enableTradeOfferAmount;
+                    if (!enableTradeOfferAmount) input.value = '0.00';
+                }
+            });
+            taxPercentCells.forEach(cell => {
+                cell.style.display = enableTaxation ? '' : 'none';
+                const input = cell.querySelector('input');
+                if (input) {
+                    input.disabled = !enableTaxation;
+                    if (!enableTaxation) input.value = '0';
+                }
+            });
+            taxAmountCells.forEach(cell => {
+                cell.style.display = enableTaxation ? '' : 'none';
+                const input = cell.querySelector('input');
+                if (input) {
+                    input.disabled = !enableTaxation;
+                    if (!enableTaxation) input.value = '0.00';
+                }
+            });
+            focCells.forEach(cell => {
+                cell.style.display = enableFOC ? '' : 'none';
+                const input = cell.querySelector('input');
+                if (input) {
+                    input.disabled = !enableFOC;
+                    if (!enableFOC) input.value = '0';
+                }
+            });
+        }
+        
+        // Apply visibility to footer
+        if (tfoot) {
+            const discPercentFooters = tfoot.querySelectorAll('.disc-percent-cell');
+            const discAmountFooters = tfoot.querySelectorAll('.disc-amount-cell');
+            const toAmountFooters = tfoot.querySelectorAll('.to-amount-cell');
+            const taxPercentFooters = tfoot.querySelectorAll('.tax-percent-cell');
+            const taxAmountFooters = tfoot.querySelectorAll('.tax-amount-cell');
+            const focFooters = tfoot.querySelectorAll('.foc-cell');
+            
+            discPercentFooters.forEach(cell => cell.style.display = enableCashDiscountPercent ? '' : 'none');
+            discAmountFooters.forEach(cell => cell.style.display = enableCashDiscountAmount ? '' : 'none');
+            toAmountFooters.forEach(cell => cell.style.display = enableTradeOfferAmount ? '' : 'none');
+            taxPercentFooters.forEach(cell => cell.style.display = enableTaxation ? '' : 'none');
+            taxAmountFooters.forEach(cell => cell.style.display = enableTaxation ? '' : 'none');
+            focFooters.forEach(cell => cell.style.display = enableFOC ? '' : 'none');
+        }
+    }
+
+    // Hide/show invoice summary fields AND disable/enable inputs
     const totalDiscountPercentItem = document.getElementById('totalDiscountPercent')?.closest('.summary-item');
     const totalDiscountAmountItem = document.getElementById('totalDiscountAmount')?.closest('.summary-item');
     const shippingFeesItem = document.getElementById('shippingFees')?.closest('.summary-item');
@@ -3577,13 +3766,86 @@ function applyInvoiceSettings() {
     const amountPaidItem = document.getElementById('amountPaid')?.closest('.summary-item');
     const remainingBalanceItem = document.getElementById('remainingBalance')?.closest('.summary-item');
 
-    if (totalDiscountPercentItem) totalDiscountPercentItem.style.display = enableInvoiceCashDiscountPercent ? '' : 'none';
-    if (totalDiscountAmountItem) totalDiscountAmountItem.style.display = enableInvoiceCashDiscountAmount ? '' : 'none';
-    if (shippingFeesItem) shippingFeesItem.style.display = enableShippingFees ? '' : 'none';
-    if (paymentMethodItem) paymentMethodItem.style.display = enableAmountPaidPaymentMethod ? '' : 'none';
-    if (bankAccountItem && !enableAmountPaidPaymentMethod) bankAccountItem.style.display = 'none';
-    if (amountPaidItem) amountPaidItem.style.display = enableAmountPaidPaymentMethod ? '' : 'none';
-    if (remainingBalanceItem) remainingBalanceItem.style.display = enableAmountPaidPaymentMethod ? '' : 'none';
+    if (totalDiscountPercentItem) {
+        totalDiscountPercentItem.style.display = enableInvoiceCashDiscountPercent ? '' : 'none';
+        const input = document.getElementById('totalDiscountPercent');
+        if (input) {
+            input.disabled = !enableInvoiceCashDiscountPercent;
+            if (!enableInvoiceCashDiscountPercent) input.value = '0';
+        }
+    }
+    if (totalDiscountAmountItem) {
+        totalDiscountAmountItem.style.display = enableInvoiceCashDiscountAmount ? '' : 'none';
+        const input = document.getElementById('totalDiscountAmount');
+        if (input) {
+            input.disabled = !enableInvoiceCashDiscountAmount;
+            if (!enableInvoiceCashDiscountAmount) input.value = '0.00';
+        }
+    }
+    if (shippingFeesItem) {
+        shippingFeesItem.style.display = enableShippingFees ? '' : 'none';
+        const input = document.getElementById('shippingFees');
+        if (input) {
+            input.disabled = !enableShippingFees;
+            if (!enableShippingFees) input.value = '0.00';
+        }
+    }
+    if (paymentMethodItem) {
+        paymentMethodItem.style.display = enableAmountPaidPaymentMethod ? '' : 'none';
+        const input = document.getElementById('paymentMethod');
+        if (input) input.disabled = !enableAmountPaidPaymentMethod;
+    }
+    if (bankAccountItem) {
+        if (!enableAmountPaidPaymentMethod) {
+            bankAccountItem.style.display = 'none';
+            const input = document.getElementById('bankAccount');
+            if (input) input.disabled = true;
+        } else {
+            bankAccountItem.style.display = 'flex';
+            const input = document.getElementById('bankAccount');
+            if (input) input.disabled = false;
+        }
+    }
+    if (amountPaidItem) {
+        amountPaidItem.style.display = enableAmountPaidPaymentMethod ? '' : 'none';
+        const input = document.getElementById('amountPaid');
+        if (input) input.disabled = !enableAmountPaidPaymentMethod;
+    }
+    if (remainingBalanceItem) {
+        remainingBalanceItem.style.display = enableAmountPaidPaymentMethod ? '' : 'none';
+        const input = document.getElementById('remainingBalance');
+        if (input) input.disabled = !enableAmountPaidPaymentMethod;
+    }
+    
+    // Recalculate all rows after applying settings
+    const itemsTableElement = document.getElementById('itemsTable');
+    if (itemsTableElement) {
+        const tbodyElement = itemsTableElement.getElementsByTagName('tbody')[0];
+        if (tbodyElement) {
+            for (let i = 0; i < tbodyElement.rows.length; i++) {
+                const row = tbodyElement.rows[i];
+                const unitInputs = row.querySelectorAll('.unit-input');
+                let totalQty = 0;
+                unitInputs.forEach(input => {
+                    const qty = parseFloat(input.value) || 0;
+                    const cf = parseFloat(input.dataset.conversionFactor) || 1;
+                    totalQty += qty * cf;
+                });
+                const priceInput = row.querySelector('.price-cell input');
+                const price = priceInput ? parseFloat(priceInput.value) || 0 : 0;
+                if (typeof calculateRowAmounts === 'function') {
+                    calculateRowAmounts(row, totalQty, price);
+                }
+            }
+        }
+    }
+    
+    // Recalculate invoice summary
+    if (typeof updateInvoiceSummaryDynamic === 'function') {
+        updateInvoiceSummaryDynamic();
+    } else if (typeof updateInvoiceSummary === 'function') {
+        updateInvoiceSummary();
+    }
 }
 
 function applyColumnVisibility(settings) {
@@ -3765,15 +4027,75 @@ async function loadProductStock(productId) {
 
         if (data.success) {
             const stock = parseFloat(data.stock);
+            const unitName = data.unit_name || '';
+            const stockDisplay = unitName ? `${stock.toFixed(2)} ${unitName}` : `${stock.toFixed(2)} units`;
             const stockColor = stock > 0 ? 'var(--success)' : 'var(--error)';
-            document.getElementById('stockContent').innerHTML = `<div style="color: ${stockColor}; font-weight: 600;">${stock.toFixed(2)} units</div>`;
+            
+            document.getElementById('stockContent').innerHTML = `
+                <div style="color: ${stockColor}; font-weight: 600;">
+                    Available Stock: ${stockDisplay}
+                </div>
+                <div id="requiredQtyDisplay" style="margin-top: 8px; color: var(--body); font-size: 12px;"></div>
+            `;
             document.getElementById('stockContainer').style.display = 'block';
+            
+            // Store stock info for validation
+            const itemsTable = document.getElementById('itemsTable')?.getElementsByTagName('tbody')[0];
+            if (itemsTable) {
+                const rows = itemsTable.rows;
+                for (let i = 0; i < rows.length; i++) {
+                    const codeInput = rows[i].cells[1]?.querySelector('.item-code');
+                    if (codeInput && codeInput.value == productId) {
+                        rows[i].dataset.availableStock = stock;
+                        rows[i].dataset.stockUnitName = unitName;
+                        validateStockForRow(rows[i]);
+                        break;
+                    }
+                }
+            }
         } else {
             document.getElementById('stockContainer').style.display = 'none';
         }
     } catch (error) {
         console.error('Error loading stock:', error);
         document.getElementById('stockContainer').style.display = 'none';
+    }
+}
+
+// Validate stock for a row
+function validateStockForRow(row) {
+    const availableStock = parseFloat(row.dataset.availableStock) || 0;
+    const unitName = row.dataset.stockUnitName || '';
+    
+    // Calculate total required quantity
+    const unitInputs = row.querySelectorAll('.unit-input');
+    let totalQty = 0;
+    unitInputs.forEach(input => {
+        const qty = parseFloat(input.value) || 0;
+        const cf = parseFloat(input.dataset.conversionFactor) || 1;
+        totalQty += qty * cf;
+    });
+    
+    // Update required qty display
+    const requiredDisplay = document.getElementById('requiredQtyDisplay');
+    if (requiredDisplay) {
+        const requiredQtyText = unitName ? `Required: ${totalQty.toFixed(2)} ${unitName}` : `Required: ${totalQty.toFixed(2)} units`;
+        requiredDisplay.innerHTML = requiredQtyText;
+        
+        if (totalQty > availableStock) {
+            requiredDisplay.style.color = 'var(--error)';
+            requiredDisplay.style.fontWeight = '600';
+            requiredDisplay.innerHTML += ` <span style="color: var(--error);">⚠️ Exceeds available stock!</span>`;
+            
+            // Highlight the row
+            row.style.backgroundColor = 'rgba(227, 79, 79, 0.1)';
+            row.style.borderLeft = '4px solid var(--error)';
+        } else {
+            requiredDisplay.style.color = 'var(--body)';
+            requiredDisplay.style.fontWeight = 'normal';
+            row.style.backgroundColor = '';
+            row.style.borderLeft = '';
+        }
     }
 }
 
@@ -4716,6 +5038,33 @@ async function addRowDynamic() {
         }
     });
     actionsCell.appendChild(deleteBtn);
+    
+    // Apply invoice settings to this new row
+    applyInvoiceSettingsToRow(row);
+}
+
+// Apply invoice settings to a specific row
+function applyInvoiceSettingsToRow(row) {
+    const enableCashDiscountPercent = localStorage.getItem('enableCashDiscountPercent') === 'true';
+    const enableCashDiscountAmount = localStorage.getItem('enableCashDiscountAmount') === 'true';
+    const enableTradeOfferAmount = localStorage.getItem('enableTradeOfferAmount') === 'true';
+    const enableFOC = localStorage.getItem('enableFOC') === 'true';
+    const enableTaxation = localStorage.getItem('enableTaxation') === 'true';
+    
+    // Apply visibility to cells in this row
+    const discPercentCell = row.querySelector('.disc-percent-cell');
+    const discAmountCell = row.querySelector('.disc-amount-cell');
+    const toAmountCell = row.querySelector('.to-amount-cell');
+    const taxPercentCell = row.querySelector('.tax-percent-cell');
+    const taxAmountCell = row.querySelector('.tax-amount-cell');
+    const focCell = row.querySelector('.foc-cell');
+    
+    if (discPercentCell) discPercentCell.style.display = enableCashDiscountPercent ? '' : 'none';
+    if (discAmountCell) discAmountCell.style.display = enableCashDiscountAmount ? '' : 'none';
+    if (toAmountCell) toAmountCell.style.display = enableTradeOfferAmount ? '' : 'none';
+    if (taxPercentCell) taxPercentCell.style.display = enableTaxation ? '' : 'none';
+    if (taxAmountCell) taxAmountCell.style.display = enableTaxation ? '' : 'none';
+    if (focCell) focCell.style.display = enableFOC ? '' : 'none';
 }
 
 // Initialize dropdown for dynamic rows

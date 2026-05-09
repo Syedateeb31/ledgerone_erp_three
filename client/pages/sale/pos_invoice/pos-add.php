@@ -155,8 +155,7 @@ if (!$user_id) {
                     <div id="priceHistoryContent" style="margin-top: 4px; font-size: 13px; color: var(--body);"></div>
                 </div>
                 <div id="stockContainer" style="display: none; margin-bottom: 16px; padding: 8px 12px; background: var(--surface-2); border-radius: var(--radius); border-left: 4px solid var(--success); width: fit-content;">
-                    <strong style="color: var(--heading); font-size: 12px;">Available Stock:</strong>
-                    <div id="stockContent" style="margin-top: 4px; font-size: 13px; color: var(--body); display: inline-block; margin-left: 8px;"></div>
+                    <div id="stockContent" style="font-size: 13px; color: var(--body);"></div>
                 </div>
                 <div class="actions" style="margin-bottom: 16px; justify-content: flex-start;">
                     <button type="button" class="btn btn-secondary" onclick="openOverlay('../../inventory/products/product-add.php')" tabindex="-1">
@@ -171,15 +170,15 @@ if (!$user_id) {
                                 <th width="15%">Product Code / Name</th>
                                 <th width="10%">Scheme</th>
                                 <!-- Dynamic unit columns will be inserted here -->
-                                <th width="8%"><span id="salePriceLabel">Sale Price</span></th>
-                                <th width="8%"><span id="grossAmountLabel">Gross Amount</span></th>
-                                <th width="5%">Disc %</th>
-                                <th width="8%"><span id="discountAmountLabel">Disc Amt</span></th>
-                                <th width="8%">T.O Amt</th>
-                                <th width="5%">Tax %</th>
-                                <th width="8%">Tax Amt</th>
-                                <th width="5%">FOC Qty</th>
-                                <th width="8%"><span id="netAmountLabel">Net Amount</span></th>
+                                <th width="8%" class="price-cell"><span id="salePriceLabel">Sale Price</span></th>
+                                <th width="8%" class="gross-cell"><span id="grossAmountLabel">Gross Amount</span></th>
+                                <th width="5%" class="disc-percent-cell">Disc %</th>
+                                <th width="8%" class="disc-amount-cell"><span id="discountAmountLabel">Disc Amt</span></th>
+                                <th width="8%" class="to-amount-cell">T.O Amt</th>
+                                <th width="5%" class="tax-percent-cell">Tax %</th>
+                                <th width="8%" class="tax-amount-cell">Tax Amt</th>
+                                <th width="8%" class="foc-cell">FOC Qty</th>
+                                <th width="8%" class="net-cell"><span id="netAmountLabel">Net Amount</span></th>
                                 <th width="3%">Actions</th>
                             </tr>
                         </thead>
@@ -192,16 +191,15 @@ if (!$user_id) {
                                 <th style="text-align: left;"></th>
                                 <th style="text-align: left;"></th>
                                 <!-- Dynamic unit totals will be inserted here -->
-                                <th id="totalSalePrice">0.00</th>
-                                <th id="totalGrossAmount">0.00</th>
-                                <th></th>
-                                <th id="totalDiscountAmountItems">0.00</th>
-                                <th id="totalTradeOfferAmount">0.00</th>
-                                <th></th>
-                                <th id="totalTaxAmount">0.00</th>
-                                <th id="totalFocQty">0.00</th>
-                                <th id="totalNetAmountItems">0.00</th>
-                                <th></th>
+                                <th id="totalSalePrice" class="price-cell">0.00</th>
+                                <th id="totalGrossAmount" class="gross-cell">0.00</th>
+                                <th class="disc-percent-cell"></th>
+                                <th id="totalDiscountAmountItems" class="disc-amount-cell">0.00</th>
+                                <th id="totalTradeOfferAmount" class="to-amount-cell">0.00</th>
+                                <th class="tax-percent-cell"></th>
+                                <th id="totalTaxAmount" class="tax-amount-cell">0.00</th>
+                                <th id="totalFocQty" class="foc-cell">0.00</th>
+                                <th id="totalNetAmountItems" class="net-cell">0.00</th>
                                 <th></th>
                             </tr>
                         </tfoot>
@@ -289,6 +287,10 @@ if (!$user_id) {
             </div>
 
             <div class="actions">
+                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px 16px; background: var(--surface-2); border: 1px solid var(--border-strong); border-radius: var(--radius); height: 32px; font-size: 13px; font-weight: 500; transition: all 0.2s;" id="toggleSettingsLabel">
+                    <input type="checkbox" id="toggleSettingsBtn" style="width: auto;">
+                    <span>Show Settings Buttons</span>
+                </label>
                 <button type="button" class="btn btn-secondary" id="resetBtn" tabindex="-1">
                     <i class="fas fa-redo"></i> Reset Invoice
                 </button>
@@ -298,13 +300,6 @@ if (!$user_id) {
                 <button type="submit" class="btn btn-primary" id="saveBtn" tabindex="-1">
                     <i class="fas fa-save"></i> Save Invoice
                 </button>
-            </div>
-            
-            <div style="margin-top: 20px; padding: 12px; background: var(--surface-2); border-radius: var(--radius);">
-                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                    <input type="checkbox" id="toggleSettingsBtn" style="width: auto;">
-                    <span style="font-size: 13px;">Show Settings Buttons</span>
-                </label>
             </div>
         </form>
     </div>
@@ -375,92 +370,168 @@ if (!$user_id) {
 
     <!-- Invoice Settings Modal -->
     <div class="modal" id="invoiceSettingsModal">
-        <div class="modal-content" style="max-width: 600px; max-height: 90vh; overflow-y: auto;">
-            <h3 class="modal-title">Invoice Settings</h3>
-            <div style="margin: 20px 0;">
-                <div style="margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid var(--border-default);">
-                    <p style="margin-bottom: 12px; font-weight: 600; font-size: 14px;">Default Scheme:</p>
-                    <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px; cursor: pointer;">
-                        <input type="radio" name="defaultScheme" value="sale_on_tp" id="schemeDefault" style="width: auto;">
-                        <span>Sale On TP</span>
-                    </label>
-                    <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px; cursor: pointer;">
-                        <input type="radio" name="defaultScheme" value="less" id="schemeLess" style="width: auto;">
-                        <span>Less</span>
-                    </label>
-                    <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px; cursor: pointer;">
-                        <input type="radio" name="defaultScheme" value="less_special" id="schemeLessSpecial" style="width: auto;">
-                        <span>Less Special</span>
-                    </label>
-                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                        <input type="radio" name="defaultScheme" value="given" id="schemeGiven" style="width: auto;">
-                        <span>Given</span>
-                    </label>
+        <div class="modal-content" style="max-width: 1000px; max-height: 90vh; overflow-y: auto;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 2px solid var(--border-default);">
+                <h3 class="modal-title" style="margin: 0;">Invoice Settings</h3>
+                <button type="button" class="btn btn-secondary btn-sm" id="closeInvoiceSettingsBtn" style="padding: 6px 12px;">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <div style="margin: 0;">
+                <!-- Default Scheme Section -->
+                <div style="margin-bottom: 28px; padding: 16px; background: var(--surface-2); border-radius: var(--radius); border-left: 4px solid var(--primary);">
+                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 16px;">
+                        <i class="fas fa-tag" style="color: var(--primary); font-size: 16px;"></i>
+                        <h4 style="margin: 0; color: var(--heading); font-size: 15px; font-weight: 600;">Default Scheme</h4>
+                    </div>
+                    
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px; background: var(--surface-1); border-radius: 6px; transition: all 0.2s;" onmouseover="this.style.background='var(--surface-0)'" onmouseout="this.style.background='var(--surface-1)'">
+                            <input type="radio" name="defaultScheme" value="sale_on_tp" id="schemeDefault" style="width: auto;">
+                            <span style="font-size: 13px;">Sale On TP</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px; background: var(--surface-1); border-radius: 6px; transition: all 0.2s;" onmouseover="this.style.background='var(--surface-0)'" onmouseout="this.style.background='var(--surface-1)'">
+                            <input type="radio" name="defaultScheme" value="less" id="schemeLess" style="width: auto;">
+                            <span style="font-size: 13px;">Less</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px; background: var(--surface-1); border-radius: 6px; transition: all 0.2s;" onmouseover="this.style.background='var(--surface-0)'" onmouseout="this.style.background='var(--surface-1)'">
+                            <input type="radio" name="defaultScheme" value="less_special" id="schemeLessSpecial" style="width: auto;">
+                            <span style="font-size: 13px;">Less Special</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px; background: var(--surface-1); border-radius: 6px; transition: all 0.2s;" onmouseover="this.style.background='var(--surface-0)'" onmouseout="this.style.background='var(--surface-1)'">
+                            <input type="radio" name="defaultScheme" value="given" id="schemeGiven" style="width: auto;">
+                            <span style="font-size: 13px;">Given</span>
+                        </label>
+                    </div>
                 </div>
 
-                <div style="margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid var(--border-default);">
-                    <p style="margin-bottom: 12px; font-weight: 600; font-size: 14px;">Sale Price (₨):</p>
-                    <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px; cursor: pointer;">
-                        <input type="radio" name="salePriceSetting" value="trade_price" id="salePriceTP" style="width: auto;">
-                        <span>Trade Price (TP)</span>
-                    </label>
-                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                        <input type="radio" name="salePriceSetting" value="mrp" id="salePriceMRP" style="width: auto;">
-                        <span>Maximum Retail Price (MRP)</span>
+                <!-- Sale Price Section -->
+                <div style="margin-bottom: 28px; padding: 16px; background: var(--surface-2); border-radius: var(--radius); border-left: 4px solid var(--success);">
+                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 16px;">
+                        <i class="fas fa-rupee-sign" style="color: var(--success); font-size: 16px;"></i>
+                        <h4 style="margin: 0; color: var(--heading); font-size: 15px; font-weight: 600;">Sale Price (₨)</h4>
+                    </div>
+                    
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px; background: var(--surface-1); border-radius: 6px; transition: all 0.2s;" onmouseover="this.style.background='var(--surface-0)'" onmouseout="this.style.background='var(--surface-1)'">
+                            <input type="radio" name="salePriceSetting" value="trade_price" id="salePriceTP" style="width: auto;">
+                            <span style="font-size: 13px;">Trade Price (TP)</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px; background: var(--surface-1); border-radius: 6px; transition: all 0.2s;" onmouseover="this.style.background='var(--surface-0)'" onmouseout="this.style.background='var(--surface-1)'">
+                            <input type="radio" name="salePriceSetting" value="mrp" id="salePriceMRP" style="width: auto;">
+                            <span style="font-size: 13px;">Maximum Retail Price (MRP)</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Product Filtering Section -->
+                <div style="margin-bottom: 28px; padding: 16px; background: var(--surface-2); border-radius: var(--radius); border-left: 4px solid var(--success);">
+                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 16px;">
+                        <i class="fas fa-filter" style="color: var(--success); font-size: 16px;"></i>
+                        <h4 style="margin: 0; color: var(--heading); font-size: 15px; font-weight: 600;">Product Filtering</h4>
+                    </div>
+                    
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 10px; background: var(--surface-1); border-radius: 6px; transition: all 0.2s;" onmouseover="this.style.background='var(--surface-0)'" onmouseout="this.style.background='var(--surface-1)'">
+                            <input type="radio" name="productFilteringMode" value="showAll" id="productFilteringShowAll" style="width: auto;" checked>
+                            <div>
+                                <span style="font-size: 13px; font-weight: 500; display: block;">Show All Products</span>
+                                <span style="font-size: 11px; color: var(--subtext);">Display all available products</span>
+                            </div>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 10px; background: var(--surface-1); border-radius: 6px; transition: all 0.2s;" onmouseover="this.style.background='var(--surface-0)'" onmouseout="this.style.background='var(--surface-1)'">
+                            <input type="radio" name="productFilteringMode" value="salesOfficerFilter" id="productFilteringSalesOfficer" style="width: auto;">
+                            <div>
+                                <span style="font-size: 13px; font-weight: 500; display: block;">Sales Officer Filter</span>
+                                <span style="font-size: 11px; color: var(--subtext);">Filter by selected officer</span>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Item Display Section -->
+                <div style="margin-bottom: 28px; padding: 16px; background: var(--surface-2); border-radius: var(--radius); border-left: 4px solid var(--warning);">
+                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 16px;">
+                        <i class="fas fa-list" style="color: var(--warning); font-size: 16px;"></i>
+                        <h4 style="margin: 0; color: var(--heading); font-size: 15px; font-weight: 600;">Item Display Options</h4>
+                    </div>
+                    
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px; background: var(--surface-1); border-radius: 6px; transition: all 0.2s;" onmouseover="this.style.background='var(--surface-0)'" onmouseout="this.style.background='var(--surface-1)'">
+                            <input type="checkbox" id="enableTradeOfferAmount" style="width: auto;">
+                            <span style="font-size: 13px;">Trade Offer Amount</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px; background: var(--surface-1); border-radius: 6px; transition: all 0.2s;" onmouseover="this.style.background='var(--surface-0)'" onmouseout="this.style.background='var(--surface-1)'">
+                            <input type="checkbox" id="enableFOC" style="width: auto;">
+                            <span style="font-size: 13px;">FOC Quantity</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px; background: var(--surface-1); border-radius: 6px; transition: all 0.2s;" onmouseover="this.style.background='var(--surface-0)'" onmouseout="this.style.background='var(--surface-1)'">
+                            <input type="checkbox" id="enableTaxation" style="width: auto;">
+                            <span style="font-size: 13px;">Tax % & Tax Amt</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px; background: var(--surface-1); border-radius: 6px; transition: all 0.2s;" onmouseover="this.style.background='var(--surface-0)'" onmouseout="this.style.background='var(--surface-1)'">
+                            <input type="checkbox" id="enableCashDiscountPercent" style="width: auto;">
+                            <span style="font-size: 13px;">Cash Discount %</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px; background: var(--surface-1); border-radius: 6px; transition: all 0.2s;" onmouseover="this.style.background='var(--surface-0)'" onmouseout="this.style.background='var(--surface-1)'">
+                            <input type="checkbox" id="enableCashDiscountAmount" style="width: auto;">
+                            <span style="font-size: 13px;">Cash Discount Amt</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Invoice Summary Section -->
+                <div style="margin-bottom: 28px; padding: 16px; background: var(--surface-2); border-radius: var(--radius); border-left: 4px solid var(--info);">
+                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 16px;">
+                        <i class="fas fa-receipt" style="color: var(--info); font-size: 16px;"></i>
+                        <h4 style="margin: 0; color: var(--heading); font-size: 15px; font-weight: 600;">Invoice Summary Options</h4>
+                    </div>
+                    
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px; background: var(--surface-1); border-radius: 6px; transition: all 0.2s;" onmouseover="this.style.background='var(--surface-0)'" onmouseout="this.style.background='var(--surface-1)'">
+                            <input type="checkbox" id="enableInvoiceCashDiscountPercent" style="width: auto;">
+                            <span style="font-size: 13px;">Invoice Discount %</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px; background: var(--surface-1); border-radius: 6px; transition: all 0.2s;" onmouseover="this.style.background='var(--surface-0)'" onmouseout="this.style.background='var(--surface-1)'">
+                            <input type="checkbox" id="enableInvoiceCashDiscountAmount" style="width: auto;">
+                            <span style="font-size: 13px;">Invoice Discount Amt</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px; background: var(--surface-1); border-radius: 6px; transition: all 0.2s;" onmouseover="this.style.background='var(--surface-0)'" onmouseout="this.style.background='var(--surface-1)'">
+                            <input type="checkbox" id="enableShippingFees" style="width: auto;">
+                            <span style="font-size: 13px;">Shipping Fees</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px; background: var(--surface-1); border-radius: 6px; transition: all 0.2s;" onmouseover="this.style.background='var(--surface-0)'" onmouseout="this.style.background='var(--surface-1)'">
+                            <input type="checkbox" id="enableAmountPaidPaymentMethod" style="width: auto;">
+                            <span style="font-size: 13px;">Amount Paid & Method</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Print Section -->
+                <div style="padding: 16px; background: var(--surface-2); border-radius: var(--radius); border-left: 4px solid var(--error);">
+                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 16px;">
+                        <i class="fas fa-print" style="color: var(--error); font-size: 16px;"></i>
+                        <h4 style="margin: 0; color: var(--heading); font-size: 15px; font-weight: 600;">Print Options</h4>
+                    </div>
+                    
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px; background: var(--surface-1); border-radius: 6px; transition: all 0.2s;" onmouseover="this.style.background='var(--surface-0)'" onmouseout="this.style.background='var(--surface-1)'">
+                        <input type="checkbox" id="enablePrintQRCode" style="width: auto;">
+                        <span style="font-size: 13px;">Enable QR Code on Print</span>
                     </label>
                 </div>
-                
-                <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; cursor: pointer;">
-                    <input type="checkbox" id="enableTradeOfferAmount" style="width: auto;">
-                    <span>Enable Inline Trade Offer Amount</span>
-                </label>
-                <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; cursor: pointer;">
-                    <input type="checkbox" id="enableFOC" style="width: auto;">
-                    <span>Enable Free Of Cost (FOC) Quantity</span>
-                </label>
-                <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; cursor: pointer;">
-                    <input type="checkbox" id="enableTaxation" style="width: auto;">
-                    <span>Enable Tax % and Tax Amt</span>
-                </label>
-                <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; cursor: pointer;">
-                    <input type="checkbox" id="enableCashDiscountPercent" style="width: auto;">
-                    <span>Enable Inline Cash Discount %</span>
-                </label>
-                <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; cursor: pointer;">
-                    <input type="checkbox" id="enableCashDiscountAmount" style="width: auto;">
-                    <span>Enable Inline Cash Discount Amount</span>
-                </label>
-                <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; cursor: pointer;">
-                    <input type="checkbox" id="enableInvoiceCashDiscountPercent" style="width: auto;">
-                    <span>Enable Invoice-wise Cash Discount %</span>
-                </label>
-                <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; cursor: pointer;">
-                    <input type="checkbox" id="enableInvoiceCashDiscountAmount" style="width: auto;">
-                    <span>Enable Invoice-wise Cash Discount Amount</span>
-                </label>
-                <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; cursor: pointer;">
-                    <input type="checkbox" id="enableShippingFees" style="width: auto;">
-                    <span>Enable Shipping Fees</span>
-                </label>
-                <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; cursor: pointer;">
-                    <input type="checkbox" id="enablePrintQRCode" style="width: auto;">
-                    <span>Enable QR Code on Print</span>
-                </label>
-                <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; cursor: pointer;">
-                    <input type="checkbox" id="enableAmountPaidPaymentMethod" style="width: auto;">
-                    <span>Enable Amount Paid and Payment Method</span>
-                </label>
             </div>
-            <div class="modal-actions">
-                <button class="btn btn-secondary" id="closeInvoiceSettingsBtn">Close</button>
-                <button class="btn btn-primary" id="saveInvoiceSettingsBtn">Save Settings</button>
+
+            <div class="modal-actions" style="margin-top: 28px; padding-top: 16px; border-top: 1px solid var(--border-default);">
+                <button type="button" class="btn btn-secondary" id="closeInvoiceSettingsBtn2">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveInvoiceSettingsBtn"><i class="fas fa-save"></i> Save Settings</button>
             </div>
         </div>
     </div>
 
     <!-- Print Settings Modal -->
     <div class="modal" id="printSettingsModal">
-        <div class="modal-content" style="max-width: 800px; max-height: 90vh; overflow-y: auto;">
+        <div class="modal-content" style="max-width: 1000px; max-height: 90vh; overflow-y: auto;">
             <h3 class="modal-title">Print Settings</h3>
             <p>Configure your print preferences:</p>
             <div style="margin: 20px 0;">
@@ -816,7 +887,9 @@ if (!$user_id) {
     <script src="../../../assets/js/sale/pos_invoice/invoice-level-taxes-dynamic.js?v=<?php echo time(); ?>"></script>
     <script src="../../../assets/js/sale/pos_invoice/pos-tax-calculation.js?v=<?php echo time(); ?>"></script>
     <script src="../../../assets/js/sale/pos_invoice/withholding-tax.js?v=<?php echo time(); ?>"></script>
+    <script src="../../../assets/js/sale/pos_invoice/stock-validation.js?v=<?php echo time(); ?>"></script>
     <script src="../../../assets/js/sale/pos_invoice/pos-add.js?v=<?php echo time(); ?>"></script>
     <script src="../../../assets/js/sale/pos_invoice/tax-integration.js?v=<?php echo time(); ?>"></script>
+    <script src="../../../assets/js/sale/pos_invoice/supplier-product-filter.js?v=<?php echo time(); ?>"></script>
 </body>
 </html>

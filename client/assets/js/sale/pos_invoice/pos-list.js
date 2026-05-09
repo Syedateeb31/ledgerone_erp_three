@@ -78,8 +78,11 @@ function initializeListPage(permissions) {
 
     function populateTable(data) {
         invoicesTable.innerHTML = '';
+        let totalAmount = 0;
+        let invoiceCount = data.length;
 
         data.forEach(invoice => {
+            totalAmount += invoice.totalAmount;
             const row = invoicesTable.insertRow();
 
             // Format date
@@ -142,6 +145,13 @@ function initializeListPage(permissions) {
 
             actionsCell.appendChild(actionButtons);
         });
+        
+        updateSummary(invoiceCount, totalAmount, data[0]?.currencySymbol || '');
+    }
+    
+    function updateSummary(count, total, currencySymbol) {
+        document.getElementById('totalInvoiceCount').textContent = count;
+        document.getElementById('totalAmountSum').textContent = `${currencySymbol} ${total.toFixed(2)}`;
     }
 
     // Initial load

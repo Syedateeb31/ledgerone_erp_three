@@ -565,7 +565,7 @@
                     const row = tbody.insertRow();
                     
                     const isChild = item.parent_row_id !== null;
-                    const indent = isChild ? '<span style="margin-left: 15px; font-size: 11px;">↳ </span>' : '';
+                    const indent = isChild ? '<span style="margin-left: 15px; font-size: 11px;">? </span>' : '';
                     const textStyle = isChild ? 'font-size: 11px; color: #666;' : '';
                     
                     const discountAmt = parseFloat(item.discount_amount || 0);

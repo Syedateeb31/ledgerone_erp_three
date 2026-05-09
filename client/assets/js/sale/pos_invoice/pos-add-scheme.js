@@ -415,11 +415,16 @@ function calculateRowAmountsWithScheme(row, totalQty, price) {
     totalQty = Number(totalQty) || 0;
     price = Number(price) || 0;
     
-    const discountPercent = parseFloat(row.querySelector('.disc-percent-cell input')?.value) || 0;
-    const gstPercent = parseFloat(row.querySelector('.gst-percent-cell input')?.value) || 0;
+    const discountPercentInput = row.querySelector('.disc-percent-cell input');
+    const gstPercentInput = row.querySelector('.tax-percent-cell input');
     
-    // Get the scheme-based T.O Amount
-    const schemeToAmount = parseFloat(row.dataset.schemeToAmount) || 0;
+    if (!discountPercentInput || !gstPercentInput) {
+        console.warn('Missing discount or tax input elements in row');
+        return;
+    }
+    
+    const discountPercent = parseFloat(discountPercentInput.value) || 0;
+    const gstPercent = parseFloat(gstPercentInput.value) || 0;
     
     const gross = Number(totalQty) * Number(price);
     const grossInput = row.querySelector('.gross-cell input');
@@ -427,30 +432,50 @@ function calculateRowAmountsWithScheme(row, totalQty, price) {
         grossInput.value = gross.toFixed(2);
     }
     
-    // Discount amount (percentage-based)
-    const discountAmt = gross * (discountPercent / 100);
-    row.querySelector('.disc-amount-cell input').value = discountAmt.toFixed(2);
+    // Discount amount (percentage-based) - only if enabled
+    const enableCashDiscountAmount = localStorage.getItem('enableCashDiscountAmount') === 'true';
+    let discountAmt = 0;
+    if (enableCashDiscountAmount) {
+        discountAmt = gross * (discountPercent / 100);
+    }
+    const discAmountInput = row.querySelector('.disc-amount-cell input');
+    if (discAmountInput) {
+        discAmountInput.value = discountAmt.toFixed(2);
+    }
     
     // After discount
     const afterDiscount = gross - discountAmt;
     
-    // Trade offer amount (from scheme, not percentage)
-    // Row uses scheme-calculated T.O amount already set
+    // Trade offer amount (from scheme, not percentage) - only if enabled
+    const enableTradeOfferAmount = localStorage.getItem('enableTradeOfferAmount') === 'true';
     const toAmountInput = row.querySelector('.to-amount-cell input');
-    if (toAmountInput && row.dataset.useSchemeTO === 'true') {
-        toAmountInput.value = schemeToAmount.toFixed(2);
+    let schemeToAmount = 0;
+    if (enableTradeOfferAmount && toAmountInput) {
+        schemeToAmount = parseFloat(toAmountInput.value) || 0;
+    } else if (toAmountInput) {
+        toAmountInput.value = '0.00';
     }
     
     // After trade offer
     const afterTradeOffer = afterDiscount - schemeToAmount;
     
-    // GST amount
-    const gstAmt = afterTradeOffer * (gstPercent / 100);
-    row.querySelector('.gst-amount-cell input').value = gstAmt.toFixed(2);
+    // GST amount - only if enabled
+    const enableTaxation = localStorage.getItem('enableTaxation') === 'true';
+    let gstAmt = 0;
+    if (enableTaxation) {
+        gstAmt = afterTradeOffer * (gstPercent / 100);
+    }
+    const gstAmountInput = row.querySelector('.tax-amount-cell input');
+    if (gstAmountInput) {
+        gstAmountInput.value = gstAmt.toFixed(2);
+    }
     
     // Net amount
     const net = afterTradeOffer + gstAmt;
-    row.querySelector('.net-cell input').value = net.toFixed(2);
+    const netInput = row.querySelector('.net-cell input');
+    if (netInput) {
+        netInput.value = net.toFixed(2);
+    }
     
     // Update summary
     updateInvoiceSummaryDynamic();
@@ -501,7 +526,7 @@ async function applyGivenScheme(row, product) {
 
 /**
  * Calculate amounts for "Given" scheme
- * FOC Qty = floor(qty / promo_qty) * bonus_qty
+ * FOC Qty = sum of (floor(qty_per_unit / promo_qty) * bonus_qty) for each unit
  * @param {HTMLTableRowElement} row - The table row
  * @param {Object} product - Product object (optional)
  */
@@ -534,27 +559,31 @@ async function calculateGivenSchemeAmounts(row, product) {
     }
     
     let totalFOCQty = 0;
+    let totalQty = 0;
     
     // Get all unit inputs
     const unitInputs = row.querySelectorAll('.unit-input');
     
-    // Calculate total quantity
-    let totalQty = 0;
+    // Calculate FOC for each unit separately
     unitInputs.forEach(input => {
         const qty = parseFloat(input.value) || 0;
+        const unitId = input.dataset.unitId;
         const cf = parseFloat(input.dataset.conversionFactor) || 1;
-        totalQty += qty * cf;
-    });
-    
-    // Calculate FOC Qty using promo_qty and bonus_qty
-    if (schemes && schemes.length > 0 && totalQty > 0) {
-        const scheme = schemes[0]; // Use first scheme for calculation
         
-        if (scheme.promo_qty > 0) {
-            // FOC Qty: floor(total_qty / promo_qty) * bonus_qty
-            totalFOCQty = Math.floor(totalQty / scheme.promo_qty) * scheme.bonus_qty;
+        // Add to total quantity for price calculation
+        totalQty += qty * cf;
+        
+        // Find scheme for this specific unit
+        if (schemes && schemes.length > 0 && qty > 0) {
+            const scheme = schemes.find(s => parseFloat(s.unit_id) == parseFloat(unitId));
+            
+            if (scheme && scheme.promo_qty > 0) {
+                // FOC Qty for this unit: floor(qty / promo_qty) * bonus_qty
+                const unitFOC = Math.floor(qty / scheme.promo_qty) * scheme.bonus_qty;
+                totalFOCQty += unitFOC;
+            }
         }
-    }
+    });
     
     // Update FOC Qty field
     const focInput = row.querySelector('.foc-cell input');
@@ -576,7 +605,9 @@ async function calculateGivenSchemeAmounts(row, product) {
     const priceInput = row.querySelector('.price-cell input');
     const price = priceInput ? (parseFloat(priceInput.value) || 0) : 0;
     
+    console.log('calculateGivenSchemeAmounts: totalQty=', totalQty, 'price=', price, 'totalFOCQty=', totalFOCQty);
     calculateRowAmountsWithScheme(row, totalQty, price);
+    console.log('After calculateRowAmountsWithScheme - Net Amount:', row.querySelector('.net-cell input')?.value);
 }
 
 /**

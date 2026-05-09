@@ -70,7 +70,7 @@ try {
         INSERT INTO sale_invoice (
             tenant_id, currency_id, bill_no, sale_date, customer_id, sub_account_id, company_id, branch_id,
             previous_balance, sale_officer_id, supplier_man_id, sale_order_id, bilty_no, transport_name, total_bill, total_discount_percent, 
-            total_discount_amount, net_amount, amount_returned, withholding_tax_percent, withholding_tax_amount, amount_paid_auto_fill, remarks, status,
+            total_discount_amount, shipping_fees, net_amount, withholding_tax_percent, withholding_tax_amount, amount_paid_auto_fill, remarks, status,
             created_by, updated_by
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ");
@@ -93,8 +93,8 @@ try {
         $input['totalBill'],
         $input['totalDiscountPercent'] ?? 0.00,
         $input['totalDiscountAmount'] ?? 0.00,
+        $input['shippingFees'] ?? 0.00,
         $input['netAmount'],
-        $input['amountReturned'] ?? 0.00,
         $withholdingTaxPercent,
         $withholdingTaxAmount,
         $input['amountPaidAutoFill'] ?? 'yes',
@@ -113,9 +113,9 @@ try {
             tenant_id, sale_invoice_id, product_id, uom_id,
             quantity, sale_price, gross_amount, discount_percent,
             discount_amount, trade_offer_percent, trade_offer_amount,
-            gst_percent, gst_amount, tax_percent, tax_amount, foc_quantity, net_amount, parent_row_id,
+            gst_percent, gst_amount, foc_quantity, net_amount, parent_row_id,
             piece, carton, dozen, scheme, created_by, updated_by
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ");
 
     $itemRowCounter = 0;
@@ -144,8 +144,6 @@ try {
             $item['tradeOfferAmount'] ?? 0.00,
             $item['gstPercent'] ?? 0.00,
             $item['gstAmount'] ?? 0.00,
-            $item['taxPercent'] ?? 0.00,
-            $item['taxAmount'] ?? 0.00,
             $item['focQty'] ?? 0.00,
             $item['netAmount'],
             $parentRowId,
@@ -169,10 +167,7 @@ try {
             $inventoryAccountId = $productStmt->fetchColumn() ?: 0;
             $costPrice = getCostPrice($pdo, $tenant_id, $item['productId'], $input['branchId']);
             
-            // Convert quantity to pieces based on UOM
-            $qtyInPieces = convertToPieces($item['quantity'], $item['uomId'], $pdo, $item['productId']);
-            
-            // Insert stock ledger for quantity sold
+            // Insert stock ledger for quantity sold (use actual quantity, not converted)
             $stock_stmt = $pdo->prepare("
                 INSERT INTO stock_ledger (
                     tenant_id, account_id, branch_id, product_id, reference_table, reference_id,
@@ -185,7 +180,7 @@ try {
                 $input['branchId'],
                 $item['productId'],
                 $invoice_id,
-                $qtyInPieces,
+                $item['quantity'],
                 $costPrice,
                 $item['uomId'],
                 $input['saleDate']
@@ -193,7 +188,23 @@ try {
             
             // Insert stock ledger for FOC quantity if exists
             if (isset($item['focQty']) && $item['focQty'] > 0) {
-                $focQtyInPieces = convertToPieces($item['focQty'], $item['uomId'], $pdo, $item['productId']);
+                // Use base unit ID for FOC quantity
+                $focUnitId = $item['focUnitId'] ?? null;
+                
+                // If focUnitId is not provided, look up the base unit from the selected unit
+                if (!$focUnitId || $focUnitId === '') {
+                    $unitStmt = $pdo->prepare("SELECT is_base_unit, base_unit_id FROM uom WHERE id = ?");
+                    $unitStmt->execute([$item['uomId']]);
+                    $unitData = $unitStmt->fetch();
+                    
+                    if ($unitData) {
+                        // If selected unit IS a base unit, use its ID; otherwise use its base_unit_id
+                        $focUnitId = $unitData['is_base_unit'] == 1 ? $item['uomId'] : ($unitData['base_unit_id'] ?? $item['uomId']);
+                    } else {
+                        // Fallback to selected unit ID if query fails
+                        $focUnitId = $item['uomId'];
+                    }
+                }
                 
                 $foc_stmt = $pdo->prepare("
                     INSERT INTO stock_ledger (
@@ -207,9 +218,9 @@ try {
                     $input['branchId'],
                     $item['productId'],
                     $invoice_id,
-                    $focQtyInPieces,
+                    $item['focQty'],
                     0,
-                    $item['uomId'],
+                    $focUnitId,
                     $input['saleDate']
                 ]);
             }
@@ -412,14 +423,20 @@ try {
     ]);
 }
 
-// Function to extract numeric amount from balance string
+// Function to extract numeric amount from balance string with sign
 function extractBalanceAmount($balanceString)
 {
     if (empty($balanceString))
         return 0.00;
 
-    // Remove 'Dr' or 'Cr' and extract numeric value
-    $amount = preg_replace('/^(Dr|Cr)\s*/', '', $balanceString);
+    // Check if it's Cr (Credit) - negative value
+    if (preg_match('/^Cr\s*/i', $balanceString)) {
+        $amount = trim(preg_replace('/^Cr\s*/i', '', $balanceString));
+        return -floatval($amount);
+    }
+    
+    // Dr (Debit) or no prefix - positive value
+    $amount = trim(preg_replace('/^Dr\s*/i', '', $balanceString));
     return floatval($amount);
 }
 
@@ -476,32 +493,4 @@ function getCostPrice($pdo, $tenant_id, $product_id, $branch_id)
     }
     
     return $costPrice;
-}
-
-// Function to convert quantity to pieces based on UOM
-function convertToPieces($quantity, $uomId, $pdo, $productId)
-{
-    $qty = floatval($quantity);
-    $uomId = intval($uomId);
-    
-    // Piece (id: 9) - base unit
-    if ($uomId === 9) {
-        return $qty;
-    }
-    
-    // Dozen (id: 10) - 12 pieces
-    if ($uomId === 10) {
-        return $qty * 12;
-    }
-    
-    // Carton (id: 16) - get from product's carton_conversion
-    if ($uomId === 16) {
-        $stmt = $pdo->prepare("SELECT carton_conversion FROM products WHERE id = ?");
-        $stmt->execute([$productId]);
-        $cartonConversion = $stmt->fetchColumn();
-        return $qty * intval($cartonConversion ?: 1);
-    }
-    
-    // Other units - return as is
-    return $qty;
 }
