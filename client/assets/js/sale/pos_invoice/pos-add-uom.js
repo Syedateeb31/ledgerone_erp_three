@@ -213,13 +213,15 @@ function updateRowUnitCells(row) {
                 const priceInput = row.querySelector('.price-cell input');
                 const price = priceInput ? (Number(priceInput.value) || 0) : 0;
                 
-                // Check active scheme and recalculate accordingly
+                if (typeof validateStockForRow === 'function') {
+                    validateStockForRow(row);
+                }
+                
                 if (typeof SCHEME_TYPES !== 'undefined') {
                     const schemeSelect = row.querySelector('.scheme-select');
                     const activeScheme = schemeSelect ? schemeSelect.value : SCHEME_TYPES.SALE_ON_TP;
                     
                     if ((activeScheme === SCHEME_TYPES.LESS || activeScheme === SCHEME_TYPES.LESS_SPECIAL) && typeof calculateLessSchemeAmounts === 'function') {
-                        // For both Less and Less Special: use appropriate calculation
                         if (activeScheme === SCHEME_TYPES.LESS) {
                             calculateLessSchemeAmounts(row, {});
                         } else {
@@ -227,13 +229,11 @@ function updateRowUnitCells(row) {
                         }
                         return;
                     } else if (activeScheme === SCHEME_TYPES.GIVEN && typeof calculateGivenSchemeAmounts === 'function') {
-                        // For Given scheme: FOC Qty works
                         calculateGivenSchemeAmounts(row, {});
                         return;
                     }
                 }
                 
-                // For Sale On TP and others: use standard calculation
                 calculateRowAmounts(row, Number(totalQty), Number(price));
             });
             
@@ -447,7 +447,7 @@ function updateInvoiceSummaryDynamic() {
     // Update remaining balance
     const amountPaidEl = document.getElementById('amountPaid');
     const amountPaid = parseFloat(amountPaidEl?.value) || 0;
-    const remainingBalance = netReceivable - amountPaid;
+    const remainingBalance = netAmount - amountPaid;
     
     const remainingBalanceEl = document.getElementById('remainingBalance');
     if (remainingBalanceEl) {
