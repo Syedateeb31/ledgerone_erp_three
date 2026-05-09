@@ -144,15 +144,15 @@ function handlePost($input) {
                     $stmt->execute([$tenant_id, $sub_account_id, $name, $debit, $credit]);
                     $account_id = $pdo->lastInsertId();
                     
-                    // Create ledger entry if opening balance > 0
+                    // Create double-entry ledger entries if opening balance > 0
                     if ($debit > 0 || $credit > 0) {
                         $stmt = $pdo->prepare("INSERT INTO accounting_ledger (tenant_id, transaction_type, reference_table, reference_id, account_id, date, description, debit, credit) VALUES (?, 'Opening Balance', 'accounts', ?, ?, CURDATE(), 'Opening Balance', ?, ?)");
-                        
-                        // Entry for the new account
+
+                        // Primary entry for the new account
                         $stmt->execute([$tenant_id, $account_id, $account_id, $debit, $credit]);
-                        
-                        // Contra entry for Opening Balance Equity (account_id = 100)
-                        $stmt->execute([$tenant_id, $account_id, 100, $credit, $debit]);
+
+                        // Contra entry against Opening Balance Equity (account_id = 90)
+                        $stmt->execute([$tenant_id, $account_id, 90, $credit, $debit]);
                     }
                     
                     $pdo->commit();
@@ -269,14 +269,14 @@ function handleDelete($input) {
                 $pdo->beginTransaction();
                 
                 try {
-                    // Delete ledger entries
-                    $stmt = $pdo->prepare("DELETE FROM accounting_ledger WHERE account_id = ? AND tenant_id = ?");
+                    // Delete all ledger entries for this account (primary + contra) by reference
+                    $stmt = $pdo->prepare("DELETE FROM accounting_ledger WHERE reference_table = 'accounts' AND reference_id = ? AND tenant_id = ?");
                     $stmt->execute([$id, $tenant_id]);
-                    
+
                     // Delete account
                     $stmt = $pdo->prepare("DELETE FROM accounts WHERE id = ? AND tenant_id = ?");
                     $stmt->execute([$id, $tenant_id]);
-                    
+
                     $pdo->commit();
                     echo json_encode(['success' => true, 'message' => 'Account deleted successfully']);
                 } catch (Exception $e) {
