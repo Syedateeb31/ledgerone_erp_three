@@ -1620,8 +1620,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         document.getElementById('totalBill').textContent = totalBill.toFixed(2);
 
-        const discountPercent = parseFloat(document.getElementById('totalDiscountPercent').value) || 0;
-        const discountAmount = totalBill * (discountPercent / 100);
+        const discountAmount = parseFloat(document.getElementById('totalDiscountAmount').value) || 0;
         const afterDiscount = totalBill - discountAmount;
 
         const gstPercent = parseFloat(document.getElementById('totalGSTPercent').value) || 0;
@@ -1629,7 +1628,6 @@ document.addEventListener('DOMContentLoaded', function () {
         const shippingFees = parseFloat(document.getElementById('shippingFees').value) || 0;
         const netAmount = afterDiscount + gstAmount + shippingFees;
 
-        document.getElementById('totalDiscountAmount').value = discountAmount.toFixed(2);
         document.getElementById('totalGSTAmount').value = gstAmount.toFixed(2);
         document.getElementById('netAmount').textContent = netAmount.toFixed(2);
     }
@@ -1645,11 +1643,16 @@ document.addEventListener('DOMContentLoaded', function () {
         }, 5);
     }
 
-    // Add event listener for total discount percent
-    document.getElementById('totalDiscountPercent').addEventListener('input', updateInvoiceSummaryDynamic);
+    // When invoice-level discount % changes, derive the amount then refresh
+    document.getElementById('totalDiscountPercent').addEventListener('input', function() {
+        const totalBill = parseFloat(document.getElementById('totalBill').textContent) || 0;
+        const pct = parseFloat(this.value) || 0;
+        document.getElementById('totalDiscountAmount').value = (totalBill * pct / 100).toFixed(2);
+        updateInvoiceSummaryDynamic();
+    });
 
-    // Add event listener for total discount amount
-    document.getElementById('totalDiscountAmount').addEventListener('input', updateInvoiceSummaryDynamic);
+    // When invoice-level discount amount changes, back-calculate % then refresh
+    document.getElementById('totalDiscountAmount').addEventListener('input', updateInvoiceSummaryFromAmount);
 
     // Add event listener for shipping fees
     const shippingFeesEl = document.getElementById('shippingFees');
