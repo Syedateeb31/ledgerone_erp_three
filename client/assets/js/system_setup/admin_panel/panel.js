@@ -261,9 +261,9 @@ function renderPermissionsTree(permissions) {
             // Category without forms - treat as standalone
             const key = `${category}|${category}|Coming Soon`;
             const perm = permMap[key];
-            const isChecked = perm && perm.allowed ? 'checked' : '';
+            const isChecked = perm && parseInt(perm.allowed) === 1 ? 'checked' : '';
             const permId = perm ? perm.id : '';
-            
+
             html += `<div class="form-item">
                 <div class="form-header">
                     <input type="checkbox" ${isChecked} ${permId ? `data-id="${permId}"` : ''} data-category="${category}" data-form="${category}" data-sub="Coming Soon">
@@ -275,7 +275,7 @@ function renderPermissionsTree(permissions) {
                 if (hasSubPerms && !noSubPermForms.includes(form)) {
                     const viewKey = `${category}|${form}|View`;
                     const viewPerm = permMap[viewKey];
-                    const viewChecked = viewPerm && viewPerm.allowed ? 'checked' : '';
+                    const viewChecked = viewPerm && parseInt(viewPerm.allowed) === 1 ? 'checked' : '';
                     const viewPermId = viewPerm ? viewPerm.id : '';
                     
                     html += `<div class="form-item">
@@ -288,9 +288,9 @@ function renderPermissionsTree(permissions) {
                     subPermissions.forEach(sub => {
                         const key = `${category}|${form}|${sub}`;
                         const perm = permMap[key];
-                        const isChecked = perm && perm.allowed ? 'checked' : '';
+                        const isChecked = perm && parseInt(perm.allowed) === 1 ? 'checked' : '';
                         const permId = perm ? perm.id : '';
-                        
+
                         html += `<div class="permission-item">
                             <input type="checkbox" id="perm_${category}_${form}_${sub}" ${isChecked} ${permId ? `data-id="${permId}"` : ''} data-category="${category}" data-form="${form}" data-sub="${sub}">
                             <label for="perm_${category}_${form}_${sub}">${sub}</label>
@@ -301,9 +301,9 @@ function renderPermissionsTree(permissions) {
                 } else {
                     const key = `${category}|${form}|Coming Soon`;
                     const perm = permMap[key];
-                    const isChecked = perm && perm.allowed ? 'checked' : '';
+                    const isChecked = perm && parseInt(perm.allowed) === 1 ? 'checked' : '';
                     const permId = perm ? perm.id : '';
-                    
+
                     html += `<div class="form-item">
                         <div class="form-header">
                             <input type="checkbox" ${isChecked} ${permId ? `data-id="${permId}"` : ''} data-category="${category}" data-form="${form}" data-sub="Coming Soon">
