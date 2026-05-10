@@ -260,6 +260,8 @@
             <button data-action="branch-setup">Branch Setup</button>
             <button data-action="territory-setup">Territory Setup</button>
             <button data-action="rate-list-setup">Rate List Setup</button>
+            <button data-action="tax-regimes-setup">Tax Regimes Setup</button>
+            <button data-action="tax-rates-setup">Tax Rates Setup</button>
           </div>
         </div>
 
@@ -1172,6 +1174,8 @@
           "branch-setup": `${this.basePath}/client/pages/master_setup/branch_setup/branch-list.php`,
           "territory-setup": `${this.basePath}/client/pages/master_setup/territory_setup/territory-add.php`,
           "rate-list-setup": `${this.basePath}/client/pages/master_setup/rate_list/list-list.php`,
+          "tax-regimes-setup": `${this.basePath}/client/pages/inventory/tax-regimes/tax-regimes-list.php`,
+          "tax-rates-setup": `${this.basePath}/client/pages/inventory/tax-rates/tax-rates-list.php`,
         },
         "system-setup": {
           "backup-restore": `${this.basePath}/server/backup/generate_backup.php`,
@@ -1248,6 +1252,8 @@
         'branch-setup': 'Branch Setup',
         'territory-setup': 'Territory Setup',
         'rate-list-setup': 'Rate List Setup',
+        'tax-regimes-setup': 'Tax Regimes Setup',
+        'tax-rates-setup': 'Tax Rates Setup',
         'daily-sale-report': 'Daily Sale Report',
         'company-profile': 'Company Profile',
         'admin-panel': 'Admin Panel',
