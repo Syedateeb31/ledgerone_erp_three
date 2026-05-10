@@ -1,5 +1,6 @@
 <?php
 require_once '../../../../includes/connection.php';
+require_once 'invoice-tax-helper.php';
 
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
@@ -106,6 +107,21 @@ try {
 
     $invoice_id = $pdo->lastInsertId();
     $status = $input['status'] ?? 'Posted';
+
+    // Save invoice-level taxes
+    if (!empty($input['invoiceLevelTaxes']) && is_array($input['invoiceLevelTaxes'])) {
+        $mappedTaxes = array_map(function($t) use ($input) {
+            return [
+                'taxRegimeId'   => $t['regime_id'] ?? null,
+                'taxRateId'     => $t['tax_rate_id'] ?? null,
+                'taxName'       => $t['regime_name'] ?? 'Tax',
+                'ratePercentage'=> floatval($t['rate_percentage'] ?? 0),
+                'baseAmount'    => floatval($input['netAmount'] ?? 0),
+                'taxAmount'     => floatval($t['calculated_amount'] ?? 0),
+            ];
+        }, $input['invoiceLevelTaxes']);
+        saveInvoiceTaxes($pdo, $tenant_id, $invoice_id, $mappedTaxes, $user_id);
+    }
 
     // Insert invoice items
     $item_stmt = $pdo->prepare("

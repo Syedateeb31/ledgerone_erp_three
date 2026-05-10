@@ -1586,74 +1586,30 @@ document.addEventListener('DOMContentLoaded', function () {
     // Update invoice summary
     function updateInvoiceSummary() {
         let totalBill = 0;
-        let totalPcs = 0;
-        let totalCtn = 0;
-        let totalDz = 0;
-        let totalQty = 0;
         let totalPurchasePrice = 0;
         let totalGrossAmount = 0;
         let totalDiscountAmountItems = 0;
+        let totalTradeOfferAmountItems = 0;
+        let totalGSTAmountItems = 0;
+        let totalFOCQty = 0;
         let totalNetAmountItems = 0;
         const rows = itemsTable.rows;
 
         for (let i = 0; i < rows.length; i++) {
-            const pcsInput = rows[i].cells[4].querySelector('input');
-            const ctnInput = rows[i].cells[5].querySelector('input');
-            const dzInput = rows[i].cells[6].querySelector('input');
-            const qtyInput = rows[i].cells[3].querySelector('input');
-            const purchasePriceInput = rows[i].cells[7].querySelector('input');
-            const grossAmountInput = rows[i].cells[8].querySelector('input');
-            const discountAmountInput = rows[i].cells[10].querySelector('input');
-            const tradeOfferAmountInput = rows[i].cells[12].querySelector('input');
-            const gstAmountInput = rows[i].cells[14].querySelector('input');
-            const focQtyInput = rows[i].cells[15].querySelector('input');
-            const netAmountInput = rows[i].cells[16].querySelector('input');
-
-            if (netAmountInput) {
-                totalPcs += parseFloat(pcsInput.value) || 0;
-                totalCtn += parseFloat(ctnInput.value) || 0;
-                totalDz += parseFloat(dzInput.value) || 0;
-                totalQty += parseFloat(qtyInput.value) || 0;
-                totalPurchasePrice += parseFloat(purchasePriceInput.value) || 0;
-                totalGrossAmount += parseFloat(grossAmountInput.value) || 0;
-                totalDiscountAmountItems += parseFloat(discountAmountInput.value) || 0;
-                totalNetAmountItems += parseFloat(netAmountInput.value) || 0;
-                totalBill += parseFloat(netAmountInput.value) || 0;
-            }
-        }
-
-        // Calculate total Trade Offer Amount
-        let totalTradeOfferAmountItems = 0;
-        for (let i = 0; i < rows.length; i++) {
-            const tradeOfferAmountInput = rows[i].cells[12].querySelector('input');
-            if (tradeOfferAmountInput) {
-                totalTradeOfferAmountItems += parseFloat(tradeOfferAmountInput.value) || 0;
-            }
-        }
-
-        // Calculate total GST Amount
-        let totalGSTAmountItems = 0;
-        for (let i = 0; i < rows.length; i++) {
-            const gstAmountInput = rows[i].cells[14].querySelector('input');
-            if (gstAmountInput) {
-                totalGSTAmountItems += parseFloat(gstAmountInput.value) || 0;
-            }
-        }
-
-        // Calculate total FOC Qty
-        let totalFOCQty = 0;
-        for (let i = 0; i < rows.length; i++) {
-            const focQtyInput = rows[i].cells[15].querySelector('input');
-            if (focQtyInput) {
-                totalFOCQty += parseFloat(focQtyInput.value) || 0;
+            const netInput = rows[i].querySelector('.net-cell input');
+            if (netInput) {
+                totalPurchasePrice += parseFloat(rows[i].querySelector('.price-cell input')?.value) || 0;
+                totalGrossAmount += parseFloat(rows[i].querySelector('.gross-cell input')?.value) || 0;
+                totalDiscountAmountItems += parseFloat(rows[i].querySelector('.disc-amount-cell input')?.value) || 0;
+                totalTradeOfferAmountItems += parseFloat(rows[i].querySelector('.to-amount-cell input')?.value) || 0;
+                totalGSTAmountItems += parseFloat(rows[i].querySelector('.tax-amount-cell input')?.value) || 0;
+                totalFOCQty += parseFloat(rows[i].querySelector('.foc-cell input')?.value) || 0;
+                totalNetAmountItems += parseFloat(netInput.value) || 0;
+                totalBill += parseFloat(netInput.value) || 0;
             }
         }
 
         // Update totals row
-        document.getElementById('totalQty').textContent = totalQty.toFixed(2);
-        document.getElementById('totalPcs').textContent = totalPcs.toFixed(2);
-        document.getElementById('totalCtn').textContent = totalCtn.toFixed(2);
-        document.getElementById('totalDz').textContent = totalDz.toFixed(2);
         document.getElementById('totalPurchasePrice').textContent = totalPurchasePrice.toFixed(2);
         document.getElementById('totalGrossAmount').textContent = totalGrossAmount.toFixed(2);
         document.getElementById('totalDiscountAmountItems').textContent = totalDiscountAmountItems.toFixed(2);
@@ -1724,7 +1680,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const rows = itemsTable.rows;
 
         for (let i = 0; i < rows.length; i++) {
-            const netAmountInput = rows[i].cells[16].querySelector('input');
+            const netAmountInput = rows[i].querySelector('.net-cell input');
             if (netAmountInput) {
                 totalBill += parseFloat(netAmountInput.value) || 0;
             }
@@ -1751,7 +1707,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const rows = itemsTable.rows;
 
         for (let i = 0; i < rows.length; i++) {
-            const netAmountInput = rows[i].cells[16].querySelector('input');
+            const netAmountInput = rows[i].querySelector('.net-cell input');
             if (netAmountInput) {
                 totalBill += parseFloat(netAmountInput.value) || 0;
             }

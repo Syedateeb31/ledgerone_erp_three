@@ -1,5 +1,6 @@
 <?php
 require_once '../../../../includes/connection.php';
+require_once 'invoice-tax-helper.php';
 
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
@@ -165,6 +166,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
         ]);
 
         // Delete existing items and related records
+        $pdo->prepare("DELETE FROM sale_invoice_taxes WHERE sale_invoice_id = ? AND tenant_id = ?")->execute([$invoice_id, $tenant_id]);
         $pdo->prepare("DELETE FROM sale_invoice_items WHERE sale_invoice_id = ? AND tenant_id = ?")->execute([$invoice_id, $tenant_id]);
         $pdo->prepare("DELETE FROM stock_ledger WHERE reference_table = 'sale_invoice' AND reference_id = ? AND tenant_id = ?")->execute([$invoice_id, $tenant_id]);
         $pdo->prepare("DELETE FROM accounting_ledger WHERE reference_table = 'sale_invoice' AND reference_id = ? AND tenant_id = ?")->execute([$invoice_id, $tenant_id]);
@@ -184,6 +186,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
         }
 
         $status = $input['status'] ?? 'Posted';
+
+        // Save invoice-level taxes
+        if (!empty($input['invoiceLevelTaxes']) && is_array($input['invoiceLevelTaxes'])) {
+            $mappedTaxes = array_map(function($t) use ($input) {
+                return [
+                    'taxRegimeId'   => $t['regime_id'] ?? null,
+                    'taxRateId'     => $t['tax_rate_id'] ?? null,
+                    'taxName'       => $t['regime_name'] ?? 'Tax',
+                    'ratePercentage'=> floatval($t['rate_percentage'] ?? 0),
+                    'baseAmount'    => floatval($input['netAmount'] ?? 0),
+                    'taxAmount'     => floatval($t['calculated_amount'] ?? 0),
+                ];
+            }, $input['invoiceLevelTaxes']);
+            saveInvoiceTaxes($pdo, $tenant_id, $invoice_id, $mappedTaxes, $user_id);
+        }
 
         // Insert new items
         $item_stmt = $pdo->prepare("
