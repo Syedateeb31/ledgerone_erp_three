@@ -2642,7 +2642,7 @@ function initializePage(permissions) {
             // Auto-populate Amount Paid if auto mode or Cash invoice type is selected
             const autoFillYes = document.querySelector('input[name="autoFillAmountPaid"][value="yes"]');
             const amountPaidInput = document.getElementById('amountPaid');
-            const isCashInvoice = (document.getElementById('invoiceType')?.value || 'Cash') === 'Cash';
+            const isCashInvoice = document.getElementById('invoiceType')?.value === 'Cash';
             if (amountPaidInput && (isCashInvoice || (autoFillYes && autoFillYes.checked))) {
                 const netReceivableAmount = parseFloat(document.getElementById('netReceivable')?.textContent) || netAmount;
                 amountPaidInput.value = netReceivableAmount.toFixed(2);
@@ -2965,8 +2965,8 @@ function initializePage(permissions) {
         const invoiceTypeEl = document.getElementById('invoiceType');
         const dueDateGroupEl = document.getElementById('dueDateGroup');
         const dueDateEl = document.getElementById('dueDate');
-        if (invoiceTypeEl) invoiceTypeEl.value = 'Cash';
-        if (dueDateGroupEl) dueDateGroupEl.style.display = 'none';
+        if (invoiceTypeEl) invoiceTypeEl.value = 'Credit';
+        if (dueDateGroupEl) dueDateGroupEl.style.display = '';
         if (dueDateEl) dueDateEl.value = '';
 
         // Reset currency to base currency

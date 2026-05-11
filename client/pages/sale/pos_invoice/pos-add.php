@@ -139,11 +139,11 @@ if (!$user_id) {
                     <div class="form-group" id="invoiceTypeGroup">
                         <label for="invoiceType">Invoice Type</label>
                         <select id="invoiceType" tabindex="-1">
-                            <option value="Cash">Cash</option>
                             <option value="Credit">Credit</option>
+                            <option value="Cash">Cash</option>
                         </select>
                     </div>
-                    <div class="form-group" id="dueDateGroup" style="display: none;">
+                    <div class="form-group" id="dueDateGroup">
                         <label for="dueDate">Due Date</label>
                         <input type="date" id="dueDate" tabindex="-1">
                     </div>

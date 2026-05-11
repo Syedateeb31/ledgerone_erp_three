@@ -444,16 +444,22 @@ function updateInvoiceSummaryDynamic() {
         netReceivableEl.textContent = netReceivable.toFixed(2);
     }
     
-    // Update remaining balance
+    // Auto-fill Amount Paid when Invoice Type is Cash
     const amountPaidEl = document.getElementById('amountPaid');
+    const invoiceTypeEl = document.getElementById('invoiceType');
+    if (amountPaidEl && invoiceTypeEl && invoiceTypeEl.value === 'Cash') {
+        amountPaidEl.value = netReceivable.toFixed(2);
+    }
+
+    // Update remaining balance
     const amountPaid = parseFloat(amountPaidEl?.value) || 0;
-    const remainingBalance = netAmount - amountPaid;
-    
+    const remainingBalance = netReceivable - amountPaid;
+
     const remainingBalanceEl = document.getElementById('remainingBalance');
     if (remainingBalanceEl) {
         remainingBalanceEl.value = remainingBalance.toFixed(2);
     }
-    
+
     // Calculate invoice-level taxes
     if (typeof calculateInvoiceLevelTaxes === 'function') {
         calculateInvoiceLevelTaxes();
