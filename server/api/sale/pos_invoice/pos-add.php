@@ -70,10 +70,10 @@ try {
     $stmt = $pdo->prepare("
         INSERT INTO sale_invoice (
             tenant_id, currency_id, bill_no, sale_date, customer_id, sub_account_id, company_id, branch_id,
-            previous_balance, sale_officer_id, supplier_man_id, sale_order_id, bilty_no, transport_name, total_bill, total_discount_percent, 
-            total_discount_amount, shipping_fees, net_amount, withholding_tax_percent, withholding_tax_amount, amount_paid_auto_fill, remarks, status,
-            created_by, updated_by
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            previous_balance, sale_officer_id, supplier_man_id, sale_order_id, bilty_no, transport_name, total_bill, total_discount_percent,
+            total_discount_amount, shipping_fees, net_amount, withholding_tax_percent, withholding_tax_amount, amount_paid_auto_fill,
+            invoice_type, due_date, remarks, status, created_by, updated_by
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ");
 
     $stmt->execute([
@@ -99,6 +99,8 @@ try {
         $withholdingTaxPercent,
         $withholdingTaxAmount,
         $input['amountPaidAutoFill'] ?? 'yes',
+        $input['invoiceType'] ?? 'Cash',
+        $input['dueDate'] ?? null,
         $input['remarks'] ?? null,
         $input['status'] ?? 'Posted',
         $user_id,

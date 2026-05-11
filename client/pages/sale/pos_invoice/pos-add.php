@@ -136,6 +136,17 @@ if (!$user_id) {
                             <!-- Options loaded dynamically -->
                         </select>
                     </div>
+                    <div class="form-group" id="invoiceTypeGroup">
+                        <label for="invoiceType">Invoice Type</label>
+                        <select id="invoiceType" tabindex="-1">
+                            <option value="Cash">Cash</option>
+                            <option value="Credit">Credit</option>
+                        </select>
+                    </div>
+                    <div class="form-group" id="dueDateGroup" style="display: none;">
+                        <label for="dueDate">Due Date</label>
+                        <input type="date" id="dueDate" tabindex="-1">
+                    </div>
                     <div class="form-group" id="biltyNoGroup">
                         <label for="biltyNo">Bilty No</label>
                         <input type="text" id="biltyNo" placeholder="Enter bilty number" tabindex="-1">

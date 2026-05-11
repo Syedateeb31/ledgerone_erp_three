@@ -760,7 +760,7 @@ function initializePage(permissions) {
     // Load customers from API
     async function loadCustomersLocal() {
         await loadCustomers();
-        populateAreaCityDropdown();
+        await populateAreaCityDropdown();
     }
 
     // Load branches from API
@@ -804,59 +804,56 @@ function initializePage(permissions) {
         }
     }
 
-    function populateAreaCityDropdown() {
+    async function populateAreaCityDropdown() {
         const areaCitySelect = document.getElementById('areaCity');
-        const areas = new Set();
-        
-        customersData.forEach(customer => {
-            if (customer.area) areas.add(customer.area);
-            else if (customer.city) areas.add(customer.city);
-        });
-        
-        areaCitySelect.innerHTML = '<option value="">All Areas</option>';
-        Array.from(areas).sort().forEach(area => {
-            const option = document.createElement('option');
-            option.value = area;
-            option.textContent = area;
-            areaCitySelect.appendChild(option);
-        });
-        
-        // Populate initial customer options with all customers
-        const customerCodeOptions = document.getElementById('customerCodeOptions');
-        customerCodeOptions.innerHTML = '';
-        const fragment = document.createDocumentFragment();
-        customersData.forEach(customer => {
-            const option = document.createElement('div');
-            option.className = 'dropdown-option';
-            option.setAttribute('data-value', customer.id);
-            option.setAttribute('data-supplier-man', customer.associated_sales_officer_id || '');
-            option.setAttribute('data-sales-officer', customer.associated_sales_officer_id || '');
-            option.textContent = `${customer.customer_code} - ${customer.customer_name}`;
-            fragment.appendChild(option);
-        });
-        customerCodeOptions.appendChild(fragment);
-        
+        areaCitySelect.innerHTML = '<option value="">All Cities</option>';
+
+        try {
+            const response = await fetch('../../../../server/api/sale/pos_invoice/get-cities.php');
+            const data = await response.json();
+
+            if (data.success && data.cities.length > 0) {
+                data.cities.forEach(city => {
+                    const option = document.createElement('option');
+                    option.value = city.id;
+                    option.textContent = city.city_name;
+                    areaCitySelect.appendChild(option);
+                });
+            }
+        } catch (error) {
+            console.error('Error loading cities:', error);
+        }
+
         areaCitySelect.addEventListener('change', filterCustomersByArea);
     }
-    
+
+    function buildCustomerOption(customer) {
+        const option = document.createElement('div');
+        option.className = 'dropdown-option';
+        option.setAttribute('data-value', customer.id);
+        option.setAttribute('data-balance', customer.current_balance);
+        option.setAttribute('data-address', customer.address || '');
+        option.setAttribute('data-discount', customer.default_discount_percentage || 0);
+        option.setAttribute('data-sales-officer', customer.associated_sales_officer_id || '');
+        option.setAttribute('data-supplier-man', customer.supplier_man_id || '');
+        option.setAttribute('data-credit-limit', customer.credit_limit || 0);
+        option.setAttribute('data-withholding-tax', customer.advance_income_tax_percentage || 0);
+        option.textContent = `${customer.customer_code} | ${customer.customer_name} | ${customer.address || 'N/A'}`;
+        return option;
+    }
+
     function filterCustomersByArea() {
-        const selectedArea = document.getElementById('areaCity').value;
+        const selectedCityId = document.getElementById('areaCity').value;
         const customerCodeOptions = document.getElementById('customerCodeOptions');
         customerCodeOptions.innerHTML = '';
-        
-        const filteredCustomers = selectedArea
-            ? customersData.filter(c => c.area === selectedArea || c.city === selectedArea)
+
+        const filteredCustomers = selectedCityId
+            ? customersData.filter(c => String(c.city_id) === String(selectedCityId))
             : customersData;
-        
+
         const fragment = document.createDocumentFragment();
         filteredCustomers.forEach(customer => {
-            const option = document.createElement('div');
-            option.className = 'dropdown-option';
-            option.setAttribute('data-value', customer.id);
-            option.setAttribute('data-supplier-man', customer.associated_sales_officer_id || '');
-            option.setAttribute('data-sales-officer', customer.associated_sales_officer_id || '');
-            option.textContent = `${customer.customer_code} - ${customer.customer_name}`;
-            fragment.appendChild(option);
+            fragment.appendChild(buildCustomerOption(customer));
         });
         customerCodeOptions.appendChild(fragment);
     }
@@ -2642,10 +2639,11 @@ function initializePage(permissions) {
 
             console.log('=== updateInvoiceSummary END ===\n');
 
-            // Auto-populate Amount Paid if auto mode is selected
+            // Auto-populate Amount Paid if auto mode or Cash invoice type is selected
             const autoFillYes = document.querySelector('input[name="autoFillAmountPaid"][value="yes"]');
             const amountPaidInput = document.getElementById('amountPaid');
-            if (amountPaidInput && autoFillYes && autoFillYes.checked) {
+            const isCashInvoice = (document.getElementById('invoiceType')?.value || 'Cash') === 'Cash';
+            if (amountPaidInput && (isCashInvoice || (autoFillYes && autoFillYes.checked))) {
                 const netReceivableAmount = parseFloat(document.getElementById('netReceivable')?.textContent) || netAmount;
                 amountPaidInput.value = netReceivableAmount.toFixed(2);
             }
@@ -2807,6 +2805,25 @@ function initializePage(permissions) {
         withholdingTaxPercentEl.addEventListener('input', updateInvoiceSummary);
     }
 
+    // Invoice Type: show/hide Due Date and auto-fill Amount Paid for Cash
+    const invoiceTypeSelect = document.getElementById('invoiceType');
+    const dueDateGroup = document.getElementById('dueDateGroup');
+    if (invoiceTypeSelect && dueDateGroup) {
+        invoiceTypeSelect.addEventListener('change', function() {
+            if (this.value === 'Credit') {
+                dueDateGroup.style.display = '';
+            } else {
+                dueDateGroup.style.display = 'none';
+                const netAmount = parseFloat(document.getElementById('netAmount').textContent) || 0;
+                const amountPaidEl = document.getElementById('amountPaid');
+                if (amountPaidEl) {
+                    amountPaidEl.value = netAmount.toFixed(2);
+                    updateRemainingBalance();
+                }
+            }
+        });
+    }
+
     // Add event listener for amount paid
     const amountPaid = document.getElementById('amountPaid');
     if (amountPaid) {
@@ -2943,6 +2960,14 @@ function initializePage(permissions) {
         if (branch) branch.value = '';
         if (fuelingStationSearch) fuelingStationSearch.value = '';
         if (fuelingStation) fuelingStation.value = '';
+
+        // Reset invoice type and due date
+        const invoiceTypeEl = document.getElementById('invoiceType');
+        const dueDateGroupEl = document.getElementById('dueDateGroup');
+        const dueDateEl = document.getElementById('dueDate');
+        if (invoiceTypeEl) invoiceTypeEl.value = 'Cash';
+        if (dueDateGroupEl) dueDateGroupEl.style.display = 'none';
+        if (dueDateEl) dueDateEl.value = '';
 
         // Reset currency to base currency
         loadCurrencies();
@@ -5073,24 +5098,30 @@ function initTableDropdownDynamic(container, row) {
     const optionsContainer = searchInput.dropdownOptions;
     const hiddenInput = container.querySelector('input[type="hidden"]');
     let selectedIndex = -1;
-    
+    let prevSearchText = '';
+    let justSelected = false;
+
+    function openProductDropdown() {
+        const rect = searchInput.getBoundingClientRect();
+        optionsContainer.style.top = (rect.bottom + window.scrollY) + 'px';
+        optionsContainer.style.left = rect.left + 'px';
+        optionsContainer.style.width = rect.width + 'px';
+        optionsContainer.style.display = 'block';
+        // Clear text when a product is already selected so user can search all products
+        if (hiddenInput.value && searchInput.value) {
+            prevSearchText = searchInput.value;
+            searchInput.value = '';
+        }
+        filterOptionsDynamic();
+    }
+
     searchInput.addEventListener('click', function(e) {
         e.stopPropagation();
-        const rect = searchInput.getBoundingClientRect();
-        optionsContainer.style.top = (rect.bottom + window.scrollY) + 'px';
-        optionsContainer.style.left = rect.left + 'px';
-        optionsContainer.style.width = rect.width + 'px';
-        optionsContainer.style.display = 'block';
-        filterOptionsDynamic();
+        openProductDropdown();
     });
-    
+
     searchInput.addEventListener('focus', function(e) {
-        const rect = searchInput.getBoundingClientRect();
-        optionsContainer.style.top = (rect.bottom + window.scrollY) + 'px';
-        optionsContainer.style.left = rect.left + 'px';
-        optionsContainer.style.width = rect.width + 'px';
-        optionsContainer.style.display = 'block';
-        filterOptionsDynamic();
+        openProductDropdown();
     });
     
     searchInput.addEventListener('keydown', function(e) {
@@ -5128,6 +5159,8 @@ function initTableDropdownDynamic(container, row) {
     
     optionsContainer.addEventListener('click', async function(e) {
         if (e.target.classList.contains('dropdown-option')) {
+            justSelected = true;
+            prevSearchText = '';
             const product = JSON.parse(e.target.getAttribute('data-product'));
             searchInput.value = `${product.code} - ${product.name}`;
             hiddenInput.value = product.id;
@@ -5222,9 +5255,16 @@ function initTableDropdownDynamic(container, row) {
     });
     
     document.addEventListener('click', function() {
+        if (optionsContainer.style.display !== 'none') {
+            if (!justSelected && prevSearchText) {
+                searchInput.value = prevSearchText;
+            }
+            prevSearchText = '';
+            justSelected = false;
+        }
         optionsContainer.style.display = 'none';
     });
-    
+
     function filterOptionsDynamic() {
         const searchTerm = searchInput.value.toLowerCase();
         const options = optionsContainer.getElementsByClassName('dropdown-option');
@@ -5290,6 +5330,8 @@ function saveInvoice(status = 'Posted') {
         bankAccountId: document.getElementById('bankAccount').value || null,
         amountPaid: parseFloat(document.getElementById('amountPaid')?.value) || 0,
         amountPaidAutoFill: document.querySelector('input[name="autoFillAmountPaid"]:checked')?.value || 'no',
+        invoiceType: document.getElementById('invoiceType')?.value || 'Cash',
+        dueDate: document.getElementById('dueDate')?.value || null,
         remarks: document.getElementById('remarks').value || null,
         status: status,
         items: []
