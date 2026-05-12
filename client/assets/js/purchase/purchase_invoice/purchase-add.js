@@ -1623,12 +1623,13 @@ document.addEventListener('DOMContentLoaded', function () {
         const discountAmount = parseFloat(document.getElementById('totalDiscountAmount').value) || 0;
         const afterDiscount = totalBill - discountAmount;
 
-        const gstPercent = parseFloat(document.getElementById('totalGSTPercent').value) || 0;
+        const gstPercent = parseFloat(document.getElementById('totalGSTPercent')?.value) || 0;
         const gstAmount = afterDiscount * (gstPercent / 100);
-        const shippingFees = parseFloat(document.getElementById('shippingFees').value) || 0;
+        const shippingFees = parseFloat(document.getElementById('shippingFees')?.value) || 0;
         const netAmount = afterDiscount + gstAmount + shippingFees;
 
-        document.getElementById('totalGSTAmount').value = gstAmount.toFixed(2);
+        const gstAmountEl = document.getElementById('totalGSTAmount');
+        if (gstAmountEl) gstAmountEl.value = gstAmount.toFixed(2);
         document.getElementById('netAmount').textContent = netAmount.toFixed(2);
     }
 
@@ -1695,13 +1696,14 @@ document.addEventListener('DOMContentLoaded', function () {
         const discountPercent = totalBill > 0 ? (discountAmount / totalBill) * 100 : 0;
         const afterDiscount = totalBill - discountAmount;
 
-        const gstPercent = parseFloat(document.getElementById('totalGSTPercent').value) || 0;
+        const gstPercent = parseFloat(document.getElementById('totalGSTPercent')?.value) || 0;
         const gstAmount = afterDiscount * (gstPercent / 100);
-        const shippingFees = parseFloat(document.getElementById('shippingFees').value) || 0;
+        const shippingFees = parseFloat(document.getElementById('shippingFees')?.value) || 0;
         const netAmount = afterDiscount + gstAmount + shippingFees;
 
         document.getElementById('totalDiscountPercent').value = discountPercent.toFixed(2);
-        document.getElementById('totalGSTAmount').value = gstAmount.toFixed(2);
+        const gstAmountEl = document.getElementById('totalGSTAmount');
+        if (gstAmountEl) gstAmountEl.value = gstAmount.toFixed(2);
         document.getElementById('netAmount').textContent = netAmount.toFixed(2);
     }
 
@@ -1722,13 +1724,14 @@ document.addEventListener('DOMContentLoaded', function () {
         const discountAmount = totalBill * (discountPercent / 100);
         const afterDiscount = totalBill - discountAmount;
 
-        const gstAmount = parseFloat(document.getElementById('totalGSTAmount').value) || 0;
+        const gstAmount = parseFloat(document.getElementById('totalGSTAmount')?.value) || 0;
         const gstPercent = afterDiscount > 0 ? (gstAmount / afterDiscount) * 100 : 0;
-        const shippingFees = parseFloat(document.getElementById('shippingFees').value) || 0;
+        const shippingFees = parseFloat(document.getElementById('shippingFees')?.value) || 0;
         const netAmount = afterDiscount + gstAmount + shippingFees;
 
         document.getElementById('totalDiscountAmount').value = discountAmount.toFixed(2);
-        document.getElementById('totalGSTPercent').value = gstPercent.toFixed(2);
+        const gstPercentEl = document.getElementById('totalGSTPercent');
+        if (gstPercentEl) gstPercentEl.value = gstPercent.toFixed(2);
         document.getElementById('netAmount').textContent = netAmount.toFixed(2);
     }
 
