@@ -411,24 +411,25 @@ document.addEventListener('DOMContentLoaded', function () {
             const response = await fetch(`../../../../server/api/purchase/purchase_invoice/purchase-edit.php?id=${invoiceId}`);
             const data = await response.json();
 
-            if (data.success) {
+            if (data.success && data.invoice) {
                 const invoice = data.invoice;
+                const items = data.items || [];
 
-                document.getElementById('purchaseDate').value = invoice.purchase_date;
+                document.getElementById('purchaseDate').value = invoice.purchase_date || '';
                 document.getElementById('supplierInvoiceNo').value = invoice.supplier_invoice_no || '';
                 document.getElementById('supplierInvoiceDate').value = invoice.supplier_invoice_date || '';
                 document.getElementById('biltyNo').value = invoice.bilty_no || '';
                 document.getElementById('transportName').value = invoice.transport_name || '';
                 document.getElementById('company').value = invoice.company_id || '';
-                document.getElementById('supplierCodeSearch').value = `${invoice.supplier_code} - ${invoice.supplier_name}`;
-                document.getElementById('supplierCode').value = invoice.supplier_id;
+                document.getElementById('supplierCodeSearch').value = `${invoice.supplier_code || ''} - ${invoice.supplier_name || ''}`;
+                document.getElementById('supplierCode').value = invoice.supplier_id || '';
                 const branchText = invoice.parent_branch_name
                     ? `${invoice.parent_branch_name} > ${invoice.branch_code} - ${invoice.branch_name} (${invoice.branch_type})`
                     : `${invoice.branch_code} - ${invoice.branch_name} (${invoice.branch_type})`;
                 document.getElementById('branchSearch').value = branchText;
-                document.getElementById('branch').value = invoice.branch_id;
-                document.getElementById('currency').value = invoice.currency_id;
-                document.getElementById('previousBalance').value = invoice.previous_balance;
+                document.getElementById('branch').value = invoice.branch_id || '';
+                document.getElementById('currency').value = invoice.currency_id || '';
+                document.getElementById('previousBalance').value = invoice.previous_balance || '0.00';
                 document.getElementById('remarks').value = invoice.remarks || '';
 
                 // Load sub accounts for supplier
@@ -440,65 +441,105 @@ document.addEventListener('DOMContentLoaded', function () {
 
                 updateCurrencySymbols();
 
+                // Clear existing items
+                while (itemsTable.rows.length > 0) {
+                    const searchInput = itemsTable.rows[0].cells[1]?.querySelector('.search-input');
+                    if (searchInput?.dropdownOptions) {
+                        searchInput.dropdownOptions.remove();
+                    }
+                    itemsTable.deleteRow(0);
+                }
+
                 // Load items with dynamic UOM
-                data.items.forEach(item => {
-                    addRowDynamic();
-                    const lastRow = itemsTable.rows[itemsTable.rows.length - 1];
-                    
-                    // Find product in productsData
-                    const product = productsData.find(p => p.id == item.product_id);
-                    if (product) {
-                        // Set product
-                        lastRow.cells[1].querySelector('.search-input').value = `${item.product_code} - ${item.product_name}`;
-                        lastRow.cells[1].querySelector('.item-code').value = item.product_id;
+                if (items && items.length > 0) {
+                    items.forEach(item => {
+                        addRowDynamic();
+                        const lastRow = itemsTable.rows[itemsTable.rows.length - 1];
                         
-                        // Get UOM details and set product data
-                        const uomDetails = getProductUOMDetails(product);
+                        // Set product
+                        lastRow.cells[1].querySelector('.search-input').value = `${item.product_code || ''} - ${item.product_name || ''}`;
+                        lastRow.cells[1].querySelector('.item-code').value = item.product_id || '';
+                        
+                        // Build UOM details from unit_entries
+                        const uomDetails = {
+                            type: item.uom_type || 'unit',
+                            units: (item.unit_entries || []).map(entry => ({
+                                id: entry.uom_id,
+                                name: entry.uom_name,
+                                conversionFactor: 1
+                            }))
+                        };
                         lastRow.dataset.productUomData = JSON.stringify(uomDetails);
-                        lastRow.dataset.productId = product.id;
+                        lastRow.dataset.productId = item.product_id || '';
                         
                         // Set price and other fields
-                        lastRow.querySelector('.price-cell input').value = item.purchase_price;
-                        lastRow.querySelector('.disc-percent-cell input').value = item.discount_percent;
-                        lastRow.querySelector('.disc-amount-cell input').value = item.discount_amount;
-                        lastRow.querySelector('.to-percent-cell input').value = item.trade_offer_percent || 0;
-                        lastRow.querySelector('.to-amount-cell input').value = item.trade_offer_amount || 0;
-                        lastRow.querySelector('.tax-percent-cell input').value = item.gst_percent || 0;
-                        lastRow.querySelector('.tax-amount-cell input').value = item.gst_amount || 0;
-                        lastRow.querySelector('.foc-cell input').value = item.foc_quantity || 0;
-                        lastRow.querySelector('.gross-cell input').value = item.gross_amount;
-                        lastRow.querySelector('.net-cell input').value = item.net_amount;
+                        const priceCell = lastRow.querySelector('.price-cell input');
+                        if (priceCell) priceCell.value = item.purchase_price || 0;
+                        
+                        const discPercentCell = lastRow.querySelector('.disc-percent-cell input');
+                        if (discPercentCell) discPercentCell.value = item.discount_percent || 0;
+                        
+                        const discAmountCell = lastRow.querySelector('.disc-amount-cell input');
+                        if (discAmountCell) discAmountCell.value = item.discount_amount || 0;
+                        
+                        const toPercentCell = lastRow.querySelector('.to-percent-cell input');
+                        if (toPercentCell) toPercentCell.value = item.trade_offer_percent || 0;
+                        
+                        const toAmountCell = lastRow.querySelector('.to-amount-cell input');
+                        if (toAmountCell) toAmountCell.value = item.trade_offer_amount || 0;
+                        
+                        const taxPercentCell = lastRow.querySelector('.tax-percent-cell input');
+                        if (taxPercentCell) taxPercentCell.value = item.gst_percent || 0;
+                        
+                        const taxAmountCell = lastRow.querySelector('.tax-amount-cell input');
+                        if (taxAmountCell) taxAmountCell.value = item.gst_amount || 0;
+                        
+                        const focCell = lastRow.querySelector('.foc-cell input');
+                        if (focCell) focCell.value = item.foc_quantity || 0;
+                        
+                        const grossCell = lastRow.querySelector('.gross-cell input');
+                        if (grossCell) grossCell.value = item.gross_amount || 0;
+                        
+                        const netCell = lastRow.querySelector('.net-cell input');
+                        if (netCell) netCell.value = item.net_amount || 0;
                         
                         // Recalculate columns to add unit cells
                         recalculateMaxColumns();
                         
                         // Set unit values
-                        item.unit_entries.forEach(entry => {
-                            const unitInput = lastRow.querySelector(`.unit-input[data-unit-id="${entry.uom_id}"]`);
-                            if (unitInput) {
-                                unitInput.value = entry.quantity;
-                            }
-                        });
-                    }
-                });
+                        if (item.unit_entries && item.unit_entries.length > 0) {
+                            item.unit_entries.forEach(entry => {
+                                const unitInput = lastRow.querySelector(`.unit-input[data-unit-id="${entry.uom_id}"]`);
+                                if (unitInput) {
+                                    unitInput.value = entry.quantity || 0;
+                                }
+                            });
+                        }
+                    });
+                } else {
+                    // Add empty row if no items
+                    addRowDynamic();
+                }
 
                 // Update summary
-                document.getElementById('totalDiscountPercent').value = invoice.total_discount_percent;
-                document.getElementById('totalDiscountAmount').value = invoice.total_discount_amount;
-                document.getElementById('totalTaxPercent').value = invoice.total_tax_percent || 0;
-                document.getElementById('totalTaxAmount').value = invoice.total_tax_amount || 0;
+                document.getElementById('totalDiscountPercent').value = invoice.total_discount_percent || 0;
+                document.getElementById('totalDiscountAmount').value = invoice.total_discount_amount || 0;
+                const totalTaxPercentEl = document.getElementById('totalTaxPercent');
+                if (totalTaxPercentEl) totalTaxPercentEl.value = invoice.total_tax_percent || 0;
+                const totalTaxAmountEl = document.getElementById('totalTaxAmount');
+                if (totalTaxAmountEl) totalTaxAmountEl.value = invoice.total_tax_amount || 0;
                 document.getElementById('shippingFees').value = invoice.shipping_fees || 0;
                 updateInvoiceSummaryDynamic();
 
-                document.querySelector('.page-title').textContent = `Edit Purchase Order - ${invoice.bill_no}`;
+                document.querySelector('.page-title').textContent = `Edit Purchase Order - ${invoice.bill_no || ''}`;
 
             } else {
-                alert('Error loading invoice: ' + data.message);
+                alert('Error loading invoice: ' + (data.message || 'Unknown error'));
                 window.location.href = 'purchase-list.php';
             }
         } catch (error) {
             console.error('Error loading invoice:', error);
-            alert('Error loading invoice data');
+            alert('Error loading invoice data: ' + error.message);
             window.location.href = 'purchase-list.php';
         }
     }
@@ -1796,26 +1837,26 @@ document.addEventListener('DOMContentLoaded', function () {
 
         // Collect form data
         const formData = {
-            purchaseDate: document.getElementById('purchaseDate').value,
-            supplierInvoiceNo: document.getElementById('supplierInvoiceNo').value || null,
-            supplierInvoiceDate: document.getElementById('supplierInvoiceDate').value || null,
-            biltyNo: document.getElementById('biltyNo').value || null,
-            transportName: document.getElementById('transportName').value || null,
-            companyId: document.getElementById('company').value,
-            supplierId: document.getElementById('supplierCode').value,
-            branchId: document.getElementById('branch').value,
-            purchaseOrderId: document.getElementById('purchaseOrder').value || null,
-            subAccountId: document.getElementById('subAccount').value || null,
-            currencyId: document.getElementById('currency').value,
-            previousBalance: parseFloat(document.getElementById('previousBalance').value) || 0,
-            totalBill: parseFloat(document.getElementById('totalBill').textContent),
-            totalDiscountPercent: parseFloat(document.getElementById('totalDiscountPercent').value) || 0,
-            totalDiscountAmount: parseFloat(document.getElementById('totalDiscountAmount').value),
-            totalTaxPercent: parseFloat(document.getElementById('totalTaxPercent').value) || 0,
-            totalTaxAmount: parseFloat(document.getElementById('totalTaxAmount').value) || 0,
-            shippingFees: parseFloat(document.getElementById('shippingFees').value) || 0,
-            netAmount: parseFloat(document.getElementById('netAmount').textContent),
-            remarks: document.getElementById('remarks').value,
+            purchaseDate: document.getElementById('purchaseDate')?.value,
+            supplierInvoiceNo: document.getElementById('supplierInvoiceNo')?.value || null,
+            supplierInvoiceDate: document.getElementById('supplierInvoiceDate')?.value || null,
+            biltyNo: document.getElementById('biltyNo')?.value || null,
+            transportName: document.getElementById('transportName')?.value || null,
+            companyId: document.getElementById('company')?.value,
+            supplierId: document.getElementById('supplierCode')?.value,
+            branchId: document.getElementById('branch')?.value,
+            purchaseOrderId: document.getElementById('purchaseOrder')?.value || null,
+            subAccountId: document.getElementById('subAccount')?.value || null,
+            currencyId: document.getElementById('currency')?.value,
+            previousBalance: parseFloat(document.getElementById('previousBalance')?.value) || 0,
+            totalBill: parseFloat(document.getElementById('totalBill')?.textContent),
+            totalDiscountPercent: parseFloat(document.getElementById('totalDiscountPercent')?.value) || 0,
+            totalDiscountAmount: parseFloat(document.getElementById('totalDiscountAmount')?.value),
+            totalTaxPercent: parseFloat(document.getElementById('totalTaxPercent')?.value) || 0,
+            totalTaxAmount: parseFloat(document.getElementById('totalTaxAmount')?.value) || 0,
+            shippingFees: parseFloat(document.getElementById('shippingFees')?.value) || 0,
+            netAmount: parseFloat(document.getElementById('netAmount')?.textContent),
+            remarks: document.getElementById('remarks')?.value,
             items: []
         };
 

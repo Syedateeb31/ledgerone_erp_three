@@ -88,81 +88,88 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $itemStmt->execute([$invoice_id, $tenant_id]);
         $rawItems = $itemStmt->fetchAll(PDO::FETCH_ASSOC);
         
-        // Group items: merge all entries with same product_id
-        $productGroups = [];
-        foreach ($rawItems as $item) {
-            $productGroups[$item['product_id']][] = $item;
-        }
-        
-        $groupedItems = [];
-        $itemIndex = 0;
-        
-        foreach ($productGroups as $productId => $items) {
-            $uomMap = [];
-            $firstItem = null;
-            $totalGross = 0;
-            $totalDiscount = 0;
-            $totalTradeOffer = 0;
-            $totalGst = 0;
-            $totalFoc = 0;
-            $totalNet = 0;
+        if (!$rawItems) {
+            $items = [];
+        } else {
+            // Group items: merge all entries with same product_id
+            $productGroups = [];
+            foreach ($rawItems as $item) {
+                if (!$item['product_id']) continue;
+                $productGroups[$item['product_id']][] = $item;
+            }
             
-            foreach ($items as $item) {
-                if (!$firstItem) $firstItem = $item;
+            $groupedItems = [];
+            $itemIndex = 0;
+            
+            foreach ($productGroups as $productId => $items_group) {
+                $uomMap = [];
+                $firstItem = null;
+                $totalGross = 0;
+                $totalDiscount = 0;
+                $totalTradeOffer = 0;
+                $totalGst = 0;
+                $totalFoc = 0;
+                $totalNet = 0;
                 
-                $uomId = $item['uom_id'];
-                if (!isset($uomMap[$uomId])) {
-                    $uomMap[$uomId] = [
-                        'uom_id' => $uomId,
-                        'uom_name' => $item['uom_name'],
-                        'quantity' => 0
-                    ];
+                foreach ($items_group as $item) {
+                    if (!$firstItem) $firstItem = $item;
+                    
+                    $uomId = $item['uom_id'];
+                    if (!isset($uomMap[$uomId])) {
+                        $uomMap[$uomId] = [
+                            'uom_id' => $uomId,
+                            'uom_name' => $item['uom_name'] ?? 'Unknown',
+                            'quantity' => 0
+                        ];
+                    }
+                    $uomMap[$uomId]['quantity'] += floatval($item['quantity'] ?? 0);
+                    
+                    if (floatval($item['gross_amount'] ?? 0) > 0) {
+                        $totalGross += floatval($item['gross_amount'] ?? 0);
+                        $totalDiscount += floatval($item['discount_amount'] ?? 0);
+                        $totalTradeOffer += floatval($item['trade_offer_amount'] ?? 0);
+                        $totalGst += floatval($item['gst_amount'] ?? 0);
+                        $totalFoc += floatval($item['foc_quantity'] ?? 0);
+                        $totalNet += floatval($item['net_amount'] ?? 0);
+                    }
                 }
-                $uomMap[$uomId]['quantity'] += floatval($item['quantity']);
                 
-                if (floatval($item['gross_amount']) > 0) {
-                    $totalGross += floatval($item['gross_amount']);
-                    $totalDiscount += floatval($item['discount_amount']);
-                    $totalTradeOffer += floatval($item['trade_offer_amount']);
-                    $totalGst += floatval($item['gst_amount']);
-                    $totalFoc += floatval($item['foc_quantity']);
-                    $totalNet += floatval($item['net_amount']);
+                if ($firstItem) {
+                    $itemIndex++;
+                    $groupedItems[$itemIndex] = [
+                        'product_id' => $productId,
+                        'product_name' => $firstItem['product_name'] ?? 'Unknown',
+                        'product_code' => $firstItem['product_code'] ?? '',
+                        'uom_type' => $firstItem['uom_type'] ?? 'unit',
+                        'uom_group_id' => $firstItem['uom_group_id'],
+                        'default_unit_id' => $firstItem['default_unit_id'],
+                        'purchase_price' => floatval($firstItem['purchase_price'] ?? 0),
+                        'gross_amount' => $totalGross,
+                        'discount_percent' => floatval($firstItem['discount_percent'] ?? 0),
+                        'discount_amount' => $totalDiscount,
+                        'trade_offer_percent' => floatval($firstItem['trade_offer_percent'] ?? 0),
+                        'trade_offer_amount' => $totalTradeOffer,
+                        'gst_percent' => floatval($firstItem['gst_percent'] ?? 0),
+                        'gst_amount' => $totalGst,
+                        'foc_quantity' => $totalFoc,
+                        'net_amount' => $totalNet,
+                        'unit_entries' => array_values($uomMap)
+                    ];
                 }
             }
             
-            $itemIndex++;
-            $groupedItems[$itemIndex] = [
-                'product_id' => $productId,
-                'product_name' => $firstItem['product_name'],
-                'product_code' => $firstItem['product_code'],
-                'uom_type' => $firstItem['uom_type'],
-                'uom_group_id' => $firstItem['uom_group_id'],
-                'default_unit_id' => $firstItem['default_unit_id'],
-                'purchase_price' => $firstItem['purchase_price'],
-                'gross_amount' => $totalGross,
-                'discount_percent' => $firstItem['discount_percent'],
-                'discount_amount' => $totalDiscount,
-                'trade_offer_percent' => $firstItem['trade_offer_percent'],
-                'trade_offer_amount' => $totalTradeOffer,
-                'gst_percent' => $firstItem['gst_percent'],
-                'gst_amount' => $totalGst,
-                'foc_quantity' => $totalFoc,
-                'net_amount' => $totalNet,
-                'unit_entries' => array_values($uomMap)
-            ];
+            $items = array_values($groupedItems);
         }
-        
-        $items = array_values($groupedItems);
         
         echo json_encode([
             'success' => true,
             'invoice' => $invoice,
-            'items' => $items
+            'items' => $items ?? []
         ]);
         
     } catch (Exception $e) {
         http_response_code(500);
-        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        echo json_encode(['success' => false, 'message' => 'Error loading invoice: ' . $e->getMessage()]);
     }
 }
 
