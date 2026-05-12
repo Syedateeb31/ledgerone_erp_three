@@ -119,7 +119,7 @@ function updateFooterTotals() {
     const totalTradeOfferAmountItemsEl = document.getElementById('totalTradeOfferAmountItems');
     if (totalTradeOfferAmountItemsEl) totalTradeOfferAmountItemsEl.textContent = totalTO.toFixed(2);
     
-    const totalGSTAmountItemsEl = document.getElementById('totalGSTAmountItems');
+    const totalGSTAmountItemsEl = document.getElementById('totalTaxAmountItems');
     if (totalGSTAmountItemsEl) totalGSTAmountItemsEl.textContent = totalGST.toFixed(2);
     
     const totalFOCQtyEl = document.getElementById('totalFOCQty');

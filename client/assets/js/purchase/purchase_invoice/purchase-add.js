@@ -1614,7 +1614,7 @@ document.addEventListener('DOMContentLoaded', function () {
         document.getElementById('totalGrossAmount').textContent = totalGrossAmount.toFixed(2);
         document.getElementById('totalDiscountAmountItems').textContent = totalDiscountAmountItems.toFixed(2);
         document.getElementById('totalTradeOfferAmountItems').textContent = totalTradeOfferAmountItems.toFixed(2);
-        document.getElementById('totalGSTAmountItems').textContent = totalGSTAmountItems.toFixed(2);
+        document.getElementById('totalTaxAmountItems').textContent = totalGSTAmountItems.toFixed(2);
         document.getElementById('totalFOCQty').textContent = totalFOCQty.toFixed(2);
         document.getElementById('totalNetAmountItems').textContent = totalNetAmountItems.toFixed(2);
 
