@@ -1,14 +1,6 @@
 <?php
-
-// ============================================================
-//  quotation-add.php  ·  Single-file: Backend + Frontend
-//  Place karo: /your-project/modules/sales/quotation-add.php
-//  Requires: ../../../../includes/connection.php  ($pdo)
-//            ../../../../includes/dashboard.php
-// ============================================================
 require_once '../../../../includes/connection.php';
 
-// ── SESSION ──────────────────────────────────────────────────
 if (session_status() == PHP_SESSION_NONE) session_start();
 $user_id   = $_SESSION['user_id']   ?? null;
 $tenant_id = $_SESSION['tenant_id'] ?? null;
@@ -17,24 +9,18 @@ if (!$user_id || !$tenant_id) {
     exit;
 }
 
-
-// ════════════════════════════════════════════════════════════
-//  AJAX  ─  all JSON actions
-// ════════════════════════════════════════════════════════════
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['action'])) {
     header('Content-Type: application/json');
-
     $action = $_GET['action'];
     $input  = json_decode(file_get_contents('php://input'), true) ?? [];
 
-    // helper
     function resp($ok, $data = [], $msg = '') {
         echo json_encode(['success' => $ok, 'message' => $msg] + $data);
         exit;
     }
 
     try {
-        // ── 1. SAVE QUOTATION ─────────────────────────────
+        // ── 1. SAVE QUOTATION ─────────────────────────────────
         if ($action === 'save') {
             if (empty($input['customer_id']))  throw new Exception('Customer is required');
             if (empty($input['items']))        throw new Exception('At least one item is required');
@@ -42,7 +28,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['action'])) {
             $tid = (int)$GLOBALS['tenant_id'];
             $uid = (int)$GLOBALS['user_id'];
 
-            // Generate quotation number
             $st = $pdo->prepare("SELECT quotation_number FROM quotations
                                   WHERE tenant_id=? AND is_deleted=0
                                   ORDER BY id DESC LIMIT 1");
@@ -51,12 +36,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['action'])) {
             $num  = $last ? ((int)substr($last, 4)) + 1 : 1;
             $qno  = 'QTN-' . str_pad($num, 4, '0', STR_PAD_LEFT);
 
-            // Totals
-            $subtotal      = 0;
-            $total_st      = 0;
-            $total_ft      = 0;
+            $subtotal = $total_st = $total_ft = 0;
             foreach ($input['items'] as $item) {
-                $subtotal += (float)($item['excl_tax']   ?? 0);
+                $subtotal += (float)($item['excl_tax']        ?? 0);
                 $total_st += (float)($item['sales_tax_amt']   ?? 0);
                 $total_ft += (float)($item['further_tax_amt'] ?? 0);
             }
@@ -64,14 +46,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['action'])) {
 
             $pdo->beginTransaction();
 
-            // Header
             $st = $pdo->prepare("INSERT INTO quotations
                 (tenant_id, quotation_number, quotation_date, valid_till,
                  customer_id, contact_person, salesman_id, payment_term_id,
-                 terms_conditions, remarks, status,
+                 terms_conditions, remarks, footer_note, party_type, status,
                  subtotal, total_sales_tax, total_further_tax, grand_total,
                  created_by, updated_by)
-                VALUES (?,?,?,?,?,?,?,?,?,?,'draft',?,?,?,?,?,?)");
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,'draft',?,?,?,?,?,?)");
             $st->execute([
                 $tid,
                 $qno,
@@ -83,12 +64,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['action'])) {
                 !empty($input['payment_term_id']) ? (int)$input['payment_term_id'] : null,
                 $input['terms_conditions'] ?: null,
                 $input['remarks'] ?: null,
+                $input['footer_note'] ?: null,
+                $input['party_type']  ?: null,
                 $subtotal, $total_st, $total_ft, $grand,
                 $uid, $uid,
             ]);
             $qid = $pdo->lastInsertId();
 
-            // Items
             $si = $pdo->prepare("INSERT INTO quotation_items
                 (quotation_id, tenant_id, sort_order, product_id, item_code, item_name,
                  description, pack_type, quantity, qty_unit_id, unit_id,
@@ -99,11 +81,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['action'])) {
                 $si->execute([
                     $qid, $tid, $i + 1,
                     !empty($it['product_id']) ? (int)$it['product_id'] : null,
-                    $it['item_code']  ?? null,
-                    $it['item_name']  ?? '',
+                    $it['item_code']   ?? null,
+                    $it['item_name']   ?? '',
                     $it['description'] ?? null,
-                    $it['pack_type']  ?? 'Qty',
-                    (float)($it['quantity']  ?? 1),
+                    $it['pack_type']   ?? 'Qty',
+                    (float)($it['quantity']        ?? 1),
                     !empty($it['qty_unit_id']) ? (int)$it['qty_unit_id'] : null,
                     !empty($it['unit_id'])     ? (int)$it['unit_id']     : null,
                     (float)($it['rate']            ?? 0),
@@ -121,84 +103,70 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['action'])) {
             resp(true, ['quotation_number' => $qno, 'id' => $qid], 'Quotation saved successfully');
         }
 
-        // ── 2. LOAD CUSTOMERS ─────────────────────────────
+        // ── 2. LOAD CUSTOMERS ─────────────────────────────────
         if ($action === 'customers') {
-            $st = $pdo->prepare("SELECT id,
-                            customer_code AS code,
-                            customer_name AS name,
-                            primary_phone AS phone,
-                            address,
-                            email
-                      FROM customers
-                      WHERE tenant_id=?
-                      ORDER BY customer_name");
+            $st = $pdo->prepare("SELECT id, customer_code AS code, customer_name AS name,
+                                        primary_phone AS phone, address, email
+                                  FROM customers WHERE tenant_id=? ORDER BY customer_name");
             $st->execute([$tenant_id]);
             resp(true, ['data' => $st->fetchAll(PDO::FETCH_ASSOC)]);
         }
 
-        // ── 3. LOAD PRODUCTS ──────────────────────────────
+        // ── 3. LOAD PRODUCTS ──────────────────────────────────
         if ($action === 'products') {
             $st = $pdo->prepare("SELECT id, code, name, description,
                                         trade_price AS rate, sales_tax, further_tax,
                                         default_unit_id AS unit_id
-                                  FROM products
-                                  WHERE tenant_id=? AND is_active=1
-                                  ORDER BY name");
+                                  FROM products WHERE tenant_id=? AND is_active=1 ORDER BY name");
             $st->execute([$tenant_id]);
             resp(true, ['data' => $st->fetchAll(PDO::FETCH_ASSOC)]);
         }
 
-        // ── 4. LOAD EMPLOYEES (Salesmen) ──────────────────
+        // ── 4. LOAD SALESMEN ──────────────────────────────────
         if ($action === 'salesmen') {
-            $st = $pdo->prepare("SELECT id, full_name AS name, employee_id AS code
-                                  FROM employees
-                                  WHERE tenant_id=? AND current_status='active'
-                                    AND is_terminated=0 
+            $st = $pdo->prepare("SELECT id, full_name AS name FROM employees
+                                  WHERE tenant_id=? AND current_status='active' AND is_terminated=0
                                   ORDER BY full_name");
             $st->execute([$tenant_id]);
             resp(true, ['data' => $st->fetchAll(PDO::FETCH_ASSOC)]);
         }
 
-        // ── 5. LOAD PAYMENT TERMS ─────────────────────────
+        // ── 5. LOAD PAYMENT TERMS ─────────────────────────────
         if ($action === 'payment_terms') {
             $st = $pdo->prepare("SELECT id, term_name FROM payment_terms
-                                  WHERE (tenant_id=? OR tenant_id=0) AND is_active=1
-                                  ORDER BY id");
+                                  WHERE (tenant_id=? OR tenant_id=0) AND is_active=1 ORDER BY id");
             $st->execute([$tenant_id]);
             resp(true, ['data' => $st->fetchAll(PDO::FETCH_ASSOC)]);
         }
 
-        // ── 6. ADD PAYMENT TERM ───────────────────────────
+        // ── 6. ADD PAYMENT TERM ───────────────────────────────
         if ($action === 'add_term') {
             if (empty($input['term_name'])) throw new Exception('Term name is required');
-            $st = $pdo->prepare("INSERT INTO payment_terms (tenant_id, term_name, days)
-                                  VALUES (?,?,?)");
+            $st = $pdo->prepare("INSERT INTO payment_terms (tenant_id, term_name, days) VALUES (?,?,?)");
             $st->execute([$tenant_id, trim($input['term_name']), (int)($input['days'] ?? 0)]);
             resp(true, ['id' => $pdo->lastInsertId()], 'Term added');
         }
 
-        // ── 7. DELETE PAYMENT TERM ────────────────────────
+        // ── 7. DELETE PAYMENT TERM ────────────────────────────
         if ($action === 'delete_term') {
             $st = $pdo->prepare("DELETE FROM payment_terms WHERE id=? AND tenant_id=?");
             $st->execute([(int)$input['id'], $tenant_id]);
             resp(true, [], 'Term deleted');
         }
 
-        // ── 8. LOAD UNITS ─────────────────────────────────
+        // ── 8. LOAD UNITS ─────────────────────────────────────
         if ($action === 'units') {
             $st = $pdo->prepare("SELECT id, unit_name AS name, unit_symbol AS symbol
-                                  FROM units
-                                  WHERE (tenant_id=? OR tenant_id=0) AND is_active=1
+                                  FROM units WHERE (tenant_id=? OR tenant_id=0) AND is_active=1
                                   ORDER BY unit_name");
             $st->execute([$tenant_id]);
             resp(true, ['data' => $st->fetchAll(PDO::FETCH_ASSOC)]);
         }
 
-        // ── 9. GET NEXT QTN NUMBER ────────────────────────
+        // ── 9. NEXT QTN NUMBER ────────────────────────────────
         if ($action === 'next_number') {
             $st = $pdo->prepare("SELECT quotation_number FROM quotations
-                                  WHERE tenant_id=? AND is_deleted=0
-                                  ORDER BY id DESC LIMIT 1");
+                                  WHERE tenant_id=? AND is_deleted=0 ORDER BY id DESC LIMIT 1");
             $st->execute([$tenant_id]);
             $last = $st->fetchColumn();
             $num  = $last ? ((int)substr($last, 4)) + 1 : 1;
@@ -214,17 +182,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['action'])) {
     exit;
 }
 require_once '../../../../includes/dashboard.php';
-
-// ════════════════════════════════════════════════════════════
-//  HTML OUTPUT STARTS HERE
-// ════════════════════════════════════════════════════════════
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Quotation - ParcelPro ERP</title>
+<title>Quotation - LedgerOne ERP</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
 /* ── RESET & BASE ─────────────────────────────────────────── */
@@ -243,8 +207,6 @@ body{background:#f7f9fc;color:#2f3b4c;line-height:1.5;padding:20px}
 
 /* ── FORM AREA ────────────────────────────────────────────── */
 .form-area{padding:16px 22px;display:flex;flex-direction:column;gap:12px}
-
-/* compact card */
 .card{background:#fafbfd;border:1px solid #e1e6ee;border-radius:8px;overflow:hidden}
 .card-head{padding:9px 14px;background:#f0f3f8;border-bottom:1px solid #e1e6ee;font-size:11.5px;font-weight:700;color:#0e1a2b;text-transform:uppercase;letter-spacing:.5px;display:flex;align-items:center;gap:7px}
 .card-head i{color:#1f7bff;font-size:11px}
@@ -258,6 +220,7 @@ body{background:#f7f9fc;color:#2f3b4c;line-height:1.5;padding:20px}
 .fg-5{grid-template-columns:repeat(5,1fr)}
 .span2{grid-column:span 2}
 .span3{grid-column:span 3}
+.span4{grid-column:span 4}
 
 .f{display:flex;flex-direction:column;gap:3px}
 .f label{font-size:11px;font-weight:600;color:#5a6472;text-transform:uppercase;letter-spacing:.4px;display:flex;align-items:center;gap:5px}
@@ -272,9 +235,42 @@ input[readonly]{background:#f2f4f8;color:#8a93a2;border-color:#e0e4ea;cursor:def
 input::placeholder,textarea::placeholder{color:#b8bfc9;font-size:12px}
 select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 9px center;padding-right:26px;cursor:pointer}
 textarea{height:82px;padding:8px 10px;resize:vertical;font-size:12px;line-height:1.5}
+textarea.remarks-ta{height:60px}
 
 .inline-row{display:flex;gap:6px;align-items:flex-end}
 .inline-row>*{flex:1}
+
+/* ── SEARCHABLE SELECT ────────────────────────────────────── */
+.ss-wrap{position:relative;width:100%}
+.ss-display{height:33px;padding:0 10px;border:1.5px solid #d6dbe4;border-radius:6px;background:#fff;font-size:12.5px;color:#2f3b4c;display:flex;align-items:center;justify-content:space-between;cursor:pointer;transition:border-color .15s,box-shadow .15s;user-select:none}
+.ss-display:hover,.ss-display.open{border-color:#1f7bff;box-shadow:0 0 0 3px rgba(31,123,255,.1)}
+.ss-display-text{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ss-display-placeholder{color:#b8bfc9;font-size:12px}
+.ss-arrow{font-size:9px;color:#6b7280;transition:transform .15s;flex-shrink:0;margin-left:6px}
+.ss-display.open .ss-arrow{transform:rotate(180deg)}
+.ss-panel{position:absolute;top:calc(100% + 4px);left:0;right:0;background:#fff;border:1.5px solid #1f7bff;border-radius:6px;box-shadow:0 6px 20px rgba(0,0,0,.12);z-index:3000;overflow:hidden;display:none}
+.ss-panel.open{display:block}
+.ss-search-input{width:100%;border:none;border-bottom:1.5px solid #e1e6ee;padding:7px 10px;font-size:12.5px;font-family:inherit;outline:none;background:#f8fafc;height:34px}
+.ss-list{max-height:210px;overflow-y:auto}
+.ss-opt{padding:8px 10px;font-size:12.5px;color:#2f3b4c;cursor:pointer;transition:background .1s;border-bottom:1px solid #f0f3f8}
+.ss-opt:last-child{border-bottom:none}
+.ss-opt:hover,.ss-opt.focused{background:#f0f6ff;color:#1f7bff}
+.ss-opt.selected{background:#f0f6ff;font-weight:600}
+.ss-opt-code{font-family:"Courier New",monospace;font-size:11px;color:#9aa1ae;margin-right:4px}
+.ss-no-results{padding:12px 10px;font-size:12px;color:#9aa1ae;text-align:center}
+
+/* ── ROW SEARCHABLE SELECT (fixed-position for table cells) ── */
+.rss-wrap{position:relative;width:100%}
+.rss-input{height:29px;padding:0 6px;border:1.5px solid #d6dbe4;border-radius:5px;font-size:12px;color:#2f3b4c;font-family:inherit;width:100%;background:#fff;transition:border-color .13s}
+.rss-input:focus{outline:none;border-color:#1f7bff;box-shadow:0 0 0 2px rgba(31,123,255,.08)}
+.rss-panel{position:fixed;background:#fff;border:1.5px solid #1f7bff;border-radius:6px;box-shadow:0 6px 20px rgba(0,0,0,.15);z-index:9999;display:none;overflow:hidden;min-width:300px}
+.rss-panel.open{display:block}
+.rss-list{max-height:200px;overflow-y:auto}
+.rss-opt{padding:7px 10px;font-size:12px;color:#2f3b4c;cursor:pointer;transition:background .1s;border-bottom:1px solid #f0f3f8;white-space:nowrap}
+.rss-opt:last-child{border-bottom:none}
+.rss-opt:hover{background:#f0f6ff;color:#1f7bff}
+.rss-opt-code{font-family:"Courier New",monospace;font-size:11px;color:#6b7280;margin-right:4px}
+.rss-no-results{padding:10px;font-size:12px;color:#9aa1ae;text-align:center}
 
 /* ── SMALL BUTTONS ────────────────────────────────────────── */
 .btn-sm{height:33px;padding:0 12px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;border:none;display:inline-flex;align-items:center;gap:5px;font-family:inherit;white-space:nowrap;transition:background .15s}
@@ -291,7 +287,7 @@ textarea{height:82px;padding:8px 10px;resize:vertical;font-size:12px;line-height
 .items-wrap{padding:0 22px 16px}
 .items-title{font-size:13px;font-weight:700;color:#1f7bff;padding:12px 0 10px;border-bottom:2px solid #1f7bff;margin-bottom:10px;letter-spacing:.3px}
 .tbl-scroll{overflow-x:auto;border:1px solid #e1e6ee;border-radius:8px}
-table{width:100%;border-collapse:collapse;min-width:1260px;font-size:12px}
+table{width:100%;border-collapse:collapse;min-width:1180px;font-size:12px}
 thead tr{background:#f0f3f8;border-bottom:2px solid #e1e6ee}
 thead th{padding:9px 6px;text-align:left;font-size:10px;font-weight:700;color:#5a6472;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap}
 thead th.r{text-align:right}
@@ -350,7 +346,6 @@ tbody td{padding:4px 4px;vertical-align:middle}
 .mclose:hover{background:rgba(255,255,255,.25)}
 .modal-body{padding:18px 20px}
 .modal-foot{padding:11px 20px;border-top:1px solid #e1e6ee;display:flex;justify-content:flex-end;gap:8px}
-
 .terms-list{margin-top:13px;display:flex;flex-direction:column;gap:5px;max-height:200px;overflow-y:auto}
 .term-item{display:flex;justify-content:space-between;align-items:center;padding:8px 11px;background:#fafbfd;border:1px solid #e1e6ee;border-radius:6px;font-size:12.5px;color:#2f3b4c}
 .del-term{background:none;border:none;color:#e34f4f;cursor:pointer;padding:2px 5px;border-radius:4px;transition:background .13s;font-size:12px}
@@ -366,16 +361,8 @@ tbody td{padding:4px 4px;vertical-align:middle}
 /* toast */
 .toast{position:fixed;top:16px;right:20px;padding:10px 18px;border-radius:7px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px;box-shadow:0 4px 14px rgba(0,0,0,.15);z-index:9999;color:#fff;animation:slideUp .22s ease}
 
-/* autofill highlight */
-.autofilled{background:#f0f6ff!important;color:#1f7bff!important;border-color:#c8dbff!important}
-
-/* status badge */
 .status-badge{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:12px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px}
 .status-draft{background:#fef9c3;color:#a16207}
-
-/* loading skeleton */
-.skeleton{background:linear-gradient(90deg,#f0f3f8 25%,#e8ebf0 50%,#f0f3f8 75%);background-size:200% 100%;animation:shimmer 1.3s infinite;border-radius:4px;height:13px;margin:3px 0}
-@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
 
 @media(max-width:900px){.fg-3,.fg-4,.fg-5{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:600px){body{padding:8px}.fg-3,.fg-4,.fg-5,.fg-2{grid-template-columns:1fr}.header{flex-direction:column;align-items:flex-start;gap:8px}.items-wrap{padding:0 10px 12px}.form-area{padding:12px}}
@@ -406,6 +393,8 @@ tbody td{padding:4px 4px;vertical-align:middle}
     <div class="card">
       <div class="card-head"><i class="fas fa-info-circle"></i>Quotation Details</div>
       <div class="card-body">
+
+        <!-- Row 1: Reference fields -->
         <div class="fg fg-4" style="margin-bottom:9px">
           <div class="f">
             <label>Quotation No</label>
@@ -424,7 +413,37 @@ tbody td{padding:4px 4px;vertical-align:middle}
             <input type="text" id="contactPerson" placeholder="Person name on quotation"/>
           </div>
         </div>
-        <div class="fg fg-4">
+
+        <!-- Row 2: Customer, Party Type, Payment, Salesman -->
+        <div class="fg fg-4" style="margin-bottom:9px">
+          <div class="f">
+            <label>Customer <span class="req">*</span>
+              <button type="button" class="btn-sm outline icon-only" onclick="openAddCustModal()" title="Quick Add Customer" style="height:20px;width:20px;border-radius:4px;margin-left:4px">
+                <i class="fas fa-plus" style="font-size:9px"></i>
+              </button>
+            </label>
+            <!-- Searchable customer select -->
+            <div class="ss-wrap" id="customerWrap">
+              <input type="hidden" id="customerSel"/>
+              <div class="ss-display" id="customerDisplay" onclick="toggleSS('customer')">
+                <span class="ss-display-text ss-display-placeholder" id="customerDisplayText">Select Customer</span>
+                <i class="fas fa-chevron-down ss-arrow" id="customerArrow"></i>
+              </div>
+              <div class="ss-panel" id="customerPanel">
+                <input type="text" class="ss-search-input" id="customerSearch" placeholder="Type to search customer…" oninput="filterSS('customer', this.value)" autocomplete="off"/>
+                <div class="ss-list" id="customerList"></div>
+              </div>
+            </div>
+          </div>
+          <div class="f">
+            <label>Party Type</label>
+            <select id="partyType">
+              <option value="">Select Party Type</option>
+              <option value="OEM">OEM</option>
+              <option value="Vendor">Vendor</option>
+              <option value="Customer">Customer</option>
+            </select>
+          </div>
           <div class="f">
             <label>Terms of Payment
               <button type="button" class="btn-sm outline icon-only" onclick="openTermsModal()" title="Manage Terms" style="height:20px;width:20px;border-radius:4px;margin-left:4px">
@@ -436,40 +455,21 @@ tbody td{padding:4px 4px;vertical-align:middle}
             </select>
           </div>
           <div class="f">
-            <label>Customer <span class="req">*</span>
-              <button type="button" class="btn-sm outline icon-only" onclick="openAddCustModal()" title="Quick Add Customer" style="height:20px;width:20px;border-radius:4px;margin-left:4px">
-                <i class="fas fa-plus" style="font-size:9px"></i>
-              </button>
-            </label>
-            <select id="customerSel" onchange="onCustomerChange()">
-              <option value="">Select Customer</option>
-            </select>
-          </div>
-          <div class="f">
-            <label>Customer Code</label>
-            <input type="text" id="custCode" placeholder="Auto-filled" readonly/>
-          </div>
-          <div class="f">
             <label>Salesman</label>
             <select id="salesmanSel">
               <option value="">Select Salesman</option>
             </select>
           </div>
         </div>
-        <div class="fg fg-3" style="margin-top:9px">
-          <div class="f">
-            <label>Address</label>
-            <input type="text" id="custAddress" placeholder="Auto-filled" readonly/>
-          </div>
-          <div class="f">
-            <label>Phone</label>
-            <input type="text" id="custPhone" placeholder="Auto-filled" readonly/>
-          </div>
+
+        <!-- Row 3: Remarks (full width textarea) -->
+        <div class="fg">
           <div class="f">
             <label>Remarks</label>
-            <input type="text" id="remarks" placeholder="Any remarks..."/>
+            <textarea id="remarks" class="remarks-ta" placeholder="Any remarks…"></textarea>
           </div>
         </div>
+
       </div>
     </div>
 
@@ -485,6 +485,14 @@ TAX: Exclusive of all Tax</textarea>
       </div>
     </div>
 
+    <!-- Footer Note -->
+    <div class="card">
+      <div class="card-head"><i class="fas fa-comment-alt"></i>Footer Note</div>
+      <div class="card-body" style="padding:9px 13px">
+        <textarea id="footerNote" placeholder="e.g. We thank you for giving us the opportunity of Mechanical Enclosure. We are pleased to submit our best Techno Grade offer as per the given details."></textarea>
+      </div>
+    </div>
+
   </div><!-- /form-area -->
 
   <!-- ══ ITEMS TABLE ════════════════════════════════════════ -->
@@ -494,8 +502,7 @@ TAX: Exclusive of all Tax</textarea>
       <table>
         <thead>
           <tr>
-            <th style="width:170px">Item Name</th>
-            <th style="width:100px">Item Code</th>
+            <th style="width:260px">Item (Code | Name)</th>
             <th style="width:140px">Description</th>
             <th style="width:195px">Quantity</th>
             <th style="width:90px">Sale Unit</th>
@@ -513,9 +520,6 @@ TAX: Exclusive of all Tax</textarea>
         <tbody id="itemsTbody"></tbody>
       </table>
     </div>
-    <!-- <button class="add-row-btn" onclick="addRow()">
-      <i class="fas fa-plus"></i> Add Item
-    </button> -->
 
     <!-- Totals -->
     <div class="totals-bar">
@@ -540,10 +544,9 @@ TAX: Exclusive of all Tax</textarea>
 
   <!-- ══ FOOTER ══════════════════════════════════════════════ -->
   <div class="footer">
-<button class="btn-main sec" 
-        onclick="window.location.href='/client/pages/sale/Quotation/quotation-list.php'">
-    <i class="fas fa-list"></i> List
-</button>
+    <button class="btn-main sec" onclick="window.location.href='/client/pages/sale/Quotation/quotation-list.php'">
+      <i class="fas fa-list"></i> List
+    </button>
     <button class="btn-main primary" id="saveBtn" onclick="saveQuotation()"><i class="fas fa-save"></i> Save</button>
   </div>
 
@@ -620,20 +623,19 @@ TAX: Exclusive of all Tax</textarea>
 
 <!-- ══ JAVASCRIPT ══════════════════════════════════════════ -->
 <script>
-// ── STATE ────────────────────────────────────────────────────
-const API  = location.pathname;  // same file, POST + ?action=xxx
-let customers  = [];
-let products   = [];
-let units      = [];
-let payTerms   = [];
-let salesmen   = [];
-let rowId      = 0;
+const API = location.pathname;
+let customers = [];
+let products  = [];
+let units     = [];
+let payTerms  = [];
+let salesmen  = [];
+let rowId     = 0;
 const packOpts = ['Qty','Packing'];
 
 // ── INIT ─────────────────────────────────────────────────────
 async function init() {
   const today = new Date().toISOString().split('T')[0];
-  document.getElementById('qtnDate').value  = today;
+  document.getElementById('qtnDate').value = today;
   const plus7 = new Date(); plus7.setDate(plus7.getDate()+7);
   document.getElementById('validTill').value = plus7.toISOString().split('T')[0];
 
@@ -643,10 +645,10 @@ async function init() {
     loadUnits(), loadPaymentTerms(), loadSalesmen()
   ]);
   showSpinner(false);
-  addRow();  // start with one empty row
+  addRow();
 }
 
-// ── API HELPERS ───────────────────────────────────────────────
+// ── API HELPER ────────────────────────────────────────────────
 async function api(action, body={}) {
   const r = await fetch(`${API}?action=${action}`, {
     method:'POST', headers:{'Content-Type':'application/json'},
@@ -659,7 +661,7 @@ async function api(action, body={}) {
 async function loadQtnNumber() {
   const d = await api('next_number');
   if (d.success) {
-    document.getElementById('qtnNumber').value      = d.number;
+    document.getElementById('qtnNumber').value = d.number;
     document.getElementById('qtnNumberDisplay').textContent = d.number;
   }
 }
@@ -668,30 +670,19 @@ async function loadCustomers() {
   const d = await api('customers');
   if (!d.success) return;
   customers = d.data;
-  const sel = document.getElementById('customerSel');
-  sel.innerHTML = '<option value="">Select Customer</option>' +
-    customers.map(c=>`<option value="${c.id}">[${c.code}] ${c.name}</option>`).join('');
+  buildCustomerSS();
 }
 
 async function loadProducts() {
   const d = await api('products');
   if (!d.success) return;
   products = d.data;
-  // rebuild all existing product selects
-  document.querySelectorAll('.prod-sel').forEach(s => {
-    const cur = s.value;
-    fillProductSelect(s);
-    s.value = cur;
-  });
 }
 
 async function loadUnits() {
   const d = await api('units');
   if (!d.success) return;
   units = d.data;
-  document.querySelectorAll('.unit-sel,.qunit-sel').forEach(s => {
-    const cur = s.value; fillUnitSelect(s); s.value = cur;
-  });
 }
 
 async function loadPaymentTerms() {
@@ -711,24 +702,72 @@ async function loadSalesmen() {
     salesmen.map(e=>`<option value="${e.id}">${e.name}</option>`).join('');
 }
 
-// ── CUSTOMER SELECT ───────────────────────────────────────────
-function onCustomerChange() {
-  const sel  = document.getElementById('customerSel');
-  const cust = customers.find(c => c.id == sel.value);
-  const af   = ['custCode','custAddress','custPhone'];
-  if (cust) {
-    document.getElementById('custCode').value    = cust.code    || '';
-    document.getElementById('custAddress').value = cust.address || '';
-    document.getElementById('custPhone').value   = cust.phone   || '';
-    af.forEach(id => document.getElementById(id).classList.add('autofilled'));
-  } else {
-    af.forEach(id => { document.getElementById(id).value=''; document.getElementById(id).classList.remove('autofilled'); });
+// ══ SEARCHABLE SELECT (header fields) ════════════════════════
+
+// Build the customer searchable select options
+function buildCustomerSS() {
+  const list = document.getElementById('customerList');
+  if (!customers.length) {
+    list.innerHTML = '<div class="ss-no-results">No customers found</div>';
+    return;
+  }
+  list.innerHTML = customers.map(c => `
+    <div class="ss-opt" data-value="${c.id}"
+         data-search="${escAttr((c.code+''+c.name).toLowerCase())}"
+         onclick="selectSS('customer', '${c.id}', '[${escAttr(c.code)}] ${escAttr(c.name)}')">
+      <span class="ss-opt-code">[${escHtml(c.code)}]</span>${escHtml(c.name)}
+    </div>`).join('');
+}
+
+function toggleSS(key) {
+  const panel  = document.getElementById(key+'Panel');
+  const display= document.getElementById(key+'Display');
+  const isOpen = panel.classList.contains('open');
+  closeAllSS();
+  if (!isOpen) {
+    panel.classList.add('open');
+    display.classList.add('open');
+    const si = document.getElementById(key+'Search');
+    if (si) { si.value=''; filterSS(key,''); si.focus(); }
   }
 }
 
+function closeAllSS() {
+  document.querySelectorAll('.ss-panel.open').forEach(p=>p.classList.remove('open'));
+  document.querySelectorAll('.ss-display.open').forEach(d=>d.classList.remove('open'));
+}
+
+function filterSS(key, query) {
+  const q = query.toLowerCase();
+  document.querySelectorAll(`#${key}List .ss-opt`).forEach(opt => {
+    opt.style.display = opt.dataset.search.includes(q) ? '' : 'none';
+  });
+  const visible = [...document.querySelectorAll(`#${key}List .ss-opt`)].filter(o=>o.style.display!=='none');
+  const noRes   = document.querySelector(`#${key}List .ss-no-results`);
+  if (noRes) noRes.style.display = visible.length ? 'none' : '';
+}
+
+function selectSS(key, value, label) {
+  document.getElementById(key+'Sel').value = value;
+  const txt = document.getElementById(key+'DisplayText');
+  txt.textContent = label;
+  txt.classList.remove('ss-display-placeholder');
+  closeAllSS();
+  if (key === 'customer') onCustomerChange();
+}
+
+function onCustomerChange() {
+  // Customer Code/Address/Phone fields removed; nothing extra to fill
+}
+
+// Close searchable selects when clicking outside
+document.addEventListener('click', e => {
+  if (!e.target.closest('.ss-wrap')) closeAllSS();
+});
+
 // ── QUICK-ADD CUSTOMER ────────────────────────────────────────
 function openAddCustModal() {
-  ['nc_name','nc_phone','nc_address','nc_email'].forEach(id => document.getElementById(id).value='');
+  ['nc_name','nc_phone','nc_address','nc_email'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('nc_type').value='account';
   openModal('addCustModal');
   setTimeout(()=>document.getElementById('nc_name').focus(),200);
@@ -740,33 +779,29 @@ async function saveNewCustomer() {
   if (!name || !phone) { toast('Name and Phone are required','err'); return; }
 
   const btn = document.getElementById('saveCustBtn');
-  btn.disabled = true; btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Saving…';
+  btn.disabled=true; btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Saving…';
 
-  // Note: Agar aapka customer-add API alag file mein hai use karein
-  // Yahan hum directly save karte hain apne customers API se
-  // Adjust the endpoint as per your project structure:
   const r = await fetch('../../customers/api/customer-add.php', {
     method:'POST', headers:{'Content-Type':'application/json'},
     body: JSON.stringify({
       customerName: name,
       primaryPhone: phone,
-      address: document.getElementById('nc_address').value.trim(),
-      email:   document.getElementById('nc_email').value.trim(),
+      address:      document.getElementById('nc_address').value.trim(),
+      email:        document.getElementById('nc_email').value.trim(),
       customerType: document.getElementById('nc_type').value,
-      companyId: 1  // adjust as needed
+      companyId: 1
     })
   }).then(r=>r.json()).catch(()=>({success:false,message:'Network error'}));
 
   btn.disabled=false; btn.innerHTML='<i class="fas fa-save"></i> Save Customer';
-
   if (!r.success) { toast(r.message||'Save failed','err'); return; }
+
   toast('Customer added!');
   await loadCustomers();
-  // select the new customer
-  setTimeout(()=>{
-    const sel=document.getElementById('customerSel');
-    if(r.customer_id){ sel.value=r.customer_id; onCustomerChange(); }
-  },300);
+  if (r.customer_id) {
+    const cust = customers.find(c=>c.id==r.customer_id);
+    if (cust) selectSS('customer', cust.id, `[${cust.code}] ${cust.name}`);
+  }
   closeModal('addCustModal');
 }
 
@@ -791,7 +826,7 @@ async function addTerm() {
 async function deleteTerm(id) {
   if (!confirm('Delete this term?')) return;
   const d = await api('delete_term',{id});
-  if (d.success) { await loadPaymentTerms(); }
+  if (d.success) await loadPaymentTerms();
 }
 
 function rebuildTermsDropdown() {
@@ -815,19 +850,100 @@ function renderTermsList() {
     </div>`).join('');
 }
 
-// ── ITEMS TABLE ───────────────────────────────────────────────
-function fillProductSelect(sel) {
-  const cur = sel.value;
-  sel.innerHTML = '<option value="">Select Item</option>' +
-    products.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
-  sel.value = cur;
+// ══ ROW SEARCHABLE SELECT (fixed-position for table cells) ════
+
+let activeRSSId = null;
+
+function openRSS(id) {
+  if (activeRSSId && activeRSSId !== id) closeRSS(activeRSSId);
+  activeRSSId = id;
+  const input = document.getElementById(`prod-display-${id}`);
+  const panel = document.getElementById(`rss-panel-${id}`);
+  const rect  = input.getBoundingClientRect();
+  panel.style.top   = (rect.bottom + window.scrollY + 2) + 'px';
+  panel.style.left  = (rect.left  + window.scrollX)     + 'px';
+  panel.style.width = Math.max(rect.width, 300)          + 'px';
+  panel.classList.add('open');
 }
 
-function fillUnitSelect(sel) {
-  const cur = sel.value;
-  const blank = sel.classList.contains('unit-sel') ? '<option value="">Unit</option>' : '';
-  sel.innerHTML = blank + units.map(u=>`<option value="${u.id}">${u.name}</option>`).join('');
-  sel.value = cur;
+function closeRSS(id) {
+  document.getElementById(`rss-panel-${id}`)?.classList.remove('open');
+  if (activeRSSId === id) activeRSSId = null;
+}
+
+function filterRSS(id) {
+  const q = (document.getElementById(`prod-display-${id}`)?.value || '').toLowerCase();
+  const panel = document.getElementById(`rss-panel-${id}`);
+  let anyVisible = false;
+  panel.querySelectorAll('.rss-opt').forEach(opt => {
+    const show = opt.dataset.search.includes(q);
+    opt.style.display = show ? '' : 'none';
+    if (show) anyVisible = true;
+  });
+  let noRes = panel.querySelector('.rss-no-results');
+  if (!noRes) {
+    noRes = document.createElement('div');
+    noRes.className = 'rss-no-results';
+    noRes.textContent = 'No items found';
+    panel.querySelector('.rss-list').appendChild(noRes);
+  }
+  noRes.style.display = anyVisible ? 'none' : '';
+  openRSS(id);
+}
+
+function selectRSS(id, prodId) {
+  const prod = products.find(p => p.id == prodId);
+  if (!prod) return;
+  document.getElementById(`prod-${id}`).value         = prod.id;
+  document.getElementById(`prod-display-${id}`).value = `${prod.code} | ${prod.name}`;
+  closeRSS(id);
+  onProdFill(id, prod);
+}
+
+function onProdFill(id, prod) {
+  const desc = document.getElementById(`desc-${id}`);
+  if (!desc.value) desc.value = prod.description || '';
+  document.getElementById(`rate-${id}`).value = prod.rate        || 0;
+  document.getElementById(`stp-${id}`).value  = prod.sales_tax   || 0;
+  document.getElementById(`ftp-${id}`).value  = prod.further_tax || 0;
+  if (prod.unit_id) {
+    document.getElementById(`unit-${id}`).value  = prod.unit_id;
+    document.getElementById(`qunit-${id}`).value = prod.unit_id;
+  }
+  calcRow(id);
+}
+
+// Close row SS when clicking outside
+document.addEventListener('click', e => {
+  if (activeRSSId && !e.target.closest('.rss-wrap') && !e.target.closest('.rss-panel')) {
+    closeRSS(activeRSSId);
+  }
+});
+document.addEventListener('scroll', () => {
+  if (activeRSSId) {
+    const input = document.getElementById(`prod-display-${activeRSSId}`);
+    const panel = document.getElementById(`rss-panel-${activeRSSId}`);
+    if (input && panel) {
+      const rect = input.getBoundingClientRect();
+      panel.style.top  = (rect.bottom + window.scrollY + 2) + 'px';
+      panel.style.left = (rect.left  + window.scrollX)     + 'px';
+    }
+  }
+}, true);
+
+// ── ITEMS TABLE ───────────────────────────────────────────────
+function buildRSSPanel(id) {
+  const panel = document.createElement('div');
+  panel.className = 'rss-panel';
+  panel.id = `rss-panel-${id}`;
+  panel.innerHTML = `<div class="rss-list">${
+    products.map(p=>`
+      <div class="rss-opt" data-search="${escAttr((p.code+'|'+p.name).toLowerCase())}" onclick="selectRSS(${id}, ${p.id})">
+        <span class="rss-opt-code">${escHtml(p.code)}</span> | ${escHtml(p.name)}
+      </div>`).join('')
+  }</div>`;
+  document.body.appendChild(panel);
+  return panel;
 }
 
 function addRow() {
@@ -835,15 +951,16 @@ function addRow() {
   const id = rowId;
   const tr = document.createElement('tr');
   tr.id = `row-${id}`;
-
   tr.innerHTML = `
     <td>
-      <select class="ts prod-sel" id="prod-${id}" onchange="onProdChange(${id})">
-        <option value="">Select Item</option>
-        ${products.map(p=>`<option value="${p.id}">${p.name}</option>`).join('')}
-      </select>
+      <div class="rss-wrap">
+        <input type="hidden" id="prod-${id}"/>
+        <input type="text" class="rss-input" id="prod-display-${id}"
+               placeholder="Search item…" autocomplete="off"
+               oninput="filterRSS(${id})"
+               onfocus="openRSS(${id})"/>
+      </div>
     </td>
-    <td><input class="ti" id="code-${id}" type="text" placeholder="Auto-filled" readonly/></td>
     <td><input class="ti" id="desc-${id}" type="text" placeholder="Description"/></td>
     <td>
       <div class="qr-cell">
@@ -875,41 +992,15 @@ function addRow() {
       </div>
     </td>`;
   document.getElementById('itemsTbody').appendChild(tr);
-  // focus product select
-  setTimeout(()=>document.getElementById(`prod-${id}`)?.focus(),80);
-}
-
-function onProdChange(id) {
-  const sel  = document.getElementById(`prod-${id}`);
-  const prod = products.find(p => p.id == sel.value);
-  if (!prod) {
-    document.getElementById(`code-${id}`).value='';
-    document.getElementById(`code-${id}`).classList.remove('autofilled');
-    return;
-  }
-  const code = document.getElementById(`code-${id}`);
-  code.value = prod.code; code.classList.add('autofilled');
-
-  const desc = document.getElementById(`desc-${id}`);
-  if (!desc.value) desc.value = prod.description || '';
-
-  // rate & taxes
-  document.getElementById(`rate-${id}`).value = prod.rate   || 0;
-  document.getElementById(`stp-${id}`).value  = prod.sales_tax   || 0;
-  document.getElementById(`ftp-${id}`).value  = prod.further_tax || 0;
-
-  // unit
-  if (prod.unit_id) {
-    document.getElementById(`unit-${id}`).value  = prod.unit_id;
-    document.getElementById(`qunit-${id}`).value = prod.unit_id;
-  }
-  calcRow(id);
+  buildRSSPanel(id);
+  setTimeout(()=>document.getElementById(`prod-display-${id}`)?.focus(), 80);
 }
 
 function removeRow(id) {
   const tb = document.getElementById('itemsTbody');
   if (tb.rows.length <= 1) { toast('At least one item is required','warn'); return; }
   document.getElementById(`row-${id}`)?.remove();
+  document.getElementById(`rss-panel-${id}`)?.remove();
   updateTotals();
 }
 
@@ -930,13 +1021,12 @@ function calcRow(id) {
   updateTotals();
 }
 
-function setV(id,v){ const el=document.getElementById(id); if(el) el.value=v; }
+function setV(id, v) { const el=document.getElementById(id); if(el) el.value=v; }
 
 function updateTotals() {
   let sub=0, st=0, ft=0;
-  const rows = document.querySelectorAll('#itemsTbody tr');
-  rows.forEach(tr => {
-    const rid = tr.dataset ? parseInt(tr.id.replace('row-','')) : null;
+  document.querySelectorAll('#itemsTbody tr').forEach(tr => {
+    const rid = parseInt(tr.id.replace('row-',''));
     if (!rid) return;
     sub += parseFloat(document.getElementById(`excl-${rid}`)?.value) || 0;
     st  += parseFloat(document.getElementById(`sta-${rid}`)?.value)  || 0;
@@ -959,23 +1049,24 @@ async function saveQuotation() {
   const rows = document.querySelectorAll('#itemsTbody tr');
   if (!rows.length) { toast('Add at least one item','err'); return; }
 
-  // Collect items
   const items = [];
   let valid = true;
   rows.forEach(tr => {
-    const rid  = parseInt(tr.id.replace('row-',''));
-    const psel = document.getElementById(`prod-${rid}`);
-    const name = psel?.options[psel.selectedIndex]?.text || '';
-    if (!psel?.value) { valid=false; psel?.focus(); toast('Select an item in every row','err'); return; }
+    if (!valid) return;
+    const rid     = parseInt(tr.id.replace('row-',''));
+    const prodId  = document.getElementById(`prod-${rid}`)?.value;
+    const display = document.getElementById(`prod-display-${rid}`)?.value || '';
+    if (!prodId) { valid=false; toast('Select an item in every row','err'); return; }
     const qty  = parseFloat(document.getElementById(`qty-${rid}`)?.value) || 0;
     const rate = parseFloat(document.getElementById(`rate-${rid}`)?.value) || 0;
     if (qty <= 0 || rate <= 0) { valid=false; toast('Quantity and Rate must be > 0','err'); return; }
+    const prod = products.find(p=>p.id==prodId);
     items.push({
-      product_id:      psel.value,
-      item_code:       document.getElementById(`code-${rid}`)?.value || '',
-      item_name:       name,
-      description:     document.getElementById(`desc-${rid}`)?.value || '',
-      pack_type:       document.getElementById(`pack-${rid}`)?.value || 'Qty',
+      product_id:      prodId,
+      item_code:       prod?.code  || '',
+      item_name:       prod?.name  || display,
+      description:     document.getElementById(`desc-${rid}`)?.value  || '',
+      pack_type:       document.getElementById(`pack-${rid}`)?.value  || 'Qty',
       quantity:        qty,
       qty_unit_id:     document.getElementById(`qunit-${rid}`)?.value || null,
       unit_id:         document.getElementById(`unit-${rid}`)?.value  || null,
@@ -992,14 +1083,16 @@ async function saveQuotation() {
   if (!valid || !items.length) return;
 
   const payload = {
-    quotation_date:  document.getElementById('qtnDate').value,
-    valid_till:      document.getElementById('validTill').value,
-    customer_id:     custId,
-    contact_person:  document.getElementById('contactPerson').value,
-    salesman_id:     document.getElementById('salesmanSel').value,
-    payment_term_id: document.getElementById('paymentTermSel').value,
-    terms_conditions:document.getElementById('termsConditions').value,
-    remarks:         document.getElementById('remarks').value,
+    quotation_date:   document.getElementById('qtnDate').value,
+    valid_till:       document.getElementById('validTill').value,
+    customer_id:      custId,
+    contact_person:   document.getElementById('contactPerson').value,
+    party_type:       document.getElementById('partyType').value,
+    salesman_id:      document.getElementById('salesmanSel').value,
+    payment_term_id:  document.getElementById('paymentTermSel').value,
+    terms_conditions: document.getElementById('termsConditions').value,
+    remarks:          document.getElementById('remarks').value,
+    footer_note:      document.getElementById('footerNote').value,
     items,
   };
 
@@ -1015,8 +1108,6 @@ async function saveQuotation() {
     toast(`Quotation ${d.quotation_number} saved successfully!`);
     document.getElementById('qtnNumber').value = d.quotation_number;
     document.getElementById('qtnNumberDisplay').textContent = d.quotation_number;
-    // Optionally redirect after 2 sec:
-    // setTimeout(()=>location.href='quotation-list.php', 2000);
   } else {
     toast(d.message || 'Save failed','err');
   }
@@ -1037,7 +1128,9 @@ function toast(msg, type='ok') {
   setTimeout(()=>{ t.style.opacity='0'; t.style.transition='opacity .4s'; setTimeout(()=>t.remove(),400); },3000);
 }
 
-// Close modals on overlay click & Escape
+function escHtml(s)  { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function escAttr(s)  { return String(s||'').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+
 document.querySelectorAll('.modal-ov').forEach(ov=>{
   ov.addEventListener('click', e=>{ if(e.target===ov) ov.classList.remove('show'); });
 });
