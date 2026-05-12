@@ -805,26 +805,106 @@ function initializePage(permissions) {
     }
 
     async function populateAreaCityDropdown() {
-        const areaCitySelect = document.getElementById('areaCity');
-        areaCitySelect.innerHTML = '<option value="">All Cities</option>';
+        const optionsContainer = document.getElementById('areaCityOptions');
+        if (!optionsContainer) return;
+
+        optionsContainer.innerHTML = '';
+
+        // "All Customers" entry
+        const allOption = document.createElement('div');
+        allOption.className = 'dropdown-option';
+        allOption.setAttribute('data-value', '');
+        allOption.setAttribute('data-filter-type', 'all');
+        allOption.textContent = 'All Customers';
+        optionsContainer.appendChild(allOption);
 
         try {
             const response = await fetch('../../../../server/api/sale/pos_invoice/get-cities.php');
             const data = await response.json();
 
-            if (data.success && data.cities.length > 0) {
-                data.cities.forEach(city => {
-                    const option = document.createElement('option');
-                    option.value = city.id;
+            if (data.success) {
+                // Cities (selecting a city shows ALL customers in that city)
+                (data.cities || []).forEach(city => {
+                    const option = document.createElement('div');
+                    option.className = 'dropdown-option';
+                    option.setAttribute('data-value', `city_${city.id}`);
+                    option.setAttribute('data-filter-type', 'city');
+                    option.setAttribute('data-city-id', city.id);
                     option.textContent = city.city_name;
-                    areaCitySelect.appendChild(option);
+                    optionsContainer.appendChild(option);
+                });
+
+                // Areas shown as "CityName / AreaName"
+                (data.areas || []).forEach(area => {
+                    const option = document.createElement('div');
+                    option.className = 'dropdown-option';
+                    option.setAttribute('data-value', `area_${area.area_id}`);
+                    option.setAttribute('data-filter-type', 'area');
+                    option.setAttribute('data-city-id', area.city_id);
+                    option.setAttribute('data-area-id', area.area_id);
+                    option.textContent = `${area.city_name} / ${area.area_name}`;
+                    optionsContainer.appendChild(option);
                 });
             }
         } catch (error) {
-            console.error('Error loading cities:', error);
+            console.error('Error loading cities/areas:', error);
         }
 
-        areaCitySelect.addEventListener('change', filterCustomersByArea);
+        initAreaCityDropdown();
+    }
+
+    function initAreaCityDropdown() {
+        const searchInput = document.getElementById('areaCitySearch');
+        const optionsContainer = document.getElementById('areaCityOptions');
+        const hiddenInput = document.getElementById('areaCity');
+
+        if (!searchInput || !optionsContainer || !hiddenInput) return;
+
+        function filterAreaCityOptions() {
+            const term = searchInput.value.toLowerCase();
+            const options = optionsContainer.getElementsByClassName('dropdown-option');
+            for (let i = 0; i < options.length; i++) {
+                options[i].style.display = options[i].textContent.toLowerCase().includes(term) ? '' : 'none';
+            }
+        }
+
+        function openDropdown() {
+            optionsContainer.style.display = 'block';
+            filterAreaCityOptions();
+        }
+
+        searchInput.addEventListener('click', function (e) {
+            e.stopPropagation();
+            openDropdown();
+        });
+
+        searchInput.addEventListener('focus', function () {
+            openDropdown();
+        });
+
+        searchInput.addEventListener('input', function () {
+            filterAreaCityOptions();
+        });
+
+        optionsContainer.addEventListener('click', function (e) {
+            const opt = e.target.closest('.dropdown-option');
+            if (!opt) return;
+
+            const value       = opt.getAttribute('data-value');
+            const filterType  = opt.getAttribute('data-filter-type');
+            const cityId      = opt.getAttribute('data-city-id');
+            const areaId      = opt.getAttribute('data-area-id');
+
+            searchInput.value = value === '' ? '' : opt.textContent;
+            hiddenInput.value = value;
+            optionsContainer.style.display = 'none';
+
+            filterCustomersByAreaCity(filterType, cityId, areaId);
+        });
+
+        document.addEventListener('click', function () {
+            optionsContainer.style.display = 'none';
+        });
     }
 
     function buildCustomerOption(customer) {
@@ -842,19 +922,21 @@ function initializePage(permissions) {
         return option;
     }
 
-    function filterCustomersByArea() {
-        const selectedCityId = document.getElementById('areaCity').value;
+    function filterCustomersByAreaCity(filterType, cityId, areaId) {
         const customerCodeOptions = document.getElementById('customerCodeOptions');
         customerCodeOptions.innerHTML = '';
 
-        const filteredCustomers = selectedCityId
-            ? customersData.filter(c => String(c.city_id) === String(selectedCityId))
-            : customersData;
+        let filtered;
+        if (filterType === 'city' && cityId) {
+            filtered = customersData.filter(c => String(c.city_id) === String(cityId));
+        } else if (filterType === 'area' && areaId) {
+            filtered = customersData.filter(c => String(c.area_id) === String(areaId));
+        } else {
+            filtered = customersData;
+        }
 
         const fragment = document.createDocumentFragment();
-        filteredCustomers.forEach(customer => {
-            fragment.appendChild(buildCustomerOption(customer));
-        });
+        filtered.forEach(customer => fragment.appendChild(buildCustomerOption(customer)));
         customerCodeOptions.appendChild(fragment);
     }
 

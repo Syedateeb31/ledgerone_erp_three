@@ -52,10 +52,12 @@ if (!$user_id) {
                         <input type="date" id="saleDate" required tabindex="-1">
                     </div>
                     <div class="form-group" id="areaCityGroup">
-                        <label for="areaCity">Area/City</label>
-                        <select id="areaCity" tabindex="-1">
-                            <option value="">All Areas</option>
-                        </select>
+                        <label for="areaCitySearch">Area/City</label>
+                        <div class="searchable-dropdown">
+                            <input type="text" class="search-input" placeholder="Search area or city..." id="areaCitySearch" autocomplete="off" tabindex="-1">
+                            <div class="dropdown-options" id="areaCityOptions"></div>
+                            <input type="hidden" id="areaCity">
+                        </div>
                     </div>
                     <div class="form-group">
                         <label for="customerCode" class="required">Customer Code</label>
