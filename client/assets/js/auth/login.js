@@ -84,9 +84,7 @@ if (loginForm && loginButton) {
         const result = await response.json();
 
         if (result.redirect === 'checkout') {
-            // Redirect to checkout to complete subscription
-            alert(result.message || 'Please complete your subscription');
-            window.location.href = `../auth/checkout.html?tenant_id=${result.tenant_id}`;
+            window.location.href = `checkout.html?tenant_id=${result.tenant_id}`;
             return;
         }
 

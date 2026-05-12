@@ -608,8 +608,11 @@ document.getElementById('trialBtn').addEventListener('click', async function () 
         const result = await response.json();
 
         if (result.success) {
-            alert('Trial activated! You have 14 days of full access.');
-            window.location.href = 'login.html';
+            const params = new URLSearchParams({
+                tenant_id: subscriptionState.tenantId,
+                trial_ends_at: result.trial_ends_at
+            });
+            window.location.href = 'trial-success.html?' + params.toString();
         } else {
             alert('Trial activation failed: ' + result.message);
             this.innerHTML = originalText;
