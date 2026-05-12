@@ -119,6 +119,7 @@
           <div class="dropdown-content">
             <button data-action="customer-add">New Customer</button>
             <button data-action="supplier-add">New Supplier</button>
+            <button data-action="leads">Leads</button>
           </div>
         </div>
 
@@ -1099,14 +1100,17 @@
         customer: {
           "customer-add": `${this.basePath}/client/pages/customer_supplier/customers/customer-list.php`,
           "supplier-add": `${this.basePath}/client/pages/customer_supplier/suppliers/supplier-list.php`,
+          "leads": `${this.basePath}/client/pages/customer_supplier/leads/lead-list.php`,
         },
         sale: {
+          "create-quotation": `${this.basePath}/client/pages/sale/Quotation/quotation-list.php`,
           "sale-invoice": `${this.basePath}/client/pages/sale/pos_invoice/pos-list.php`,
           "pos-invoice": `${this.basePath}/client/pages/sale/pos_invoice/counter-invoice.php`,
           "sale-return": `${this.basePath}/client/pages/sale/sale_return/return-list.php`,
           "sale-reports": `${this.basePath}/client/pages/sale/sales_report/sales-report.php`,
           "sale-order": `${this.basePath}/client/pages/sale/sale_order/order-list.php`,
           "daily-sale-report": `${this.basePath}/client/pages/sale/daily_sale_report/daily-sale-report.php`,
+          "delivery-challan": `${this.basePath}/client/pages/sale/delivery_challan/challan-list.php`,
         },
         purchase: {
           "purchase-order": `${this.basePath}/client/pages/purchase/purchase_order/order-list.php`,
@@ -1207,10 +1211,13 @@
       const actionMap = {
         'customer-add': 'New Customer',
         'supplier-add': 'New Supplier',
+        'leads': 'Leads',
+        'create-quotation': 'Create Quotation',
         'sale-invoice': 'Sale Invoice',
         'pos-invoice': 'POS Invoice',
         'sale-order': 'Sale Order',
         'sale-return': 'Sale Return',
+        'delivery-challan': 'Issue Delivery Challan',
         'sale-reports': 'Sale Reports',
         'purchase-order': 'Purchase Order',
         'new-invoice': 'New Purchase',

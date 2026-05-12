@@ -217,8 +217,8 @@ function renderPermissionsTree(permissions) {
     
     const permissionsStructure = {
         'Dashboard': [],
-        'Customer / Supplier': ['New Customer', 'New Supplier'],
-        'Sale': ['Sale Order', 'Sale Invoice', 'Meter Invoice', 'POS Invoice', 'Sale Reports', 'Daily Sale Report', 'Sale Return'],
+        'Customer / Supplier': ['New Customer', 'New Supplier', 'Leads'],
+        'Sale': ['Sale Order', 'Create Quotation', 'Sale Invoice', 'Meter Invoice', 'POS Invoice', 'Issue Delivery Challan', 'Sale Reports', 'Daily Sale Report', 'Sale Return'],
         'Purchase': ['Purchase Order', 'New Purchase', 'Purchase Tax Invoice', 'Purchase Reports', 'Purchase Return'],
         'Inventory': ['New Product', 'Stock Adjustment', 'Stock Transfer', 'Stock Position', 'Inward Gatepass', 'Outward Gatepass'],
         'Manufacturing': ['Bill of Materials (BOM)', 'Unit Measurement', 'Machine Setup', 'Production Order', 'WIP Management', 'Production Completion', 'Production Expenses', 'Production Wastage', 'Production Report'],
@@ -671,8 +671,8 @@ function openAddPermissionModal() {
     
     const permissionsStructure = {
         'Dashboard': [],
-        'Customer / Supplier': ['New Customer', 'New Supplier'],
-        'Sale': ['Sale Order', 'Sale Invoice', 'Meter Invoice', 'POS Invoice', 'Sale Reports', 'Daily Sale Report', 'Sale Return'],
+        'Customer / Supplier': ['New Customer', 'New Supplier', 'Leads'],
+        'Sale': ['Sale Order', 'Create Quotation', 'Sale Invoice', 'Meter Invoice', 'POS Invoice', 'Issue Delivery Challan', 'Sale Reports', 'Daily Sale Report', 'Sale Return'],
         'Purchase': ['Purchase Order', 'New Purchase', 'Purchase Tax Invoice', 'Purchase Reports', 'Purchase Return'],
         'Inventory': ['New Product', 'Stock Adjustment', 'Stock Transfer', 'Stock Position', 'Inward Gatepass', 'Outward Gatepass'],
         'Manufacturing': ['Bill of Materials (BOM)', 'Unit Measurement', 'Machine Setup', 'Production Order', 'WIP Management', 'Production Completion', 'Production Expenses', 'Production Wastage', 'Production Report'],
