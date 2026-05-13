@@ -200,7 +200,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
             $input['totalGSTAmount'] ?? 0.00,
             $input['shippingFees'] ?? 0.00,
             $input['netAmount'],
-            $input['purchaseInvoiceId'],
+            $input['purchaseInvoiceId'] ?? null,
             $input['biltyNo'],
             $input['transportName'],
             $input['remarks'] ?? null,

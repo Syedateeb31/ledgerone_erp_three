@@ -30,7 +30,7 @@ try {
     }
     
     // Validate required fields
-    $required = ['purchaseDate', 'supplierId', 'branchId', 'purchaseInvoiceId', 'items'];
+    $required = ['purchaseDate', 'supplierId', 'branchId', 'items'];
     foreach ($required as $field) {
         if (empty($input[$field])) {
             throw new Exception("Field {$field} is required");

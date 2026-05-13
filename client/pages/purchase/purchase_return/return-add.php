@@ -52,13 +52,13 @@ if (!$user_id) {
                         <div class="error-message" id="companyError">Please select a company</div>
                     </div>
                     <div class="form-group">
-                        <label for="purchaseInvoice" class="required">Purchase Invoice #</label>
+                        <label for="purchaseInvoice">Purchase Invoice #</label>
                         <div class="searchable-dropdown">
                             <input type="text" class="search-input" autocomplete="off" placeholder="Search purchase invoice..." id="purchaseInvoiceSearch">
                             <div class="dropdown-options" id="purchaseInvoiceOptions">
                                 <!-- Options loaded dynamically -->
                             </div>
-                            <input type="hidden" id="purchaseInvoice" required>
+                            <input type="hidden" id="purchaseInvoice">
                         </div>
                         <div class="error-message" id="purchaseInvoiceError">Please select a purchase invoice</div>
                     </div>
