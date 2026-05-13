@@ -1,6 +1,33 @@
 let currentPage = 1;
 let currentFilters = {};
 
+const TAX_BASE_OPTIONS = {
+    item: [
+        { value: 'trade_price',  label: 'Trade Price' },
+        { value: 'mrp',          label: 'MRP' },
+        { value: 'import_value', label: 'Import Value' },
+        { value: 'turnover',     label: 'Turnover' },
+    ],
+    invoice: [
+        { value: 'total_bill',           label: 'Total Bill' },
+        { value: 'value_excl_sales_tax', label: 'Value Excluding Sales Tax (Total Bill - Discount Amt)' },
+        { value: 'net_amount',           label: 'Net Amount' },
+    ]
+};
+
+function updateTaxBaseOptions(level, selectedValue) {
+    const select = document.getElementById('taxBase');
+    const options = TAX_BASE_OPTIONS[level] || TAX_BASE_OPTIONS.item;
+    select.innerHTML = '<option value="">Select Tax Base</option>';
+    options.forEach(opt => {
+        const el = document.createElement('option');
+        el.value = opt.value;
+        el.textContent = opt.label;
+        if (selectedValue && opt.value === selectedValue) el.selected = true;
+        select.appendChild(el);
+    });
+}
+
 function loadCountries() {
     fetch('../../../../server/api/inventory/countries/countries-list.php')
         .then(response => response.json())
@@ -33,6 +60,10 @@ window.addEventListener('load', function () {
     document.getElementById('cancelBtn').addEventListener('click', closeModal);
     document.getElementById('taxRegimeForm').addEventListener('submit', handleFormSubmit);
     
+    document.getElementById('applicationLevel').addEventListener('change', function() {
+        updateTaxBaseOptions(this.value);
+    });
+
     document.getElementById('searchInput').addEventListener('input', debounce(applyFilters, 500));
     document.getElementById('countryFilter').addEventListener('change', applyFilters);
     document.getElementById('taxAuthorityFilter').addEventListener('change', applyFilters);
@@ -177,6 +208,8 @@ function openAddModal() {
     document.getElementById('taxRegimeForm').removeAttribute('data-id');
     document.getElementById('effectiveFrom').valueAsDate = new Date();
     document.getElementById('countryId').value = '';
+    document.getElementById('applicationLevel').value = 'item';
+    updateTaxBaseOptions('item');
     document.getElementById('taxRegimeModal').style.display = 'flex';
 }
 
@@ -199,12 +232,13 @@ function editTaxRegime(regimeId) {
                 document.getElementById('regimeCode').value = regime.regime_code || '';
                 document.getElementById('countryId').value = regime.country_id || '';
                 document.getElementById('taxAuthority').value = regime.tax_authority || '';
-                document.getElementById('taxBase').value = regime.tax_base || '';
+                const appLevel = regime.application_level || 'item';
+                document.getElementById('applicationLevel').value = appLevel;
+                updateTaxBaseOptions(appLevel, regime.tax_base || '');
                 document.getElementById('legalReference').value = regime.legal_reference || '';
                 document.getElementById('financeActYear').value = regime.finance_act_year || new Date().getFullYear();
                 document.getElementById('formulaTemplate').value = regime.formula_template || '';
                 document.getElementById('appliesAtStage').value = regime.applies_at_stage || 'all';
-                document.getElementById('applicationLevel').value = regime.application_level || 'item';
                 document.getElementById('effectiveFrom').value = regime.effective_from || '';
                 document.getElementById('effectiveTo').value = regime.effective_to || '';
                 document.getElementById('description').value = regime.description || '';

@@ -118,7 +118,8 @@ try {
                 'taxRateId'     => $t['tax_rate_id'] ?? null,
                 'taxName'       => $t['regime_name'] ?? 'Tax',
                 'ratePercentage'=> floatval($t['rate_percentage'] ?? 0),
-                'baseAmount'    => floatval($input['netAmount'] ?? 0),
+                // Use the per-regime base the frontend resolved (total_bill / value_excl_sales_tax / net_amount)
+                'baseAmount'    => floatval($t['base_amount'] ?? $input['netAmount'] ?? 0),
                 'taxAmount'     => floatval($t['calculated_amount'] ?? 0),
             ];
         }, $input['invoiceLevelTaxes']);

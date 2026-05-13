@@ -59,6 +59,8 @@ try {
             tr.id,
             tr.regime_code,
             tr.regime_name,
+            tr.tax_base,
+            tr.formula_template,
             tr.is_tax_inclusive,
             COALESCE(
                 (SELECT tr_rate.rate_percentage 

@@ -5,7 +5,9 @@
       "Bash(Get-ChildItem -Path \"C:\\\\xampp\\\\htdocs\\\\ledgerone_erp\" -Directory)",
       "Bash(Select-Object Name)",
       "Bash(Get-ChildItem -Path \"C:\\\\xampp\\\\htdocs\\\\ledgerone_erp\\\\server\\\\api\\\\sale\" -Recurse -Filter \"*pos*\")",
-      "Bash(Select-Object FullName)"
+      "Bash(Select-Object FullName)",
+      "Bash(xargs grep -l \"tax_regimes\")",
+      "Bash(xargs grep -l \"CREATE TABLE.*tax_regimes\")"
     ]
   }
 }

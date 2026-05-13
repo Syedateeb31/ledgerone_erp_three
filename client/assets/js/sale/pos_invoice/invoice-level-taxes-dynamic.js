@@ -75,62 +75,112 @@ function renderInvoiceLevelTaxColumns() {
 }
 
 /**
- * Calculate invoice-level taxes
- * Formula: Net Amount × (Rate % / 100) = Tax Amount
+ * Resolve the correct base amount for an invoice-level tax regime.
+ * tax_base drives which invoice total is used:
+ *   total_bill           → sum of all row net amounts before any invoice discount
+ *   value_excl_sales_tax → total_bill minus invoice discount (does NOT include shipping)
+ *   net_amount (default) → value_excl_sales_tax plus shipping fees
+ */
+function resolveInvoiceBase(regime) {
+    switch (regime.tax_base) {
+        case 'total_bill':
+            return window.currentTotalBill || 0;
+        case 'value_excl_sales_tax':
+            return window.currentValueExclSalesTax || 0;
+        case 'net_amount':
+        default:
+            return window.currentNetAmount
+                || parseFloat(document.getElementById('netAmount')?.textContent)
+                || 0;
+    }
+}
+
+/**
+ * Evaluate a formula_template string with invoice variables substituted.
+ * Supported tokens: {total_bill}, {value_excl_sales_tax}, {net_amount}, {rate}
+ * Falls back to simple base × rate / 100 when template is absent.
+ */
+function applyInvoiceFormula(formulaTemplate, base, ratePercent, isTaxInclusive) {
+    if (!formulaTemplate || formulaTemplate.trim() === '' || formulaTemplate === '0') {
+        return isTaxInclusive
+            ? (ratePercent > 0 ? base * ratePercent / (100 + ratePercent) : 0)
+            : base * (ratePercent / 100);
+    }
+
+    let expr = formulaTemplate
+        .replace(/{total_bill}/g,           window.currentTotalBill          || 0)
+        .replace(/{value_excl_sales_tax}/g,  window.currentValueExclSalesTax  || 0)
+        .replace(/{net_amount}/g,            window.currentNetAmount          || 0)
+        .replace(/{trade_price}/g,           base)
+        .replace(/{mrp}/g,                   base)
+        .replace(/{import_value}/g,          base)
+        .replace(/{rate}/g,                  ratePercent);
+
+    try {
+        // eslint-disable-next-line no-new-func
+        const result = Function('"use strict"; return (' + expr + ')')();
+        return isFinite(result) ? Math.max(0, result) : 0;
+    } catch (e) {
+        console.warn('Invoice formula eval failed:', expr, e);
+        return 0;
+    }
+}
+
+/**
+ * Calculate invoice-level taxes using each regime's tax_base and formula_template.
  */
 function calculateInvoiceLevelTaxes() {
     console.log('calculateInvoiceLevelTaxes called. Regimes:', window.invoiceLevelTaxRegimes);
-    
+
     if (!window.invoiceLevelTaxRegimes || window.invoiceLevelTaxRegimes.length === 0) {
         console.log('No invoice-level tax regimes found');
         return 0;
     }
 
-    // Check if fields exist, if not render them
     const container = document.getElementById('invoiceLevelTaxesContainer');
-    console.log('Container found:', !!container, 'Children count:', container?.children.length);
-    
     if (container && container.children.length === 0) {
-        console.log('Rendering invoice-level tax columns');
         renderInvoiceLevelTaxColumns();
     }
 
-    let netAmount = window.currentNetAmount;
-    if (!netAmount || netAmount === 0) {
-        netAmount = parseFloat(document.getElementById('netAmount')?.textContent) || 0;
-    }
-
-    console.log('Calculating invoice-level taxes. Net Amount:', netAmount);
+    // Track the base amount used per regime so it can be saved correctly
+    window.invoiceTaxBaseAmounts = {};
 
     let totalInvoiceTax = 0;
     let totalExclusiveTax = 0;
 
     window.invoiceLevelTaxRegimes.forEach(regime => {
-        const ratePercent = parseFloat(regime.rate_percentage) || 0;
+        const ratePercent   = parseFloat(regime.rate_percentage) || 0;
         const isTaxInclusive = regime.is_tax_inclusive == 1;
+        const base          = resolveInvoiceBase(regime);
 
-        // Inclusive: tax is a portion already inside netAmount — back-calculate
-        // Exclusive: tax is added on top of netAmount
-        const taxAmount = isTaxInclusive
-            ? (ratePercent > 0 ? netAmount * ratePercent / (100 + ratePercent) : 0)
-            : netAmount * (ratePercent / 100);
+        window.invoiceTaxBaseAmounts[regime.id] = base;
 
-        console.log(`${regime.regime_name} (${isTaxInclusive ? 'inclusive' : 'exclusive'}): ${ratePercent}% → ${taxAmount}`);
+        const taxAmount = applyInvoiceFormula(
+            regime.formula_template || '',
+            base,
+            ratePercent,
+            isTaxInclusive
+        );
+
+        console.log(`${regime.regime_name} [tax_base=${regime.tax_base}] base=${base} rate=${ratePercent}% → tax=${taxAmount}`);
 
         const percentEl = document.getElementById(`invoiceTax_${regime.id}_percent`);
-        const amountEl = document.getElementById(`invoiceTax_${regime.id}_amount`);
+        const amountEl  = document.getElementById(`invoiceTax_${regime.id}_amount`);
 
         if (percentEl) percentEl.textContent = ratePercent.toFixed(2);
-        if (amountEl) amountEl.textContent = taxAmount.toFixed(2);
+        if (amountEl)  amountEl.textContent  = taxAmount.toFixed(2);
 
         totalInvoiceTax += taxAmount;
         if (!isTaxInclusive) totalExclusiveTax += taxAmount;
     });
 
-    // Only exclusive taxes increase what the customer owes; inclusive taxes are already in netAmount
+    // Net receivable = net_amount + all exclusive taxes (inclusive taxes are already inside net_amount)
     const netReceivableEl = document.getElementById('netReceivable');
     if (netReceivableEl) {
-        const netReceivable = netAmount + totalExclusiveTax;
+        const baseNetAmount = window.currentNetAmount
+            || parseFloat(document.getElementById('netAmount')?.textContent)
+            || 0;
+        const netReceivable = baseNetAmount + totalExclusiveTax;
         netReceivableEl.textContent = netReceivable.toFixed(2);
         console.log('Net Receivable updated:', netReceivable);
     }

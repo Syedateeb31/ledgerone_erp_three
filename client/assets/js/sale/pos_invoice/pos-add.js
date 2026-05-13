@@ -2704,8 +2704,10 @@ function initializePage(permissions) {
 
             console.log('Summary: totalNetAmountItems =', totalNetAmountItems, 'netAmount =', netAmount);
 
-            // Store net amount FIRST before any calculations
-            window.currentNetAmount = netAmount;
+            // Expose invoice totals for invoice-level tax base resolution
+            window.currentTotalBill = totalNetAmountItems;              // before any invoice discount
+            window.currentValueExclSalesTax = afterDiscount;            // totalBill - invoiceDiscount
+            window.currentNetAmount = netAmount;                        // afterDiscount + shippingFees
 
             // Update DOM element
             const netAmountEl = document.getElementById('netAmount');
@@ -3507,13 +3509,14 @@ function saveInvoice(status = 'Posted') {
         status: status,
         items: [],
         invoiceLevelTaxes: window.invoiceLevelTaxRegimes ? window.invoiceLevelTaxRegimes.map(regime => {
-            const percentEl = document.getElementById(`invoiceTax_${regime.id}_percent`);
             const amountEl = document.getElementById(`invoiceTax_${regime.id}_amount`);
+            const baseAmounts = window.invoiceTaxBaseAmounts || {};
             return {
                 regime_id: regime.id,
                 regime_name: regime.regime_name,
                 rate_percentage: parseFloat(regime.rate_percentage),
-                calculated_amount: parseFloat(amountEl?.textContent) || 0
+                calculated_amount: parseFloat(amountEl?.textContent) || 0,
+                base_amount: baseAmounts[regime.id] ?? window.currentNetAmount ?? 0
             };
         }) : []
     };

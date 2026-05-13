@@ -4,18 +4,29 @@
  * Evaluates formula_template with dynamic variables
  */
 
-function calculateTaxFromFormula($formulaTemplate, $basePrice, $ratePercentage) {
+/**
+ * $extraVars: optional array for invoice-level tokens, e.g.:
+ *   ['total_bill' => 5000, 'value_excl_sales_tax' => 4800, 'net_amount' => 4900]
+ * Item-level callers omit it; invoice-level callers pass it.
+ */
+function calculateTaxFromFormula($formulaTemplate, $basePrice, $ratePercentage, $extraVars = []) {
     if (!$formulaTemplate || $formulaTemplate === '0') {
         return 0;
     }
-    
-    // Replace tokens with actual values
+
     $formula = $formulaTemplate;
-    $formula = str_replace('{trade_price}', $basePrice, $formula);
-    $formula = str_replace('{mrp}', $basePrice, $formula);
-    $formula = str_replace('{rate}', $ratePercentage, $formula);
-    
-    // Evaluate the formula safely
+
+    // Invoice-level tokens
+    $formula = str_replace('{total_bill}',          $extraVars['total_bill']          ?? $basePrice, $formula);
+    $formula = str_replace('{value_excl_sales_tax}', $extraVars['value_excl_sales_tax'] ?? $basePrice, $formula);
+    $formula = str_replace('{net_amount}',           $extraVars['net_amount']           ?? $basePrice, $formula);
+
+    // Item-level tokens
+    $formula = str_replace('{trade_price}', $basePrice,      $formula);
+    $formula = str_replace('{mrp}',         $basePrice,      $formula);
+    $formula = str_replace('{import_value}',$basePrice,      $formula);
+    $formula = str_replace('{rate}',        $ratePercentage, $formula);
+
     return evaluateFormula($formula);
 }
 
