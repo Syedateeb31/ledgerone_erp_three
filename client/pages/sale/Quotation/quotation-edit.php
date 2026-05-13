@@ -9,6 +9,7 @@ if (!$user_id || !$tenant_id) {
     exit;
 }
 
+// ── AJAX actions ─────────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['action'])) {
     header('Content-Type: application/json');
     $action = $_GET['action'];
@@ -19,23 +20,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['action'])) {
         exit;
     }
 
+    $tid = (int)$tenant_id;
+    $uid = (int)$user_id;
+
     try {
-        // ── 1. SAVE QUOTATION ─────────────────────────────────
-        if ($action === 'save') {
+
+        // ── UPDATE QUOTATION ──────────────────────────────────
+        if ($action === 'update') {
+            if (empty($input['quotation_id'])) throw new Exception('Quotation ID is required');
             if (empty($input['customer_id']))  throw new Exception('Customer is required');
             if (empty($input['items']))        throw new Exception('At least one item is required');
 
-            $tid = (int)$GLOBALS['tenant_id'];
-            $uid = (int)$GLOBALS['user_id'];
+            $qid = (int)$input['quotation_id'];
 
-            $st = $pdo->prepare("SELECT quotation_number FROM quotations
-                                  WHERE tenant_id=? AND is_deleted=0
-                                  ORDER BY id DESC LIMIT 1");
-            $st->execute([$tid]);
-            $last = $st->fetchColumn();
-            $num  = $last ? ((int)substr($last, 4)) + 1 : 1;
-            $qno  = 'QTN-' . str_pad($num, 4, '0', STR_PAD_LEFT);
+            // Guard: confirm it exists, belongs to this tenant, and is editable
+            $stChk = $pdo->prepare("SELECT id, status FROM quotations
+                                     WHERE id=? AND tenant_id=? AND is_deleted=0");
+            $stChk->execute([$qid, $tid]);
+            $existing = $stChk->fetch(PDO::FETCH_ASSOC);
+            if (!$existing) throw new Exception('Quotation not found');
+            if ($existing['status'] === 'converted') throw new Exception('Cannot edit a converted quotation');
 
+            // Recalculate totals from submitted items
             $subtotal = $total_st = $total_ft = 0;
             foreach ($input['items'] as $item) {
                 $subtotal += (float)($item['excl_tax']        ?? 0);
@@ -46,37 +52,51 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['action'])) {
 
             $pdo->beginTransaction();
 
-            $st = $pdo->prepare("INSERT INTO quotations
-                (tenant_id, quotation_number, quotation_date, valid_till,
-                 customer_id, contact_person, salesman_id, payment_term_id,
-                 terms_conditions, remarks, footer_note, party_type, status,
-                 subtotal, total_sales_tax, total_further_tax, grand_total,
-                 created_by, updated_by)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,'draft',?,?,?,?,?,?)");
-            $st->execute([
-                $tid,
-                $qno,
+            // Update header
+            $stU = $pdo->prepare("UPDATE quotations SET
+                quotation_date   = ?,
+                valid_till       = ?,
+                customer_id      = ?,
+                contact_person   = ?,
+                salesman_id      = ?,
+                payment_term_id  = ?,
+                terms_conditions = ?,
+                remarks          = ?,
+                footer_note      = ?,
+                party_type       = ?,
+                subtotal         = ?,
+                total_sales_tax  = ?,
+                total_further_tax= ?,
+                grand_total      = ?,
+                updated_by       = ?,
+                updated_at       = NOW()
+                WHERE id=? AND tenant_id=?");
+            $stU->execute([
                 $input['quotation_date'] ?: date('Y-m-d'),
-                $input['valid_till'] ?: null,
+                $input['valid_till']     ?: null,
                 (int)$input['customer_id'],
                 $input['contact_person'] ?: null,
                 !empty($input['salesman_id'])     ? (int)$input['salesman_id']     : null,
                 !empty($input['payment_term_id']) ? (int)$input['payment_term_id'] : null,
                 $input['terms_conditions'] ?: null,
-                $input['remarks'] ?: null,
-                $input['footer_note'] ?: null,
-                $input['party_type']  ?: null,
+                $input['remarks']          ?: null,
+                $input['footer_note']      ?: null,
+                $input['party_type']       ?: null,
                 $subtotal, $total_st, $total_ft, $grand,
-                $uid, $uid,
+                $uid,
+                $qid, $tid,
             ]);
-            $qid = $pdo->lastInsertId();
+
+            // Replace items: delete old, insert fresh
+            $pdo->prepare("DELETE FROM quotation_items WHERE quotation_id=? AND tenant_id=?")
+                ->execute([$qid, $tid]);
 
             $si = $pdo->prepare("INSERT INTO quotation_items
                 (quotation_id, tenant_id, sort_order, product_id, item_code, item_name,
-                 description, pack_type, quantity, qty_unit_id, unit_id,
+                 description, pack_type, quantity, unit_id,
                  rate, excl_tax, sales_tax_pct, sales_tax_amt,
                  further_tax_pct, further_tax_amt, incl_tax, line_total)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
             foreach ($input['items'] as $i => $it) {
                 $si->execute([
                     $qid, $tid, $i + 1,
@@ -84,10 +104,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['action'])) {
                     $it['item_code']   ?? null,
                     $it['item_name']   ?? '',
                     $it['description'] ?? null,
-                    $it['pack_type']   ?? 'Qty',
+                    'Qty',
                     (float)($it['quantity']        ?? 1),
-                    !empty($it['qty_unit_id']) ? (int)$it['qty_unit_id'] : null,
-                    !empty($it['unit_id'])     ? (int)$it['unit_id']     : null,
+                    !empty($it['unit_id']) ? (int)$it['unit_id'] : null,
                     (float)($it['rate']            ?? 0),
                     (float)($it['excl_tax']        ?? 0),
                     (float)($it['sales_tax_pct']   ?? 0),
@@ -100,77 +119,66 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['action'])) {
             }
 
             $pdo->commit();
-            resp(true, ['quotation_number' => $qno, 'id' => $qid], 'Quotation saved successfully');
+            resp(true, [], 'Quotation updated successfully');
         }
 
-        // ── 2. LOAD CUSTOMERS ─────────────────────────────────
+        // ── CUSTOMERS ─────────────────────────────────────────
         if ($action === 'customers') {
             $st = $pdo->prepare("SELECT id, customer_code AS code, customer_name AS name,
                                         primary_phone AS phone, address, email
                                   FROM customers WHERE tenant_id=? ORDER BY customer_name");
-            $st->execute([$tenant_id]);
+            $st->execute([$tid]);
             resp(true, ['data' => $st->fetchAll(PDO::FETCH_ASSOC)]);
         }
 
-        // ── 3. LOAD PRODUCTS ──────────────────────────────────
+        // ── PRODUCTS ──────────────────────────────────────────
         if ($action === 'products') {
             $st = $pdo->prepare("SELECT id, code, name, description,
                                         trade_price AS rate, sales_tax, further_tax,
                                         default_unit_id AS unit_id
                                   FROM products WHERE tenant_id=? AND is_active=1 ORDER BY name");
-            $st->execute([$tenant_id]);
+            $st->execute([$tid]);
             resp(true, ['data' => $st->fetchAll(PDO::FETCH_ASSOC)]);
         }
 
-        // ── 4. LOAD SALESMEN ──────────────────────────────────
+        // ── SALESMEN ──────────────────────────────────────────
         if ($action === 'salesmen') {
             $st = $pdo->prepare("SELECT id, full_name AS name FROM employees
                                   WHERE tenant_id=? AND current_status='active' AND is_terminated=0
                                   ORDER BY full_name");
-            $st->execute([$tenant_id]);
+            $st->execute([$tid]);
             resp(true, ['data' => $st->fetchAll(PDO::FETCH_ASSOC)]);
         }
 
-        // ── 5. LOAD PAYMENT TERMS ─────────────────────────────
+        // ── PAYMENT TERMS ─────────────────────────────────────
         if ($action === 'payment_terms') {
             $st = $pdo->prepare("SELECT id, term_name FROM payment_terms
                                   WHERE (tenant_id=? OR tenant_id=0) AND is_active=1 ORDER BY id");
-            $st->execute([$tenant_id]);
+            $st->execute([$tid]);
             resp(true, ['data' => $st->fetchAll(PDO::FETCH_ASSOC)]);
         }
 
-        // ── 6. ADD PAYMENT TERM ───────────────────────────────
+        // ── ADD PAYMENT TERM ──────────────────────────────────
         if ($action === 'add_term') {
             if (empty($input['term_name'])) throw new Exception('Term name is required');
             $st = $pdo->prepare("INSERT INTO payment_terms (tenant_id, term_name, days) VALUES (?,?,?)");
-            $st->execute([$tenant_id, trim($input['term_name']), (int)($input['days'] ?? 0)]);
+            $st->execute([$tid, trim($input['term_name']), (int)($input['days'] ?? 0)]);
             resp(true, ['id' => $pdo->lastInsertId()], 'Term added');
         }
 
-        // ── 7. DELETE PAYMENT TERM ────────────────────────────
+        // ── DELETE PAYMENT TERM ───────────────────────────────
         if ($action === 'delete_term') {
             $st = $pdo->prepare("DELETE FROM payment_terms WHERE id=? AND tenant_id=?");
-            $st->execute([(int)$input['id'], $tenant_id]);
+            $st->execute([(int)$input['id'], $tid]);
             resp(true, [], 'Term deleted');
         }
 
-        // ── 8. LOAD UNITS ─────────────────────────────────────
+        // ── UNITS ─────────────────────────────────────────────
         if ($action === 'units') {
             $st = $pdo->prepare("SELECT id, uom_name AS name, uom_name AS symbol
                                   FROM uom WHERE (tenant_id=? OR tenant_id=0) ORDER BY uom_name");
-            $st->execute([$tenant_id]);
+            $st->execute([$tid]);
             resp(true, ['data' => $st->fetchAll(PDO::FETCH_ASSOC)]);
-        }
-
-        // ── 9. NEXT QTN NUMBER ────────────────────────────────
-        if ($action === 'next_number') {
-            $st = $pdo->prepare("SELECT quotation_number FROM quotations
-                                  WHERE tenant_id=? AND is_deleted=0 ORDER BY id DESC LIMIT 1");
-            $st->execute([$tenant_id]);
-            $last = $st->fetchColumn();
-            $num  = $last ? ((int)substr($last, 4)) + 1 : 1;
-            $qno  = 'QTN-' . str_pad($num, 4, '0', STR_PAD_LEFT);
-            resp(true, ['number' => $qno]);
         }
 
     } catch (Exception $e) {
@@ -180,14 +188,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['action'])) {
     }
     exit;
 }
+
+// ── Load existing quotation for the page ─────────────────────
+$qid = (int)($_GET['id'] ?? 0);
+if (!$qid) { header('Location: quotation-list.php'); exit; }
+
+$stQ = $pdo->prepare("SELECT q.*, c.customer_name, c.customer_code
+                       FROM quotations q
+                       LEFT JOIN customers c ON c.id = q.customer_id AND c.tenant_id = q.tenant_id
+                       WHERE q.id=? AND q.tenant_id=? AND q.is_deleted=0");
+$stQ->execute([$qid, $tenant_id]);
+$quotation = $stQ->fetch(PDO::FETCH_ASSOC);
+if (!$quotation) { header('Location: quotation-list.php'); exit; }
+if ($quotation['status'] === 'converted') {
+    header('Location: quotation-list.php?err=converted'); exit;
+}
+
+$stI = $pdo->prepare("SELECT * FROM quotation_items
+                       WHERE quotation_id=? AND tenant_id=? ORDER BY sort_order");
+$stI->execute([$qid, $tenant_id]);
+$existingItems = $stI->fetchAll(PDO::FETCH_ASSOC);
+
 require_once '../../../../includes/dashboard.php';
+
+// Status badge config
+$statusBadgeMap = [
+    'draft'     => ['label'=>'Draft',     'class'=>'status-draft'],
+    'sent'      => ['label'=>'Sent',      'class'=>'status-sent'],
+    'approved'  => ['label'=>'Approved',  'class'=>'status-approved'],
+    'rejected'  => ['label'=>'Rejected',  'class'=>'status-rejected'],
+    'cancelled' => ['label'=>'Cancelled', 'class'=>'status-cancelled'],
+];
+$badge = $statusBadgeMap[$quotation['status']] ?? ['label'=>ucfirst($quotation['status']),'class'=>'status-draft'];
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Quotation - LedgerOne ERP</title>
+<title>Edit Quotation <?= htmlspecialchars($quotation['quotation_number']) ?> - LedgerOne ERP</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
 /* ── RESET & BASE ─────────────────────────────────────────── */
@@ -198,10 +237,10 @@ body{background:#f7f9fc;color:#2f3b4c;line-height:1.5;padding:20px}
 /* ── HEADER ──────────────────────────────────────────────── */
 .header{padding:16px 26px;border-bottom:1px solid #e1e6ee;display:flex;justify-content:space-between;align-items:center;background:#fff;position:sticky;top:0;z-index:100}
 .header-left h1{font-size:19px;font-weight:700;color:#0e1a2b;display:flex;align-items:center;gap:9px}
-.header-left h1 i{color:#1f7bff;font-size:17px}
+.header-left h1 i{color:#f59e0b;font-size:17px}
 .header-left p{color:#6b7280;font-size:12px;margin-top:2px}
-.qtn-chip{background:#f0f6ff;border:1.5px solid #c8dbff;border-radius:8px;padding:7px 18px;text-align:center;min-width:130px}
-.qtn-chip .no{font-family:"Courier New",monospace;font-size:16px;font-weight:700;color:#1f7bff}
+.qtn-chip{background:#fff8ed;border:1.5px solid #fde68a;border-radius:8px;padding:7px 18px;text-align:center;min-width:130px}
+.qtn-chip .no{font-family:"Courier New",monospace;font-size:16px;font-weight:700;color:#d97706}
 .qtn-chip .lbl{font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:.6px;margin-top:1px}
 
 /* ── FORM AREA ────────────────────────────────────────────── */
@@ -258,7 +297,7 @@ textarea.remarks-ta{height:60px}
 .ss-opt-code{font-family:"Courier New",monospace;font-size:11px;color:#9aa1ae;margin-right:4px}
 .ss-no-results{padding:12px 10px;font-size:12px;color:#9aa1ae;text-align:center}
 
-/* ── ROW SEARCHABLE SELECT (fixed-position for table cells) ── */
+/* ── ROW SEARCHABLE SELECT ────────────────────────────────── */
 .rss-wrap{position:relative;width:100%}
 .rss-input{height:29px;padding:0 6px;border:1.5px solid #d6dbe4;border-radius:5px;font-size:12px;color:#2f3b4c;font-family:inherit;width:100%;background:#fff;transition:border-color .13s}
 .rss-input:focus{outline:none;border-color:#1f7bff;box-shadow:0 0 0 2px rgba(31,123,255,.08)}
@@ -277,8 +316,6 @@ textarea.remarks-ta{height:60px}
 .btn-sm.primary:hover{background:#1a6cdc}
 .btn-sm.outline{background:#fff;border:1.5px solid #d6dbe4;color:#2f3b4c}
 .btn-sm.outline:hover{border-color:#1f7bff;color:#1f7bff;background:#f0f6ff}
-.btn-sm.danger{background:#fff;border:1.5px solid #fecdd3;color:#e34f4f}
-.btn-sm.danger:hover{background:#fef2f2}
 .btn-sm.icon-only{width:33px;padding:0;justify-content:center}
 .btn-sm:disabled{opacity:.5;cursor:not-allowed}
 
@@ -286,7 +323,7 @@ textarea.remarks-ta{height:60px}
 .items-wrap{padding:0 22px 16px}
 .items-title{font-size:13px;font-weight:700;color:#1f7bff;padding:12px 0 10px;border-bottom:2px solid #1f7bff;margin-bottom:10px;letter-spacing:.3px}
 .tbl-scroll{overflow-x:auto;border:1px solid #e1e6ee;border-radius:8px}
-table{width:100%;border-collapse:collapse;min-width:1180px;font-size:12px}
+table{width:100%;border-collapse:collapse;min-width:1100px;font-size:12px}
 thead tr{background:#f0f3f8;border-bottom:2px solid #e1e6ee}
 thead th{padding:9px 6px;text-align:left;font-size:10px;font-weight:700;color:#5a6472;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap}
 thead th.r{text-align:right}
@@ -301,19 +338,11 @@ tbody td{padding:4px 4px;vertical-align:middle}
 .ts{height:29px;padding:0 20px 0 6px;border:1.5px solid #d6dbe4;border-radius:5px;font-size:12px;color:#2f3b4c;font-family:inherit;width:100%;appearance:none;background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='9' height='9' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E") no-repeat right 5px center;cursor:pointer;transition:border-color .13s}
 .ts:focus{outline:none;border-color:#1f7bff}
 
-.qr-cell{display:flex;align-items:center;gap:3px}
-.qr-cell .ts.pack{width:68px}
-.qr-cell .ti.qty{width:48px}
-.qr-cell .ts.qunit{width:72px}
-
 .act-cell{display:flex;gap:3px;justify-content:center}
 .bico{width:25px;height:25px;border:none;border-radius:5px;cursor:pointer;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;transition:opacity .15s,transform .1s;font-family:inherit}
 .bico:hover{opacity:.8;transform:scale(1.08)}
 .bico.add{background:#1f7bff;color:#fff}
 .bico.del{background:#e34f4f;color:#fff}
-
-.add-row-btn{display:inline-flex;align-items:center;gap:6px;margin-top:9px;background:none;border:2px dashed #1f7bff;border-radius:6px;padding:6px 16px;color:#1f7bff;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;transition:background .15s}
-.add-row-btn:hover{background:#f0f6ff}
 
 /* totals bar */
 .totals-bar{display:flex;justify-content:flex-end;gap:6px;margin-top:10px;flex-wrap:wrap}
@@ -327,8 +356,8 @@ tbody td{padding:4px 4px;vertical-align:middle}
 /* ── FOOTER ───────────────────────────────────────────────── */
 .footer{display:flex;justify-content:flex-end;gap:9px;padding:12px 22px;border-top:1px solid #e1e6ee;background:#fff;position:sticky;bottom:0}
 .btn-main{height:37px;padding:0 20px;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;border:none;display:inline-flex;align-items:center;gap:7px;font-family:inherit;transition:all .15s}
-.btn-main.primary{background:#1f7bff;color:#fff}
-.btn-main.primary:hover{background:#1a6cdc}
+.btn-main.primary{background:#f59e0b;color:#fff}
+.btn-main.primary:hover{background:#d97706}
 .btn-main.sec{background:#eff2f7;border:1.5px solid #c9cfda;color:#2f3b4c}
 .btn-main.sec:hover{background:#e4e8ef}
 .btn-main:disabled{opacity:.5;cursor:not-allowed}
@@ -360,8 +389,13 @@ tbody td{padding:4px 4px;vertical-align:middle}
 /* toast */
 .toast{position:fixed;top:16px;right:20px;padding:10px 18px;border-radius:7px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px;box-shadow:0 4px 14px rgba(0,0,0,.15);z-index:9999;color:#fff;animation:slideUp .22s ease}
 
+/* status badges */
 .status-badge{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:12px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px}
-.status-draft{background:#fef9c3;color:#a16207}
+.status-draft    {background:#fef9c3;color:#a16207}
+.status-sent     {background:#e0f2fe;color:#0369a1}
+.status-approved {background:#dcfce7;color:#166534}
+.status-rejected {background:#fee2e2;color:#991b1b}
+.status-cancelled{background:#f1f5f9;color:#475569}
 
 @media(max-width:900px){.fg-3,.fg-4,.fg-5{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:600px){body{padding:8px}.fg-3,.fg-4,.fg-5,.fg-2{grid-template-columns:1fr}.header{flex-direction:column;align-items:flex-start;gap:8px}.items-wrap{padding:0 10px 12px}.form-area{padding:12px}}
@@ -369,18 +403,29 @@ tbody td{padding:4px 4px;vertical-align:middle}
 </head>
 <body>
 
+<!-- Inject server-side data for JS pre-population -->
+<script>
+const editData = {
+  quotation: <?= json_encode($quotation, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP) ?>,
+  items:     <?= json_encode($existingItems, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP) ?>
+};
+</script>
+
 <div class="container">
 
   <!-- ══ HEADER ══════════════════════════════════════════════ -->
   <div class="header">
     <div class="header-left">
-      <h1><i class="fas fa-file-invoice"></i> New Quotation
-        <span class="status-badge status-draft"><i class="fas fa-circle" style="font-size:7px"></i>Draft</span>
+      <h1>
+        <i class="fas fa-file-edit"></i> Edit Quotation
+        <span class="status-badge <?= $badge['class'] ?>">
+          <i class="fas fa-circle" style="font-size:7px"></i><?= $badge['label'] ?>
+        </span>
       </h1>
-      <p>Fill in the details below. Fields marked <span style="color:#e34f4f">*</span> are required.</p>
+      <p>Editing <strong><?= htmlspecialchars($quotation['quotation_number']) ?></strong> — changes will overwrite existing data.</p>
     </div>
     <div class="qtn-chip">
-      <div class="no" id="qtnNumberDisplay">Loading…</div>
+      <div class="no"><?= htmlspecialchars($quotation['quotation_number']) ?></div>
       <div class="lbl">Quotation No.</div>
     </div>
   </div>
@@ -393,7 +438,6 @@ tbody td{padding:4px 4px;vertical-align:middle}
       <div class="card-head"><i class="fas fa-info-circle"></i>Quotation Details</div>
       <div class="card-body">
 
-        <!-- Row 1: Reference fields -->
         <div class="fg fg-4" style="margin-bottom:9px">
           <div class="f">
             <label>Quotation No</label>
@@ -413,15 +457,9 @@ tbody td{padding:4px 4px;vertical-align:middle}
           </div>
         </div>
 
-        <!-- Row 2: Customer, Party Type, Payment, Salesman -->
         <div class="fg fg-4" style="margin-bottom:9px">
           <div class="f">
-            <label>Customer <span class="req">*</span>
-              <button type="button" class="btn-sm outline icon-only" onclick="openAddCustModal()" title="Quick Add Customer" style="height:20px;width:20px;border-radius:4px;margin-left:4px">
-                <i class="fas fa-plus" style="font-size:9px"></i>
-              </button>
-            </label>
-            <!-- Searchable customer select -->
+            <label>Customer <span class="req">*</span></label>
             <div class="ss-wrap" id="customerWrap">
               <input type="hidden" id="customerSel"/>
               <div class="ss-display" id="customerDisplay" onclick="toggleSS('customer')">
@@ -461,7 +499,6 @@ tbody td{padding:4px 4px;vertical-align:middle}
           </div>
         </div>
 
-        <!-- Row 3: Remarks (full width textarea) -->
         <div class="fg">
           <div class="f">
             <label>Remarks</label>
@@ -476,11 +513,7 @@ tbody td{padding:4px 4px;vertical-align:middle}
     <div class="card">
       <div class="card-head"><i class="fas fa-file-contract"></i>Terms &amp; Conditions</div>
       <div class="card-body" style="padding:9px 13px">
-        <textarea id="termsConditions">AVAILABILITY: 05 Days after confirmation with purchase order
-VALIDITY: This offer is valid for 5 days thereafter subject to our confirmation
-PAYMENT TERMS: 100% Advance
-PRICES: Ex-works and exclusive of unloading charges
-TAX: Exclusive of all Tax</textarea>
+        <textarea id="termsConditions"></textarea>
       </div>
     </div>
 
@@ -488,7 +521,7 @@ TAX: Exclusive of all Tax</textarea>
     <div class="card">
       <div class="card-head"><i class="fas fa-comment-alt"></i>Footer Note</div>
       <div class="card-body" style="padding:9px 13px">
-        <textarea id="footerNote" placeholder="e.g. We thank you for giving us the opportunity of Mechanical Enclosure. We are pleased to submit our best Techno Grade offer as per the given details."></textarea>
+        <textarea id="footerNote" placeholder="e.g. We thank you for giving us the opportunity…"></textarea>
       </div>
     </div>
 
@@ -520,38 +553,26 @@ TAX: Exclusive of all Tax</textarea>
       </table>
     </div>
 
-    <!-- Totals -->
     <div class="totals-bar">
-      <div class="tot-pill">
-        <div class="tl">Subtotal</div>
-        <div class="tv" id="totSubtotal">0.00</div>
-      </div>
-      <div class="tot-pill">
-        <div class="tl">Sales Tax</div>
-        <div class="tv" id="totST">0.00</div>
-      </div>
-      <div class="tot-pill">
-        <div class="tl">Further Tax</div>
-        <div class="tv" id="totFT">0.00</div>
-      </div>
-      <div class="tot-pill grand">
-        <div class="tl">Grand Total</div>
-        <div class="tv" id="totGrand">0.00</div>
-      </div>
+      <div class="tot-pill"><div class="tl">Subtotal</div><div class="tv" id="totSubtotal">0.00</div></div>
+      <div class="tot-pill"><div class="tl">Sales Tax</div><div class="tv" id="totST">0.00</div></div>
+      <div class="tot-pill"><div class="tl">Further Tax</div><div class="tv" id="totFT">0.00</div></div>
+      <div class="tot-pill grand"><div class="tl">Grand Total</div><div class="tv" id="totGrand">0.00</div></div>
     </div>
   </div>
 
   <!-- ══ FOOTER ══════════════════════════════════════════════ -->
   <div class="footer">
-    <button class="btn-main sec" onclick="window.location.href='/client/pages/sale/Quotation/quotation-list.php'">
+    <button class="btn-main sec" onclick="window.location.href='quotation-list.php'">
       <i class="fas fa-list"></i> List
     </button>
-    <button class="btn-main primary" id="saveBtn" onclick="saveQuotation()"><i class="fas fa-save"></i> Save</button>
+    <button class="btn-main primary" id="saveBtn" onclick="updateQuotation()">
+      <i class="fas fa-save"></i> Update
+    </button>
   </div>
 
 </div><!-- /container -->
 
-<!-- ══ SPINNER ═════════════════════════════════════════════ -->
 <div class="spinner-ov" id="spinnerOv"><div class="spinner"></div></div>
 
 <!-- ══ TERMS MODAL ════════════════════════════════════════ -->
@@ -565,7 +586,7 @@ TAX: Exclusive of all Tax</textarea>
       <div class="f" style="margin-bottom:9px">
         <label>Add New Term</label>
         <div class="inline-row">
-          <input type="text" id="newTermInput" placeholder="e.g. Net 45 Days, LC at Sight…" style="height:35px" onkeypress="if(event.key==='Enter')addTerm()"/>
+          <input type="text" id="newTermInput" placeholder="e.g. Net 45 Days…" style="height:35px" onkeypress="if(event.key==='Enter')addTerm()"/>
           <button class="btn-sm primary" onclick="addTerm()" style="flex:0 0 auto"><i class="fas fa-plus"></i> Add</button>
         </div>
       </div>
@@ -578,48 +599,6 @@ TAX: Exclusive of all Tax</textarea>
   </div>
 </div>
 
-<!-- ══ QUICK-ADD CUSTOMER MODAL ════════════════════════════ -->
-<div class="modal-ov" id="addCustModal">
-  <div class="modal-box" style="max-width:520px">
-    <div class="modal-head">
-      <h3><i class="fas fa-user-plus"></i> Quick-Add Customer</h3>
-      <button class="mclose" onclick="closeModal('addCustModal')">&times;</button>
-    </div>
-    <div class="modal-body">
-      <div class="fg fg-2" style="gap:11px">
-        <div class="f">
-          <label>Customer Name <span class="req">*</span></label>
-          <input type="text" id="nc_name" placeholder="Full customer name" style="height:35px"/>
-        </div>
-        <div class="f">
-          <label>Primary Phone <span class="req">*</span></label>
-          <input type="text" id="nc_phone" placeholder="03XXXXXXXXX" style="height:35px"/>
-        </div>
-        <div class="f span2">
-          <label>Pickup Address</label>
-          <input type="text" id="nc_address" placeholder="Customer address" style="height:35px"/>
-        </div>
-        <div class="f">
-          <label>Email</label>
-          <input type="email" id="nc_email" placeholder="customer@mail.com" style="height:35px"/>
-        </div>
-        <div class="f">
-          <label>Customer Type</label>
-          <select id="nc_type" style="height:35px">
-            <option value="account">Account</option>
-            <option value="cod">COD</option>
-            <option value="walk-in">Walk-in</option>
-          </select>
-        </div>
-      </div>
-    </div>
-    <div class="modal-foot">
-      <button class="btn-sm outline" onclick="closeModal('addCustModal')">Cancel</button>
-      <button class="btn-sm primary" id="saveCustBtn" onclick="saveNewCustomer()"><i class="fas fa-save"></i> Save Customer</button>
-    </div>
-  </div>
-</div>
-
 <!-- ══ JAVASCRIPT ══════════════════════════════════════════ -->
 <script>
 const API = location.pathname;
@@ -628,42 +607,29 @@ let products  = [];
 let units     = [];
 let payTerms  = [];
 let salesmen  = [];
-let rowId = 0;
+let rowId     = 0;
 
 // ── INIT ─────────────────────────────────────────────────────
 async function init() {
-  const today = new Date().toISOString().split('T')[0];
-  document.getElementById('qtnDate').value = today;
-  const plus7 = new Date(); plus7.setDate(plus7.getDate()+7);
-  document.getElementById('validTill').value = plus7.toISOString().split('T')[0];
-
   showSpinner(true);
   await Promise.all([
-    loadQtnNumber(), loadCustomers(), loadProducts(),
+    loadCustomers(), loadProducts(),
     loadUnits(), loadPaymentTerms(), loadSalesmen()
   ]);
+  populateForm();
   showSpinner(false);
-  addRow();
 }
 
 // ── API HELPER ────────────────────────────────────────────────
-async function api(action, body={}) {
+async function api(action, body = {}) {
   const r = await fetch(`${API}?action=${action}`, {
-    method:'POST', headers:{'Content-Type':'application/json'},
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body)
   });
   return r.json();
 }
 
 // ── LOADERS ───────────────────────────────────────────────────
-async function loadQtnNumber() {
-  const d = await api('next_number');
-  if (d.success) {
-    document.getElementById('qtnNumber').value = d.number;
-    document.getElementById('qtnNumberDisplay').textContent = d.number;
-  }
-}
-
 async function loadCustomers() {
   const d = await api('customers');
   if (!d.success) return;
@@ -697,12 +663,47 @@ async function loadSalesmen() {
   salesmen = d.data;
   const sel = document.getElementById('salesmanSel');
   sel.innerHTML = '<option value="">Select Salesman</option>' +
-    salesmen.map(e=>`<option value="${e.id}">${e.name}</option>`).join('');
+    salesmen.map(e => `<option value="${e.id}">${e.name}</option>`).join('');
 }
 
-// ══ SEARCHABLE SELECT (header fields) ════════════════════════
+// ── PRE-POPULATE FORM FROM editData ──────────────────────────
+function populateForm() {
+  const q = editData.quotation;
 
-// Build the customer searchable select options
+  document.getElementById('qtnNumber').value        = q.quotation_number;
+  document.getElementById('qtnDate').value           = q.quotation_date || '';
+  document.getElementById('validTill').value         = q.valid_till     || '';
+  document.getElementById('contactPerson').value     = q.contact_person || '';
+  document.getElementById('partyType').value         = q.party_type     || '';
+  document.getElementById('salesmanSel').value       = q.salesman_id    || '';
+  document.getElementById('paymentTermSel').value    = q.payment_term_id|| '';
+  document.getElementById('termsConditions').value   = q.terms_conditions|| '';
+  document.getElementById('remarks').value           = q.remarks        || '';
+  document.getElementById('footerNote').value        = q.footer_note    || '';
+
+  // Pre-select customer in searchable dropdown
+  if (q.customer_id) {
+    const cust = customers.find(c => c.id == q.customer_id);
+    if (cust) {
+      selectSS('customer', cust.id, `[${cust.code}] ${cust.name}`);
+    } else {
+      // Customer loaded but not found in list (edge case) — show stored name
+      document.getElementById('customerSel').value = q.customer_id;
+      const txt = document.getElementById('customerDisplayText');
+      txt.textContent = q.customer_name || `Customer #${q.customer_id}`;
+      txt.classList.remove('ss-display-placeholder');
+    }
+  }
+
+  // Pre-populate items (skip auto-focus)
+  editData.items.forEach(item => addRowWithData(item));
+
+  // If no items came back, add one blank row
+  if (!editData.items.length) addRow();
+}
+
+// ══ SEARCHABLE SELECT ════════════════════════════════════════
+
 function buildCustomerSS() {
   const list = document.getElementById('customerList');
   list.innerHTML = '';
@@ -728,21 +729,21 @@ function buildCustomerSS() {
 }
 
 function toggleSS(key) {
-  const panel  = document.getElementById(key+'Panel');
-  const display= document.getElementById(key+'Display');
-  const isOpen = panel.classList.contains('open');
+  const panel   = document.getElementById(key + 'Panel');
+  const display = document.getElementById(key + 'Display');
+  const isOpen  = panel.classList.contains('open');
   closeAllSS();
   if (!isOpen) {
     panel.classList.add('open');
     display.classList.add('open');
-    const si = document.getElementById(key+'Search');
-    if (si) { si.value=''; filterSS(key,''); si.focus(); }
+    const si = document.getElementById(key + 'Search');
+    if (si) { si.value = ''; filterSS(key, ''); si.focus(); }
   }
 }
 
 function closeAllSS() {
-  document.querySelectorAll('.ss-panel.open').forEach(p=>p.classList.remove('open'));
-  document.querySelectorAll('.ss-display.open').forEach(d=>d.classList.remove('open'));
+  document.querySelectorAll('.ss-panel.open').forEach(p => p.classList.remove('open'));
+  document.querySelectorAll('.ss-display.open').forEach(d => d.classList.remove('open'));
 }
 
 function filterSS(key, query) {
@@ -763,79 +764,33 @@ function selectSS(key, value, label) {
   txt.textContent = label;
   txt.classList.remove('ss-display-placeholder');
   closeAllSS();
-  if (key === 'customer') onCustomerChange();
 }
 
-function onCustomerChange() {
-  // Customer Code/Address/Phone fields removed; nothing extra to fill
-}
-
-// Close searchable selects when clicking outside
 document.addEventListener('click', e => {
   if (!e.target.closest('.ss-wrap')) closeAllSS();
 });
-
-// ── QUICK-ADD CUSTOMER ────────────────────────────────────────
-function openAddCustModal() {
-  ['nc_name','nc_phone','nc_address','nc_email'].forEach(id=>document.getElementById(id).value='');
-  document.getElementById('nc_type').value='account';
-  openModal('addCustModal');
-  setTimeout(()=>document.getElementById('nc_name').focus(),200);
-}
-
-async function saveNewCustomer() {
-  const name  = document.getElementById('nc_name').value.trim();
-  const phone = document.getElementById('nc_phone').value.trim();
-  if (!name || !phone) { toast('Name and Phone are required','err'); return; }
-
-  const btn = document.getElementById('saveCustBtn');
-  btn.disabled=true; btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Saving…';
-
-  const r = await fetch('../../customers/api/customer-add.php', {
-    method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({
-      customerName: name,
-      primaryPhone: phone,
-      address:      document.getElementById('nc_address').value.trim(),
-      email:        document.getElementById('nc_email').value.trim(),
-      customerType: document.getElementById('nc_type').value,
-      companyId: 1
-    })
-  }).then(r=>r.json()).catch(()=>({success:false,message:'Network error'}));
-
-  btn.disabled=false; btn.innerHTML='<i class="fas fa-save"></i> Save Customer';
-  if (!r.success) { toast(r.message||'Save failed','err'); return; }
-
-  toast('Customer added!');
-  await loadCustomers();
-  if (r.customer_id) {
-    const cust = customers.find(c=>c.id==r.customer_id);
-    if (cust) selectSS('customer', cust.id, `[${cust.code}] ${cust.name}`);
-  }
-  closeModal('addCustModal');
-}
 
 // ── PAYMENT TERMS ─────────────────────────────────────────────
 function openTermsModal() {
   renderTermsList();
   openModal('termsModal');
-  setTimeout(()=>document.getElementById('newTermInput').focus(),200);
+  setTimeout(() => document.getElementById('newTermInput').focus(), 200);
 }
 
 async function addTerm() {
   const inp = document.getElementById('newTermInput');
   const val = inp.value.trim();
   if (!val) { inp.focus(); return; }
-  const d = await api('add_term',{term_name:val});
-  if (!d.success) { toast(d.message,'err'); return; }
-  inp.value='';
+  const d = await api('add_term', { term_name: val });
+  if (!d.success) { toast(d.message, 'err'); return; }
+  inp.value = '';
   await loadPaymentTerms();
   document.getElementById('paymentTermSel').value = d.id;
 }
 
 async function deleteTerm(id) {
   if (!confirm('Delete this term?')) return;
-  const d = await api('delete_term',{id});
+  const d = await api('delete_term', { id });
   if (d.success) await loadPaymentTerms();
 }
 
@@ -843,24 +798,24 @@ function rebuildTermsDropdown() {
   const sel = document.getElementById('paymentTermSel');
   const cur = sel.value;
   sel.innerHTML = '<option value="">Select Payment Term</option>' +
-    payTerms.map(t=>`<option value="${t.id}">${t.term_name}</option>`).join('');
+    payTerms.map(t => `<option value="${t.id}">${t.term_name}</option>`).join('');
   sel.value = cur;
 }
 
 function renderTermsList() {
   const list = document.getElementById('termsList');
   if (!payTerms.length) {
-    list.innerHTML='<div class="empty-msg"><i class="fas fa-inbox" style="font-size:20px;display:block;margin-bottom:6px"></i>No terms yet</div>';
+    list.innerHTML = '<div class="empty-msg"><i class="fas fa-inbox" style="font-size:20px;display:block;margin-bottom:6px"></i>No terms yet</div>';
     return;
   }
-  list.innerHTML = payTerms.map(t=>`
+  list.innerHTML = payTerms.map(t => `
     <div class="term-item">
       <span>${t.term_name}</span>
-      ${t.id>7 ? `<button class="del-term" onclick="deleteTerm(${t.id})"><i class="fas fa-trash-alt"></i></button>` : '<span style="font-size:10px;color:#b0b8c4">Default</span>'}
+      ${t.id > 7 ? `<button class="del-term" onclick="deleteTerm(${t.id})"><i class="fas fa-trash-alt"></i></button>` : '<span style="font-size:10px;color:#b0b8c4">Default</span>'}
     </div>`).join('');
 }
 
-// ══ ROW SEARCHABLE SELECT (fixed-position for table cells) ════
+// ══ ROW SEARCHABLE SELECT ════════════════════════════════════
 
 let activeRSSId = null;
 
@@ -883,7 +838,7 @@ function closeRSS(id) {
 }
 
 function filterRSS(id) {
-  const q = (document.getElementById(`prod-display-${id}`)?.value || '').toLowerCase();
+  const q     = (document.getElementById(`prod-display-${id}`)?.value || '').toLowerCase();
   const panel = document.getElementById(`rss-panel-${id}`);
   if (!panel) return;
   let anyVisible = false;
@@ -912,11 +867,10 @@ function onProdFill(id, prod) {
   document.getElementById(`rate-${id}`).value = prod.rate        || 0;
   document.getElementById(`stp-${id}`).value  = prod.sales_tax   || 0;
   document.getElementById(`ftp-${id}`).value  = prod.further_tax || 0;
-  document.getElementById(`unit-${id}`).value = prod.unit_id || '';
+  document.getElementById(`unit-${id}`).value = prod.unit_id     || '';
   calcRow(id);
 }
 
-// Close row SS when clicking outside
 document.addEventListener('click', e => {
   if (activeRSSId && !e.target.closest('.rss-wrap') && !e.target.closest('.rss-panel')) {
     closeRSS(activeRSSId);
@@ -963,7 +917,7 @@ function buildRSSPanel(id) {
   return panel;
 }
 
-function addRow() {
+function addRow(autoFocus = true) {
   rowId++;
   const id = rowId;
   const tr = document.createElement('tr');
@@ -974,18 +928,15 @@ function addRow() {
         <input type="hidden" id="prod-${id}"/>
         <input type="text" class="rss-input" id="prod-display-${id}"
                placeholder="Search item…" autocomplete="off"
-               oninput="filterRSS(${id})"
-               onfocus="openRSS(${id})"/>
+               oninput="filterRSS(${id})" onfocus="openRSS(${id})"/>
       </div>
     </td>
     <td><input class="ti" id="desc-${id}" type="text" placeholder="Description"/></td>
+    <td><input class="ti" id="qty-${id}" type="number" value="1" min="0" step="any" oninput="calcRow(${id})" style="text-align:right"/></td>
     <td>
-      <input class="ti" id="qty-${id}" type="number" value="1" min="0" step="any" oninput="calcRow(${id})" style="text-align:right"/>
-    </td>
-    <td>
-      <select class="ts unit-sel" id="unit-${id}">
+      <select class="ts" id="unit-${id}">
         <option value="">Unit</option>
-        ${units.map(u=>`<option value="${u.id}">${u.name}</option>`).join('')}
+        ${units.map(u => `<option value="${u.id}">${u.name}</option>`).join('')}
       </select>
     </td>
     <td><input class="ti" id="rate-${id}" type="number" placeholder="0.00" min="0" step="any" oninput="calcRow(${id})"/></td>
@@ -995,7 +946,7 @@ function addRow() {
     <td><input class="ti" id="ftp-${id}" type="number" placeholder="%" min="0" max="100" step="any" oninput="calcRow(${id})" style="width:60px"/></td>
     <td><input class="ti" id="fta-${id}" type="number" placeholder="0.00" readonly style="text-align:right"/></td>
     <td><input class="ti" id="incl-${id}" type="number" placeholder="0.00" readonly style="text-align:right"/></td>
-    <td><input class="ti" id="amt-${id}"  type="number" placeholder="0.00" readonly style="text-align:right;font-weight:700"/></td>
+    <td><input class="ti" id="amt-${id}" type="number" placeholder="0.00" readonly style="text-align:right;font-weight:700"/></td>
     <td>
       <div class="act-cell">
         <button class="bico add" onclick="addRow()" title="Add row">+</button>
@@ -1004,12 +955,43 @@ function addRow() {
     </td>`;
   document.getElementById('itemsTbody').appendChild(tr);
   buildRSSPanel(id);
-  setTimeout(()=>document.getElementById(`prod-display-${id}`)?.focus(), 80);
+  if (autoFocus) setTimeout(() => document.getElementById(`prod-display-${id}`)?.focus(), 80);
+}
+
+// Pre-populate a row with existing item data
+function addRowWithData(item) {
+  addRow(false); // no auto-focus when bulk-loading
+  const id = rowId;
+
+  // Product display
+  if (item.product_id) {
+    document.getElementById(`prod-${id}`).value = item.product_id;
+    const displayText = item.item_code
+      ? `${item.item_code} | ${item.item_name}`
+      : (item.item_name || '');
+    document.getElementById(`prod-display-${id}`).value = displayText;
+  }
+
+  document.getElementById(`desc-${id}`).value  = item.description    || '';
+  document.getElementById(`qty-${id}`).value   = item.quantity        || 1;
+  document.getElementById(`unit-${id}`).value  = item.unit_id         || '';
+  document.getElementById(`rate-${id}`).value  = item.rate            || 0;
+  document.getElementById(`stp-${id}`).value   = item.sales_tax_pct   || 0;
+  document.getElementById(`ftp-${id}`).value   = item.further_tax_pct || 0;
+
+  // Set computed readonly fields directly (no need to recalculate from scratch)
+  setV(`excl-${id}`, parseFloat(item.excl_tax        || 0).toFixed(2));
+  setV(`sta-${id}`,  parseFloat(item.sales_tax_amt   || 0).toFixed(2));
+  setV(`fta-${id}`,  parseFloat(item.further_tax_amt || 0).toFixed(2));
+  setV(`incl-${id}`, parseFloat(item.incl_tax        || 0).toFixed(2));
+  setV(`amt-${id}`,  parseFloat(item.line_total      || 0).toFixed(2));
+
+  updateTotals();
 }
 
 function removeRow(id) {
   const tb = document.getElementById('itemsTbody');
-  if (tb.rows.length <= 1) { toast('At least one item is required','warn'); return; }
+  if (tb.rows.length <= 1) { toast('At least one item is required', 'warn'); return; }
   document.getElementById(`row-${id}`)?.remove();
   document.getElementById(`rss-panel-${id}`)?.remove();
   updateTotals();
@@ -1032,12 +1014,12 @@ function calcRow(id) {
   updateTotals();
 }
 
-function setV(id, v) { const el=document.getElementById(id); if(el) el.value=v; }
+function setV(id, v) { const el = document.getElementById(id); if (el) el.value = v; }
 
 function updateTotals() {
-  let sub=0, st=0, ft=0;
+  let sub = 0, st = 0, ft = 0;
   document.querySelectorAll('#itemsTbody tr').forEach(tr => {
-    const rid = parseInt(tr.id.replace('row-',''));
+    const rid = parseInt(tr.id.replace('row-', ''));
     if (!rid) return;
     sub += parseFloat(document.getElementById(`excl-${rid}`)?.value) || 0;
     st  += parseFloat(document.getElementById(`sta-${rid}`)?.value)  || 0;
@@ -1050,35 +1032,34 @@ function updateTotals() {
   document.getElementById('totGrand').textContent    = fmt(grand);
 }
 
-function fmt(n){ return n.toLocaleString('en-PK',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function fmt(n) { return n.toLocaleString('en-PK', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
 
-// ── SAVE ──────────────────────────────────────────────────────
-async function saveQuotation() {
+// ── UPDATE ────────────────────────────────────────────────────
+async function updateQuotation() {
   const custId = document.getElementById('customerSel').value;
-  if (!custId) { toast('Please select a customer','err'); return; }
+  if (!custId) { toast('Please select a customer', 'err'); return; }
 
   const rows = document.querySelectorAll('#itemsTbody tr');
-  if (!rows.length) { toast('Add at least one item','err'); return; }
+  if (!rows.length) { toast('Add at least one item', 'err'); return; }
 
   const items = [];
   let valid = true;
   rows.forEach(tr => {
     if (!valid) return;
-    const rid     = parseInt(tr.id.replace('row-',''));
-    const prodId  = document.getElementById(`prod-${rid}`)?.value;
-    const display = document.getElementById(`prod-display-${rid}`)?.value || '';
-    if (!prodId) { valid=false; toast('Select an item in every row','err'); return; }
-    const qty  = parseFloat(document.getElementById(`qty-${rid}`)?.value) || 0;
+    const rid    = parseInt(tr.id.replace('row-', ''));
+    const prodId = document.getElementById(`prod-${rid}`)?.value;
+    if (!prodId) { valid = false; toast('Select an item in every row', 'err'); return; }
+    const qty  = parseFloat(document.getElementById(`qty-${rid}`)?.value)  || 0;
     const rate = parseFloat(document.getElementById(`rate-${rid}`)?.value) || 0;
-    if (qty <= 0 || rate <= 0) { valid=false; toast('Quantity and Rate must be > 0','err'); return; }
-    const prod = products.find(p=>p.id==prodId);
+    if (qty <= 0 || rate <= 0) { valid = false; toast('Quantity and Rate must be > 0', 'err'); return; }
+    const prod = products.find(p => p.id == prodId);
     items.push({
       product_id:      prodId,
-      item_code:       prod?.code  || '',
-      item_name:       prod?.name  || display,
-      description:     document.getElementById(`desc-${rid}`)?.value || '',
+      item_code:       prod?.code || '',
+      item_name:       prod?.name || document.getElementById(`prod-display-${rid}`)?.value || '',
+      description:     document.getElementById(`desc-${rid}`)?.value  || '',
       quantity:        qty,
-      unit_id:         document.getElementById(`unit-${rid}`)?.value || null,
+      unit_id:         document.getElementById(`unit-${rid}`)?.value  || null,
       rate,
       excl_tax:        parseFloat(document.getElementById(`excl-${rid}`)?.value) || 0,
       sales_tax_pct:   parseFloat(document.getElementById(`stp-${rid}`)?.value)  || 0,
@@ -1092,6 +1073,7 @@ async function saveQuotation() {
   if (!valid || !items.length) return;
 
   const payload = {
+    quotation_id:     editData.quotation.id,
     quotation_date:   document.getElementById('qtnDate').value,
     valid_till:       document.getElementById('validTill').value,
     customer_id:      custId,
@@ -1106,64 +1088,43 @@ async function saveQuotation() {
   };
 
   const btn = document.getElementById('saveBtn');
-  btn.disabled=true; btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Saving…';
+  btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Updating…';
   showSpinner(true);
 
-  const d = await api('save', payload);
+  const d = await api('update', payload);
   showSpinner(false);
-  btn.disabled=false; btn.innerHTML='<i class="fas fa-save"></i> Save';
+  btn.disabled = false; btn.innerHTML = '<i class="fas fa-save"></i> Update';
 
   if (d.success) {
-    toast(`Quotation ${d.quotation_number} saved successfully!`);
-    document.getElementById('qtnNumber').value = d.quotation_number;
-    document.getElementById('qtnNumberDisplay').textContent = d.quotation_number;
+    toast('Quotation updated successfully!');
   } else {
-    toast(d.message || 'Save failed','err');
+    toast(d.message || 'Update failed', 'err');
   }
 }
 
 // ── UI UTILITIES ──────────────────────────────────────────────
 function openModal(id)  { document.getElementById(id).classList.add('show'); }
 function closeModal(id) { document.getElementById(id).classList.remove('show'); }
-function showSpinner(v) { document.getElementById('spinnerOv').classList.toggle('show',v); }
+function showSpinner(v) { document.getElementById('spinnerOv').classList.toggle('show', v); }
 
-function toast(msg, type='ok') {
-  const colors = {ok:'#2fbf71', err:'#e34f4f', warn:'#f59e0b'};
-  const icons  = {ok:'check-circle', err:'exclamation-circle', warn:'exclamation-triangle'};
+function toast(msg, type = 'ok') {
+  const colors = { ok: '#2fbf71', err: '#e34f4f', warn: '#f59e0b' };
+  const icons  = { ok: 'check-circle', err: 'exclamation-circle', warn: 'exclamation-triangle' };
   const t = document.createElement('div');
-  t.className='toast'; t.style.background=colors[type]||colors.ok;
-  t.innerHTML=`<i class="fas fa-${icons[type]||icons.ok}"></i> ${msg}`;
+  t.className = 'toast'; t.style.background = colors[type] || colors.ok;
+  t.innerHTML = `<i class="fas fa-${icons[type] || icons.ok}"></i> ${msg}`;
   document.body.appendChild(t);
-  setTimeout(()=>{ t.style.opacity='0'; t.style.transition='opacity .4s'; setTimeout(()=>t.remove(),400); },3000);
+  setTimeout(() => { t.style.opacity = '0'; t.style.transition = 'opacity .4s'; setTimeout(() => t.remove(), 400); }, 3000);
 }
 
-function escHtml(s)  { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
-function escAttr(s)  { return String(s||'').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+function escHtml(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
 
-document.querySelectorAll('.modal-ov').forEach(ov=>{
-  ov.addEventListener('click', e=>{ if(e.target===ov) ov.classList.remove('show'); });
+document.querySelectorAll('.modal-ov').forEach(ov => {
+  ov.addEventListener('click', e => { if (e.target === ov) ov.classList.remove('show'); });
 });
-document.addEventListener('keydown', e=>{
-  if(e.key==='Escape') document.querySelectorAll('.modal-ov.show').forEach(m=>m.classList.remove('show'));
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') document.querySelectorAll('.modal-ov.show').forEach(m => m.classList.remove('show'));
 });
-
-// ── TERMS & CONDITIONS — localStorage persistence ─────────────
-(function() {
-  const ta  = document.getElementById('termsConditions');
-  const key = 'qtn_terms_conditions';
-  const saved = localStorage.getItem(key);
-  if (saved !== null) ta.value = saved;
-  ta.addEventListener('input', () => localStorage.setItem(key, ta.value));
-})();
-
-// ── FOOTER NOTE — localStorage persistence ────────────────────
-(function() {
-  const ta  = document.getElementById('footerNote');
-  const key = 'qtn_footer_note';
-  const saved = localStorage.getItem(key);
-  if (saved !== null) ta.value = saved;
-  ta.addEventListener('input', () => localStorage.setItem(key, ta.value));
-})();
 
 // ── BOOT ─────────────────────────────────────────────────────
 init();
