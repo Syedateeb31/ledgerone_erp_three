@@ -37,14 +37,7 @@ function getUnitConversionFactor(unit, product) {
     if (unit.is_base_unit == 1) {
         return 1;
     }
-
-    if (unit.unit_scope === 'universal') {
-        return parseFloat(unit.conversion_factor) || 1;
-    } else if (unit.unit_scope === 'per_product') {
-        return parseFloat(product.product_conversion_factor) || 1;
-    }
-
-    return 1;
+    return parseFloat(unit.conversion_factor) || 1;
 }
 
 // Update table headers based on max units

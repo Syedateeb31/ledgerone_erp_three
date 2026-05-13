@@ -39,10 +39,15 @@ try {
             u.uom_name as default_unit_name,
             u.unit_scope as default_unit_scope,
             u.is_base_unit as default_is_base_unit,
-            u.conversion_factor as default_conversion_factor
+            CASE
+                WHEN u.unit_scope = 'per_product' AND puc.conversion_factor IS NOT NULL
+                THEN puc.conversion_factor
+                ELSE u.conversion_factor
+            END as default_conversion_factor
         FROM products p
         LEFT JOIN uom u ON p.default_unit_id = u.id
-        WHERE p.tenant_id = ? AND p.is_active = 1 AND p.parent_product_id IS NULL 
+        LEFT JOIN product_uom_conversions puc ON puc.product_id = p.id AND puc.uom_id = p.default_unit_id
+        WHERE p.tenant_id = ? AND p.is_active = 1 AND p.parent_product_id IS NULL
         ORDER BY p.name
     ");
     $stmt->execute([$tenant_id]);
@@ -52,19 +57,24 @@ try {
     foreach ($products as &$product) {
         if ($product['uom_type'] === 'group' && $product['uom_group_id']) {
             $uomStmt = $pdo->prepare("
-                SELECT 
+                SELECT
                     u.id,
                     ugu.uom_id,
                     u.uom_name,
                     u.unit_scope,
                     u.is_base_unit,
-                    u.conversion_factor
+                    CASE
+                        WHEN u.unit_scope = 'per_product' AND puc.conversion_factor IS NOT NULL
+                        THEN puc.conversion_factor
+                        ELSE u.conversion_factor
+                    END as conversion_factor
                 FROM uom_group_units ugu
                 JOIN uom u ON ugu.uom_id = u.id
+                LEFT JOIN product_uom_conversions puc ON puc.uom_id = u.id AND puc.product_id = ?
                 WHERE ugu.uom_group_id = ?
                 ORDER BY ugu.id
             ");
-            $uomStmt->execute([$product['uom_group_id']]);
+            $uomStmt->execute([$product['id'], $product['uom_group_id']]);
             $product['group_units'] = $uomStmt->fetchAll(PDO::FETCH_ASSOC);
         } else {
             $product['group_units'] = [];

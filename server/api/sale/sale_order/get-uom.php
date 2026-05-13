@@ -16,7 +16,7 @@ if (!$tenant_id) {
 }
 
 try {
-    $stmt = $pdo->prepare("SELECT id, uom_name FROM uom WHERE (tenant_id = ? OR tenant_id = 0) ORDER BY uom_name");
+    $stmt = $pdo->prepare("SELECT id, uom_name, conversion_factor, is_base_unit, unit_scope FROM uom WHERE (tenant_id = ? OR tenant_id = 0) ORDER BY uom_name");
     $stmt->execute([$tenant_id]);
     $uoms = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
