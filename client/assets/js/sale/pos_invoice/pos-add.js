@@ -138,6 +138,8 @@ function initializePage(permissions) {
         'enableCashDiscountAmount',
         'enableInvoiceCashDiscountPercent',
         'enableInvoiceCashDiscountAmount',
+        'enableExtraDiscount1',
+        'enableExtraDiscount2',
         'enableShippingFees',
         'enableAmountPaidPaymentMethod'
     ];
@@ -3798,6 +3800,8 @@ function loadInvoiceSettings() {
     document.getElementById('enableCashDiscountAmount').checked = localStorage.getItem('enableCashDiscountAmount') === 'true';
     document.getElementById('enableInvoiceCashDiscountPercent').checked = localStorage.getItem('enableInvoiceCashDiscountPercent') === 'true';
     document.getElementById('enableInvoiceCashDiscountAmount').checked = localStorage.getItem('enableInvoiceCashDiscountAmount') === 'true';
+    document.getElementById('enableExtraDiscount1').checked = localStorage.getItem('enableExtraDiscount1') === 'true';
+    document.getElementById('enableExtraDiscount2').checked = localStorage.getItem('enableExtraDiscount2') === 'true';
     document.getElementById('enableShippingFees').checked = localStorage.getItem('enableShippingFees') === 'true';
     document.getElementById('enablePrintQRCode').checked = localStorage.getItem('enablePrintQRCode') === 'true';
     document.getElementById('enableAmountPaidPaymentMethod').checked = localStorage.getItem('enableAmountPaidPaymentMethod') === 'true';
@@ -3824,6 +3828,8 @@ function saveInvoiceSettings() {
     localStorage.setItem('enableCashDiscountAmount', document.getElementById('enableCashDiscountAmount').checked);
     localStorage.setItem('enableInvoiceCashDiscountPercent', document.getElementById('enableInvoiceCashDiscountPercent').checked);
     localStorage.setItem('enableInvoiceCashDiscountAmount', document.getElementById('enableInvoiceCashDiscountAmount').checked);
+    localStorage.setItem('enableExtraDiscount1', document.getElementById('enableExtraDiscount1').checked);
+    localStorage.setItem('enableExtraDiscount2', document.getElementById('enableExtraDiscount2').checked);
     localStorage.setItem('enableShippingFees', document.getElementById('enableShippingFees').checked);
     localStorage.setItem('enablePrintQRCode', document.getElementById('enablePrintQRCode').checked);
     localStorage.setItem('enableAmountPaidPaymentMethod', document.getElementById('enableAmountPaidPaymentMethod').checked);
@@ -3839,6 +3845,8 @@ function applyInvoiceSettings() {
     const enableTaxation = false;
     const enableInvoiceCashDiscountPercent = localStorage.getItem('enableInvoiceCashDiscountPercent') === 'true';
     const enableInvoiceCashDiscountAmount = localStorage.getItem('enableInvoiceCashDiscountAmount') === 'true';
+    const enableExtraDiscount1 = localStorage.getItem('enableExtraDiscount1') === 'true';
+    const enableExtraDiscount2 = localStorage.getItem('enableExtraDiscount2') === 'true';
     const enableShippingFees = localStorage.getItem('enableShippingFees') === 'true';
 
     // Hide/show table columns by class name (works with dynamic unit columns)
@@ -3968,6 +3976,32 @@ function applyInvoiceSettings() {
             if (!enableInvoiceCashDiscountAmount) input.value = '0.00';
         }
     }
+    // Extra Discount 1 — hides/shows both the % and Amt rows together
+    const extraDiscount1PercentItem = document.getElementById('extraDiscount1Percent')?.closest('.summary-item');
+    const extraDiscount1AmountItem  = document.getElementById('extraDiscount1Amount')?.closest('.summary-item');
+    [extraDiscount1PercentItem, extraDiscount1AmountItem].forEach(item => {
+        if (!item) return;
+        item.style.display = enableExtraDiscount1 ? '' : 'none';
+        const input = item.querySelector('input');
+        if (input) {
+            input.disabled = !enableExtraDiscount1;
+            if (!enableExtraDiscount1) input.value = '0';
+        }
+    });
+
+    // Extra Discount 2 — hides/shows both the % and Amt rows together
+    const extraDiscount2PercentItem = document.getElementById('extraDiscount2Percent')?.closest('.summary-item');
+    const extraDiscount2AmountItem  = document.getElementById('extraDiscount2Amount')?.closest('.summary-item');
+    [extraDiscount2PercentItem, extraDiscount2AmountItem].forEach(item => {
+        if (!item) return;
+        item.style.display = enableExtraDiscount2 ? '' : 'none';
+        const input = item.querySelector('input');
+        if (input) {
+            input.disabled = !enableExtraDiscount2;
+            if (!enableExtraDiscount2) input.value = '0';
+        }
+    });
+
     if (shippingFeesItem) {
         shippingFeesItem.style.display = enableShippingFees ? '' : 'none';
         const input = document.getElementById('shippingFees');
