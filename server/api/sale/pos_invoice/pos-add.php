@@ -71,9 +71,10 @@ try {
         INSERT INTO sale_invoice (
             tenant_id, currency_id, bill_no, sale_date, customer_id, sub_account_id, company_id, branch_id,
             previous_balance, sale_officer_id, supplier_man_id, sale_order_id, bilty_no, transport_name, total_bill, total_discount_percent,
-            total_discount_amount, shipping_fees, net_amount, withholding_tax_percent, withholding_tax_amount, amount_paid_auto_fill,
+            total_discount_amount, extra_discount_1_percent, extra_discount_1_amount, extra_discount_2_percent, extra_discount_2_amount,
+            shipping_fees, net_amount, withholding_tax_percent, withholding_tax_amount, amount_paid_auto_fill,
             invoice_type, due_date, remarks, status, created_by, updated_by
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ");
 
     $stmt->execute([
@@ -94,6 +95,10 @@ try {
         $input['totalBill'],
         $input['totalDiscountPercent'] ?? 0.00,
         $input['totalDiscountAmount'] ?? 0.00,
+        $input['extraDiscount1Percent'] ?? 0.00,
+        $input['extraDiscount1Amount'] ?? 0.00,
+        $input['extraDiscount2Percent'] ?? 0.00,
+        $input['extraDiscount2Amount'] ?? 0.00,
         $input['shippingFees'] ?? 0.00,
         $input['netAmount'],
         $withholdingTaxPercent,

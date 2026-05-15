@@ -23,7 +23,12 @@
       "Bash(find \"C:\\\\\\\\xampp\\\\\\\\htdocs\\\\\\\\ledgerone_erp\\\\\\\\includes\" -type f)",
       "Bash(find \"C:\\\\\\\\xampp\\\\\\\\htdocs\\\\\\\\ledgerone_erp\\\\\\\\client\\\\\\\\assets\\\\\\\\css\\\\\\\\sale\" -type f)",
       "Bash(grep -r \"sale_invoice\\\\|sale_invoice_items\\\\|sale_invoice_taxes\" \"C:\\\\\\\\xampp\\\\\\\\htdocs\\\\\\\\ledgerone_erp\\\\\\\\server\\\\\\\\api\\\\\\\\sale\\\\\\\\pos_invoice\" -l)",
-      "PowerShell(\\(Get-Content \"C:\\\\xampp\\\\htdocs\\\\ledgerone_erp\\\\client\\\\pages\\\\sale\\\\pos_invoice\\\\pos-add.php\" | Measure-Object -Line\\).Lines)"
+      "PowerShell(\\(Get-Content \"C:\\\\xampp\\\\htdocs\\\\ledgerone_erp\\\\client\\\\pages\\\\sale\\\\pos_invoice\\\\pos-add.php\" | Measure-Object -Line\\).Lines)",
+      "Read(//c/xampp/mysql/bin/**)",
+      "Bash(./mysql.exe -u root ledgerone_erp -e \"ALTER TABLE sale_invoice ADD COLUMN extra_discount_1_percent DECIMAL\\(10,4\\) NOT NULL DEFAULT 0.0000 AFTER total_discount_amount, ADD COLUMN extra_discount_1_amount DECIMAL\\(15,4\\) NOT NULL DEFAULT 0.0000 AFTER extra_discount_1_percent, ADD COLUMN extra_discount_2_percent DECIMAL\\(10,4\\) NOT NULL DEFAULT 0.0000 AFTER extra_discount_1_amount, ADD COLUMN extra_discount_2_amount DECIMAL\\(15,4\\) NOT NULL DEFAULT 0.0000 AFTER extra_discount_2_percent;\")",
+      "Bash(./mysql.exe -u root -e \"SHOW DATABASES;\")",
+      "Bash(./mysql.exe -u root ledgerone_tenant -e \"ALTER TABLE sale_invoice ADD COLUMN extra_discount_1_percent DECIMAL\\(10,4\\) NOT NULL DEFAULT 0.0000 AFTER total_discount_amount, ADD COLUMN extra_discount_1_amount DECIMAL\\(15,4\\) NOT NULL DEFAULT 0.0000 AFTER extra_discount_1_percent, ADD COLUMN extra_discount_2_percent DECIMAL\\(10,4\\) NOT NULL DEFAULT 0.0000 AFTER extra_discount_1_amount, ADD COLUMN extra_discount_2_amount DECIMAL\\(15,4\\) NOT NULL DEFAULT 0.0000 AFTER extra_discount_2_percent;\")",
+      "Bash(./mysql.exe -u root ledgerone_tenant -e \"SHOW COLUMNS FROM sale_invoice LIKE 'extra%';\")"
     ]
   }
 }

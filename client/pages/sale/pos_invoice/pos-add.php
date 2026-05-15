@@ -241,6 +241,22 @@ if (!$user_id) {
                         <input type="number" id="totalDiscountAmount" class="table-input" min="0" step="0.01" value="0">
                     </div>
                     <div class="summary-item">
+                        <span class="summary-label">Extra Discount 1 %</span>
+                        <input type="number" id="extraDiscount1Percent" class="table-input" min="0" max="100" step="0.01" value="0">
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-label">Extra Discount 1 Amt</span>
+                        <input type="number" id="extraDiscount1Amount" class="table-input" min="0" step="0.01" value="0">
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-label">Extra Discount 2 %</span>
+                        <input type="number" id="extraDiscount2Percent" class="table-input" min="0" max="100" step="0.01" value="0">
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-label">Extra Discount 2 Amt</span>
+                        <input type="number" id="extraDiscount2Amount" class="table-input" min="0" step="0.01" value="0">
+                    </div>
+                    <div class="summary-item">
                         <span class="summary-label" id="shippingFeesLabel">Shipping Fees</span>
                         <input type="number" id="shippingFees" class="table-input" min="0" step="0.01" value="0">
                     </div>

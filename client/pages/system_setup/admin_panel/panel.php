@@ -526,7 +526,7 @@ if (!$user_id) {
         </div>
     </div>
 
-    <script src="../../../assets/js/system_setup/admin_panel/panel.js"></script>
+    <script src="../../../assets/js/system_setup/admin_panel/panel.js?v=<?php echo time(); ?>"></script>
 </body>
 
 </html>
