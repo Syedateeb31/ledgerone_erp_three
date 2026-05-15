@@ -1,4 +1,4 @@
-﻿// Global variables for products and UOM data
+// Global variables for products and UOM data
 let uomData = [];
 let branchesData = [];
 let companiesData = [];
@@ -8,6 +8,7 @@ let bankAccountsData = [];
 let saleOrdersData = [];
 let customersData = [];
 let productsData = [];
+let brandsData = [];
 
 // Initialize invoice-level tax regimes
 window.invoiceLevelTaxRegimes = [];
@@ -138,8 +139,6 @@ function initializePage(permissions) {
         'enableCashDiscountAmount',
         'enableInvoiceCashDiscountPercent',
         'enableInvoiceCashDiscountAmount',
-        'enableExtraDiscount1',
-        'enableExtraDiscount2',
         'enableShippingFees',
         'enableAmountPaidPaymentMethod'
     ];
@@ -352,7 +351,7 @@ function initializePage(permissions) {
     const form = document.getElementById('invoiceForm');
 
     // Load all data, then initialize dropdowns and add first row
-    Promise.all([loadCustomersLocal(), loadCompanies(), loadBranches(), loadProductsLocal(), loadUOM(), loadUOMGroupUnits(), loadCurrencies(), loadBankAccounts(), loadEmployees(), loadSaleOrders()]).then(() => {
+    Promise.all([loadCustomersLocal(), loadCompanies(), loadBranches(), loadProductsLocal(), loadUOM(), loadUOMGroupUnits(), loadCurrencies(), loadBankAccounts(), loadEmployees(), loadSaleOrders(), loadBrandsData()]).then(() => {
         initSearchableDropdown('customerCodeSearch', 'customerCodeOptions', 'customerCode');
         initSearchableDropdown('companySearch', 'companyOptions', 'company');
         initSearchableDropdown('branchSearch', 'branchOptions', 'branch');
@@ -1087,6 +1086,30 @@ function initializePage(permissions) {
         }
     }
 
+    // Load brands from API
+    async function loadBrandsData() {
+        try {
+            const response = await fetch('../../../../server/api/sale/pos_invoice/get-brands.php');
+            const data = await response.json();
+
+            if (data.success) {
+                brandsData = data.brands;
+                const brandSelect = document.getElementById('brand');
+                brandSelect.innerHTML = '<option value="">Select Brand</option>';
+
+                data.brands.forEach(brand => {
+                    const option = document.createElement('option');
+                    option.value = brand.id;
+                    option.textContent = brand.supplier_name;
+                    option.setAttribute('data-code', brand.supplier_code);
+                    brandSelect.appendChild(option);
+                });
+            }
+        } catch (error) {
+            console.error('Error loading brands:', error);
+        }
+    }
+
     // Load sub accounts for selected customer
     async function loadSubAccounts(customerId) {
         try {
@@ -1269,6 +1292,15 @@ function initializePage(permissions) {
                     }
                 }
 
+                // Set brand
+                if (invoice.brand_id) {
+                    const brandEl = document.getElementById('brand');
+                    if (brandEl) {
+                        brandEl.value = invoice.brand_id;
+                        console.log('Brand loaded:', invoice.brand_id, 'Element value:', brandEl.value);
+                    }
+                }
+
 
 
                 // Update currency symbols
@@ -1386,10 +1418,6 @@ function initializePage(permissions) {
                 // Update summary
                 document.getElementById('totalDiscountPercent').value = invoice.total_discount_percent;
                 document.getElementById('totalDiscountAmount').value = invoice.total_discount_amount;
-                document.getElementById('extraDiscount1Percent').value = invoice.extra_discount_1_percent || 0;
-                document.getElementById('extraDiscount1Amount').value = invoice.extra_discount_1_amount || 0;
-                document.getElementById('extraDiscount2Percent').value = invoice.extra_discount_2_percent || 0;
-                document.getElementById('extraDiscount2Amount').value = invoice.extra_discount_2_amount || 0;
                 document.getElementById('paymentMethod').value = invoice.payment_method || '';
 
                 // Show bank account if payment method is bank_transfer
@@ -2700,33 +2728,7 @@ function initializePage(permissions) {
                 document.getElementById('totalDiscountPercent').value = discountPct.toFixed(2);
             }
 
-            const afterMainDiscount = totalNetAmountItems - invoiceDiscountAmount;
-
-            // Extra Discount 1
-            let extraDiscount1Amount = parseFloat(document.getElementById('extraDiscount1Amount').value) || 0;
-            const extraDiscount1Percent = parseFloat(document.getElementById('extraDiscount1Percent').value) || 0;
-            if (extraDiscount1Percent > 0) {
-                extraDiscount1Amount = afterMainDiscount * (extraDiscount1Percent / 100);
-                document.getElementById('extraDiscount1Amount').value = extraDiscount1Amount.toFixed(2);
-            } else if (extraDiscount1Amount > 0) {
-                const pct = afterMainDiscount > 0 ? (extraDiscount1Amount / afterMainDiscount) * 100 : 0;
-                document.getElementById('extraDiscount1Percent').value = pct.toFixed(2);
-            }
-            const afterExtraDiscount1 = afterMainDiscount - extraDiscount1Amount;
-
-            // Extra Discount 2
-            let extraDiscount2Amount = parseFloat(document.getElementById('extraDiscount2Amount').value) || 0;
-            const extraDiscount2Percent = parseFloat(document.getElementById('extraDiscount2Percent').value) || 0;
-            if (extraDiscount2Percent > 0) {
-                extraDiscount2Amount = afterExtraDiscount1 * (extraDiscount2Percent / 100);
-                document.getElementById('extraDiscount2Amount').value = extraDiscount2Amount.toFixed(2);
-            } else if (extraDiscount2Amount > 0) {
-                const pct = afterExtraDiscount1 > 0 ? (extraDiscount2Amount / afterExtraDiscount1) * 100 : 0;
-                document.getElementById('extraDiscount2Percent').value = pct.toFixed(2);
-            }
-            const afterExtraDiscount2 = afterExtraDiscount1 - extraDiscount2Amount;
-
-            const afterDiscount = afterExtraDiscount2;
+            const afterDiscount = totalNetAmountItems - invoiceDiscountAmount;
 
             // GST calculation - skip if elements don't exist
             const shippingFeesEl = document.getElementById('shippingFees');
@@ -2908,46 +2910,6 @@ function initializePage(permissions) {
         totalTaxAmountSummary.addEventListener('input', updateInvoiceSummaryFromTaxAmount);
     }
 
-    // Extra Discount 1 - percent
-    const extraDiscount1PercentEl = document.getElementById('extraDiscount1Percent');
-    if (extraDiscount1PercentEl) {
-        extraDiscount1PercentEl.addEventListener('input', function() {
-            if (!this.value || this.value == '0') {
-                document.getElementById('extraDiscount1Amount').value = '0.00';
-            }
-            updateInvoiceSummary();
-        });
-    }
-
-    // Extra Discount 1 - amount
-    const extraDiscount1AmountEl = document.getElementById('extraDiscount1Amount');
-    if (extraDiscount1AmountEl) {
-        extraDiscount1AmountEl.addEventListener('input', function() {
-            document.getElementById('extraDiscount1Percent').value = '0';
-            updateInvoiceSummary();
-        });
-    }
-
-    // Extra Discount 2 - percent
-    const extraDiscount2PercentEl = document.getElementById('extraDiscount2Percent');
-    if (extraDiscount2PercentEl) {
-        extraDiscount2PercentEl.addEventListener('input', function() {
-            if (!this.value || this.value == '0') {
-                document.getElementById('extraDiscount2Amount').value = '0.00';
-            }
-            updateInvoiceSummary();
-        });
-    }
-
-    // Extra Discount 2 - amount
-    const extraDiscount2AmountEl = document.getElementById('extraDiscount2Amount');
-    if (extraDiscount2AmountEl) {
-        extraDiscount2AmountEl.addEventListener('input', function() {
-            document.getElementById('extraDiscount2Percent').value = '0';
-            updateInvoiceSummary();
-        });
-    }
-
     // Add event listener for shipping fees
     const shippingFees = document.getElementById('shippingFees');
     if (shippingFees) {
@@ -3096,15 +3058,6 @@ function initializePage(permissions) {
         if (totalBill) totalBill.textContent = '0.00';
         if (totalDiscountAmount) totalDiscountAmount.value = '0.00';
         if (netAmount) netAmount.textContent = '0.00';
-
-        const extraDiscount1PercentReset = document.getElementById('extraDiscount1Percent');
-        const extraDiscount1AmountReset = document.getElementById('extraDiscount1Amount');
-        const extraDiscount2PercentReset = document.getElementById('extraDiscount2Percent');
-        const extraDiscount2AmountReset = document.getElementById('extraDiscount2Amount');
-        if (extraDiscount1PercentReset) extraDiscount1PercentReset.value = '0';
-        if (extraDiscount1AmountReset) extraDiscount1AmountReset.value = '0';
-        if (extraDiscount2PercentReset) extraDiscount2PercentReset.value = '0';
-        if (extraDiscount2AmountReset) extraDiscount2AmountReset.value = '0';
 
         // Set default date to today
         const saleDate = document.getElementById('saleDate');
@@ -3562,10 +3515,14 @@ function saveInvoice(status = 'Posted') {
         }
     });
 
+    const brandValue = document.getElementById('brand')?.value;
+    console.log('Brand value before save:', brandValue, 'Type:', typeof brandValue);
+    
     const formData = {
         saleDate: document.getElementById('saleDate').value,
         customerId: document.getElementById('customerCode').value,
         subAccountId: document.getElementById('subAccount').value || null,
+        brandId: brandValue ? parseInt(brandValue) : null,
         companyId: document.getElementById('company').value || null,
         branchId: document.getElementById('branch').value,
         currencyId: document.getElementById('currency').value,
@@ -3800,8 +3757,6 @@ function loadInvoiceSettings() {
     document.getElementById('enableCashDiscountAmount').checked = localStorage.getItem('enableCashDiscountAmount') === 'true';
     document.getElementById('enableInvoiceCashDiscountPercent').checked = localStorage.getItem('enableInvoiceCashDiscountPercent') === 'true';
     document.getElementById('enableInvoiceCashDiscountAmount').checked = localStorage.getItem('enableInvoiceCashDiscountAmount') === 'true';
-    document.getElementById('enableExtraDiscount1').checked = localStorage.getItem('enableExtraDiscount1') === 'true';
-    document.getElementById('enableExtraDiscount2').checked = localStorage.getItem('enableExtraDiscount2') === 'true';
     document.getElementById('enableShippingFees').checked = localStorage.getItem('enableShippingFees') === 'true';
     document.getElementById('enablePrintQRCode').checked = localStorage.getItem('enablePrintQRCode') === 'true';
     document.getElementById('enableAmountPaidPaymentMethod').checked = localStorage.getItem('enableAmountPaidPaymentMethod') === 'true';
@@ -3828,8 +3783,6 @@ function saveInvoiceSettings() {
     localStorage.setItem('enableCashDiscountAmount', document.getElementById('enableCashDiscountAmount').checked);
     localStorage.setItem('enableInvoiceCashDiscountPercent', document.getElementById('enableInvoiceCashDiscountPercent').checked);
     localStorage.setItem('enableInvoiceCashDiscountAmount', document.getElementById('enableInvoiceCashDiscountAmount').checked);
-    localStorage.setItem('enableExtraDiscount1', document.getElementById('enableExtraDiscount1').checked);
-    localStorage.setItem('enableExtraDiscount2', document.getElementById('enableExtraDiscount2').checked);
     localStorage.setItem('enableShippingFees', document.getElementById('enableShippingFees').checked);
     localStorage.setItem('enablePrintQRCode', document.getElementById('enablePrintQRCode').checked);
     localStorage.setItem('enableAmountPaidPaymentMethod', document.getElementById('enableAmountPaidPaymentMethod').checked);
@@ -3845,8 +3798,6 @@ function applyInvoiceSettings() {
     const enableTaxation = false;
     const enableInvoiceCashDiscountPercent = localStorage.getItem('enableInvoiceCashDiscountPercent') === 'true';
     const enableInvoiceCashDiscountAmount = localStorage.getItem('enableInvoiceCashDiscountAmount') === 'true';
-    const enableExtraDiscount1 = localStorage.getItem('enableExtraDiscount1') === 'true';
-    const enableExtraDiscount2 = localStorage.getItem('enableExtraDiscount2') === 'true';
     const enableShippingFees = localStorage.getItem('enableShippingFees') === 'true';
 
     // Hide/show table columns by class name (works with dynamic unit columns)
@@ -3976,32 +3927,6 @@ function applyInvoiceSettings() {
             if (!enableInvoiceCashDiscountAmount) input.value = '0.00';
         }
     }
-    // Extra Discount 1 — hides/shows both the % and Amt rows together
-    const extraDiscount1PercentItem = document.getElementById('extraDiscount1Percent')?.closest('.summary-item');
-    const extraDiscount1AmountItem  = document.getElementById('extraDiscount1Amount')?.closest('.summary-item');
-    [extraDiscount1PercentItem, extraDiscount1AmountItem].forEach(item => {
-        if (!item) return;
-        item.style.display = enableExtraDiscount1 ? '' : 'none';
-        const input = item.querySelector('input');
-        if (input) {
-            input.disabled = !enableExtraDiscount1;
-            if (!enableExtraDiscount1) input.value = '0';
-        }
-    });
-
-    // Extra Discount 2 — hides/shows both the % and Amt rows together
-    const extraDiscount2PercentItem = document.getElementById('extraDiscount2Percent')?.closest('.summary-item');
-    const extraDiscount2AmountItem  = document.getElementById('extraDiscount2Amount')?.closest('.summary-item');
-    [extraDiscount2PercentItem, extraDiscount2AmountItem].forEach(item => {
-        if (!item) return;
-        item.style.display = enableExtraDiscount2 ? '' : 'none';
-        const input = item.querySelector('input');
-        if (input) {
-            input.disabled = !enableExtraDiscount2;
-            if (!enableExtraDiscount2) input.value = '0';
-        }
-    });
-
     if (shippingFeesItem) {
         shippingFeesItem.style.display = enableShippingFees ? '' : 'none';
         const input = document.getElementById('shippingFees');
@@ -5517,10 +5442,6 @@ function saveInvoice(status = 'Posted') {
         totalBill: parseFloat(document.getElementById('totalBill').textContent),
         totalDiscountPercent: parseFloat(document.getElementById('totalDiscountPercent').value) || 0,
         totalDiscountAmount: parseFloat(document.getElementById('totalDiscountAmount').value) || 0,
-        extraDiscount1Percent: parseFloat(document.getElementById('extraDiscount1Percent').value) || 0,
-        extraDiscount1Amount: parseFloat(document.getElementById('extraDiscount1Amount').value) || 0,
-        extraDiscount2Percent: parseFloat(document.getElementById('extraDiscount2Percent').value) || 0,
-        extraDiscount2Amount: parseFloat(document.getElementById('extraDiscount2Amount').value) || 0,
         shippingFees: parseFloat(document.getElementById('shippingFees').value) || 0,
         netAmount: parseFloat(document.getElementById('netAmount').textContent),
         withholdingTaxPercent: parseFloat(document.getElementById('withholdingTaxPercent')?.value) || 0,

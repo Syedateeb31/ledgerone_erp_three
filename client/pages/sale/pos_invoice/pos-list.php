@@ -60,6 +60,26 @@ if (!$user_id) {
                         <input type="hidden" id="customerFilter">
                     </div>
                 </div>
+                <div class="form-group">
+                    <label for="saleOfficerFilter">Sales Officer</label>
+                    <div class="searchable-dropdown">
+                        <input type="text" class="search-input" placeholder="Search sales officer..." id="saleOfficerFilterSearch" autocomplete="off">
+                        <div class="dropdown-options" id="saleOfficerFilterOptions">
+                            <!-- Options loaded dynamically -->
+                        </div>
+                        <input type="hidden" id="saleOfficerFilter">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="supplierManFilter">Supplier Man</label>
+                    <div class="searchable-dropdown">
+                        <input type="text" class="search-input" placeholder="Search supplier man..." id="supplierManFilterSearch" autocomplete="off">
+                        <div class="dropdown-options" id="supplierManFilterOptions">
+                            <!-- Options loaded dynamically -->
+                        </div>
+                        <input type="hidden" id="supplierManFilter">
+                    </div>
+                </div>
             </div>
             
             <div class="actions">

@@ -83,6 +83,14 @@ if (!$user_id) {
                         </select>
                     </div>
 
+                    <div class="form-group" id="brandGroup">
+                        <label for="brand">Brand</label>
+                        <select id="brand" tabindex="-1">
+                            <option value="">Select Brand</option>
+                            <!-- Options loaded dynamically -->
+                        </select>
+                    </div>
+
                     <div class="form-group" id="saleOrderGroup">
                         <label for="saleOrder">Sale Order#</label>
                         <div class="searchable-dropdown">
@@ -916,6 +924,7 @@ if (!$user_id) {
     </div>
 
     <script src="../../../assets/js/sale/pos_invoice/pos-add-uom.js?v=<?php echo time(); ?>&debug=1"></script>
+    <script src="../../../assets/js/sale/pos_invoice/brand-autofill.js?v=<?php echo time(); ?>"></script>
     <script src="../../../assets/js/sale/pos_invoice/pos-add-scheme.js?v=<?php echo time(); ?>"></script>
     <script src="../../../assets/js/sale/pos_invoice/invoice-level-taxes-dynamic.js?v=<?php echo time(); ?>"></script>
     <script src="../../../assets/js/sale/pos_invoice/pos-tax-calculation.js?v=<?php echo time(); ?>"></script>

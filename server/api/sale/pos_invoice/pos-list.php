@@ -32,6 +32,8 @@ try {
     $dateTo = $_GET['dateTo'] ?? null;
     $companyFilter = $_GET['company'] ?? null;
     $customerFilter = $_GET['customer'] ?? null;
+    $saleOfficerFilter = $_GET['saleOfficer'] ?? null;
+    $supplierManFilter = $_GET['supplierMan'] ?? null;
     $search = $_GET['search'] ?? null;
     
     // Build WHERE clause
@@ -53,6 +55,14 @@ try {
     if ($customerFilter) {
         $whereConditions[] = "c.customer_name = ?";
         $params[] = $customerFilter;
+    }
+    if ($saleOfficerFilter) {
+        $whereConditions[] = "si.sale_officer_id = ?";
+        $params[] = $saleOfficerFilter;
+    }
+    if ($supplierManFilter) {
+        $whereConditions[] = "si.supplier_man_id = ?";
+        $params[] = $supplierManFilter;
     }
     if ($search) {
         $whereConditions[] = "(si.bill_no LIKE ? OR c.customer_name LIKE ?)";

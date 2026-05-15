@@ -32,6 +32,8 @@ function initializeListPage(permissions) {
     const dateTo = document.getElementById('dateTo');
     const companyFilter = document.getElementById('companyFilter');
     const customerFilter = document.getElementById('customerFilter');
+    const saleOfficerFilter = document.getElementById('saleOfficerFilter');
+    const supplierManFilter = document.getElementById('supplierManFilter');
     const searchInput = document.getElementById('searchInput');
 
     // Load invoices from API
@@ -48,6 +50,8 @@ function initializeListPage(permissions) {
             if (dateTo.value) params.append('dateTo', dateTo.value);
             if (companyFilter.value) params.append('company', companyFilter.value);
             if (customerFilter.value) params.append('customer', customerFilter.value);
+            if (saleOfficerFilter.value) params.append('saleOfficer', saleOfficerFilter.value);
+            if (supplierManFilter.value) params.append('supplierMan', supplierManFilter.value);
             if (searchInput.value) params.append('search', searchInput.value);
             
             const response = await fetch(`../../../../server/api/sale/pos_invoice/pos-list.php?${params.toString()}`);
@@ -158,6 +162,8 @@ function initializeListPage(permissions) {
     loadInvoices();
     loadCustomers();
     loadCompanies();
+    loadSalesOfficers();
+    loadSupplierMen();
     
     // Load customers for filter
     async function loadCustomers() {
@@ -205,6 +211,52 @@ function initializeListPage(permissions) {
         }
     }
     
+    // Load sales officers for filter
+    async function loadSalesOfficers() {
+        try {
+            const response = await fetch('../../../../server/api/sale/pos_invoice/get-employees.php');
+            const data = await response.json();
+            if (data.success) {
+                const saleOfficerFilterOptions = document.getElementById('saleOfficerFilterOptions');
+                saleOfficerFilterOptions.innerHTML = '<div class="dropdown-option" data-value="" data-name="">All Sales Officers</div>';
+                data.employees.forEach(employee => {
+                    const option = document.createElement('div');
+                    option.className = 'dropdown-option';
+                    option.setAttribute('data-value', employee.id);
+                    option.setAttribute('data-name', employee.full_name);
+                    option.textContent = employee.full_name;
+                    saleOfficerFilterOptions.appendChild(option);
+                });
+                initSearchableDropdown('saleOfficerFilterSearch', 'saleOfficerFilterOptions', 'saleOfficerFilter');
+            }
+        } catch (error) {
+            console.error('Error loading sales officers:', error);
+        }
+    }
+    
+    // Load supplier men for filter
+    async function loadSupplierMen() {
+        try {
+            const response = await fetch('../../../../server/api/sale/pos_invoice/get-employees.php');
+            const data = await response.json();
+            if (data.success) {
+                const supplierManFilterOptions = document.getElementById('supplierManFilterOptions');
+                supplierManFilterOptions.innerHTML = '<div class="dropdown-option" data-value="" data-name="">All Supplier Men</div>';
+                data.employees.forEach(employee => {
+                    const option = document.createElement('div');
+                    option.className = 'dropdown-option';
+                    option.setAttribute('data-value', employee.id);
+                    option.setAttribute('data-name', employee.full_name);
+                    option.textContent = employee.full_name;
+                    supplierManFilterOptions.appendChild(option);
+                });
+                initSearchableDropdown('supplierManFilterSearch', 'supplierManFilterOptions', 'supplierManFilter');
+            }
+        } catch (error) {
+            console.error('Error loading supplier men:', error);
+        }
+    }
+    
     // Initialize searchable dropdown
     function initSearchableDropdown(searchInputId, optionsContainerId, hiddenInputId) {
         const searchInput = document.getElementById(searchInputId);
@@ -225,7 +277,12 @@ function initializeListPage(permissions) {
             if (e.target.classList.contains('dropdown-option')) {
                 const value = e.target.getAttribute('data-value');
                 const name = e.target.getAttribute('data-name');
-                searchInput.value = name || (hiddenInputId === 'customerFilter' ? 'All Customers' : 'All Companies');
+                let defaultText = 'All Items';
+                if (hiddenInputId === 'customerFilter') defaultText = 'All Customers';
+                else if (hiddenInputId === 'companyFilter') defaultText = 'All Companies';
+                else if (hiddenInputId === 'saleOfficerFilter') defaultText = 'All Sales Officers';
+                else if (hiddenInputId === 'supplierManFilter') defaultText = 'All Supplier Men';
+                searchInput.value = name || defaultText;
                 hiddenInput.value = value;
                 optionsContainer.style.display = 'none';
                 applyFilters();
@@ -257,6 +314,8 @@ function initializeListPage(permissions) {
     dateTo.addEventListener('change', applyFilters);
     companyFilter.addEventListener('change', applyFilters);
     customerFilter.addEventListener('change', applyFilters);
+    saleOfficerFilter.addEventListener('change', applyFilters);
+    supplierManFilter.addEventListener('change', applyFilters);
     searchInput.addEventListener('input', applyFilters);
 
     // Update pagination

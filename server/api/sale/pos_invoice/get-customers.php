@@ -19,7 +19,7 @@ try {
     $stmt = $pdo->prepare("
         SELECT 
             c.id, c.customer_code, c.customer_name, c.current_balance, c.address, 
-            c.city_id, c.area_id,
+            c.city_id, c.area_id, c.brand_id,
             c.default_discount_percentage, c.credit_limit, c.associated_sales_officer_id, 
             c.supplier_man_id, c.is_sales_tax_registered, c.is_filer, 
             c.advance_income_tax_percentage, c.ntn, c.strn,
