@@ -218,7 +218,7 @@ function renderPermissionsTree(permissions) {
     const permissionsStructure = {
         'Dashboard': [],
         'Customer / Supplier': ['New Customer', 'New Supplier', 'Leads'],
-        'Sale': ['Sale Order', 'Create Quotation', 'Sale Invoice', 'Meter Invoice', 'POS Invoice', 'Issue Delivery Challan', 'Sale Reports', 'Daily Sale Report', 'Sale Return'],
+        'Sale': ['Sale Order', 'Create Quotation', 'Sale Invoice', 'Sale Tax Invoice', 'Meter Invoice', 'POS Invoice', 'Issue Delivery Challan', 'Sale Reports', 'Daily Sale Report', 'Sale Return'],
         'Purchase': ['Purchase Order', 'New Purchase', 'Purchase Tax Invoice', 'Purchase Reports', 'Purchase Return'],
         'Inventory': ['New Product', 'Stock Adjustment', 'Stock Transfer', 'Stock Position', 'Inward Gatepass', 'Outward Gatepass'],
         'Manufacturing': ['Bill of Materials (BOM)', 'Unit Measurement', 'Machine Setup', 'Production Order', 'WIP Management', 'Production Completion', 'Production Expenses', 'Production Wastage', 'Production Report'],
@@ -672,7 +672,7 @@ function openAddPermissionModal() {
     const permissionsStructure = {
         'Dashboard': [],
         'Customer / Supplier': ['New Customer', 'New Supplier', 'Leads'],
-        'Sale': ['Sale Order', 'Create Quotation', 'Sale Invoice', 'Meter Invoice', 'POS Invoice', 'Issue Delivery Challan', 'Sale Reports', 'Daily Sale Report', 'Sale Return'],
+        'Sale': ['Sale Order', 'Create Quotation', 'Sale Invoice', 'Sale Tax Invoice', 'Meter Invoice', 'POS Invoice', 'Issue Delivery Challan', 'Sale Reports', 'Daily Sale Report', 'Sale Return'],
         'Purchase': ['Purchase Order', 'New Purchase', 'Purchase Tax Invoice', 'Purchase Reports', 'Purchase Return'],
         'Inventory': ['New Product', 'Stock Adjustment', 'Stock Transfer', 'Stock Position', 'Inward Gatepass', 'Outward Gatepass'],
         'Manufacturing': ['Bill of Materials (BOM)', 'Unit Measurement', 'Machine Setup', 'Production Order', 'WIP Management', 'Production Completion', 'Production Expenses', 'Production Wastage', 'Production Report'],
@@ -685,7 +685,7 @@ function openAddPermissionModal() {
         'Master Setup': ['Branch Setup', 'Territory Setup', 'Rate List Setup', 'Tax Rates Setup', 'Tax Regimes Setup'],
         'System Setup': ['Company Profile', 'Admin Panel', 'Currency Setup', 'Software Info']
     };
-    
+
     const modal = document.createElement('div');
     modal.id = 'addPermissionModal';
     modal.className = 'modal-overlay';
