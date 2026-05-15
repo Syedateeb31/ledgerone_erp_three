@@ -765,7 +765,7 @@ function initializePage(permissions) {
     // Load branches from API
     async function loadBranches() {
         try {
-            const response = await fetch('../../../../server/api/sale/pos_invoice/get-branches.php');
+            const response = await fetch('../../../../server/api/sale/sale_tax_invoice/get-branches.php');
             const data = await response.json();
 
             if (data.success) {
@@ -818,7 +818,7 @@ function initializePage(permissions) {
         optionsContainer.appendChild(allOption);
 
         try {
-            const response = await fetch('../../../../server/api/sale/pos_invoice/get-cities.php');
+            const response = await fetch('../../../../server/api/sale/sale_tax_invoice/get-cities.php');
             const data = await response.json();
 
             if (data.success) {
@@ -942,7 +942,7 @@ function initializePage(permissions) {
     // Load companies from API
     async function loadCompanies() {
         try {
-            const response = await fetch('../../../../server/api/sale/pos_invoice/get-companies.php');
+            const response = await fetch('../../../../server/api/sale/sale_tax_invoice/get-companies.php');
             const data = await response.json();
 
             if (data.success) {
@@ -984,7 +984,7 @@ function initializePage(permissions) {
     // Load UOM from API
     async function loadUOM() {
         try {
-            const response = await fetch('../../../../server/api/sale/pos_invoice/get-uom.php');
+            const response = await fetch('../../../../server/api/sale/sale_tax_invoice/get-uom.php');
             const data = await response.json();
 
             if (data.success) {
@@ -998,7 +998,7 @@ function initializePage(permissions) {
     // Load bank accounts from API
     async function loadBankAccounts() {
         try {
-            const response = await fetch('../../../../server/api/sale/pos_invoice/get-bank-accounts.php');
+            const response = await fetch('../../../../server/api/sale/sale_tax_invoice/get-bank-accounts.php');
             const data = await response.json();
 
             if (data.success) {
@@ -1026,7 +1026,7 @@ function initializePage(permissions) {
     // Load employees from API
     async function loadEmployees() {
         try {
-            const response = await fetch('../../../../server/api/sale/pos_invoice/get-employees.php');
+            const response = await fetch('../../../../server/api/sale/sale_tax_invoice/get-employees.php');
             const data = await response.json();
 
             if (data.success) {
@@ -1062,7 +1062,7 @@ function initializePage(permissions) {
     // Load sale orders from API
     async function loadSaleOrders() {
         try {
-            const response = await fetch('../../../../server/api/sale/pos_invoice/get-sale-orders.php');
+            const response = await fetch('../../../../server/api/sale/sale_tax_invoice/get-sale-orders.php');
             const data = await response.json();
 
             if (data.success) {
@@ -1088,7 +1088,7 @@ function initializePage(permissions) {
     // Load sub accounts for selected customer
     async function loadSubAccounts(customerId) {
         try {
-            const response = await fetch(`../../../../server/api/sale/pos_invoice/get-sub-accounts.php?customer_id=${customerId}`);
+            const response = await fetch(`../../../../server/api/sale/sale_tax_invoice/get-sub-accounts.php?customer_id=${customerId}`);
             const data = await response.json();
 
             if (data.success) {
@@ -1162,7 +1162,7 @@ function initializePage(permissions) {
     // Load currencies from API
     async function loadCurrencies() {
         try {
-            const response = await fetch('../../../../server/api/sale/pos_invoice/get-currencies.php');
+            const response = await fetch('../../../../server/api/sale/sale_tax_invoice/get-currencies.php');
             const data = await response.json();
 
             if (data.success) {
@@ -1223,7 +1223,7 @@ function initializePage(permissions) {
     // Load invoice data for editing
     async function loadInvoiceData(invoiceId) {
         try {
-            const response = await fetch(`../../../../server/api/sale/pos_invoice/pos-edit.php?id=${invoiceId}`);
+            const response = await fetch(`../../../../server/api/sale/sale_tax_invoice/pos-edit.php?id=${invoiceId}`);
             const data = await response.json();
 
             if (data.success) {
@@ -1434,7 +1434,7 @@ function initializePage(permissions) {
     // Load sale order data and populate form
     async function loadSaleOrderData(orderId) {
         try {
-            const response = await fetch(`../../../../server/api/sale/pos_invoice/get-sale-order-details.php?id=${orderId}`);
+            const response = await fetch(`../../../../server/api/sale/sale_tax_invoice/get-sale-order-details.php?id=${orderId}`);
             const data = await response.json();
 
             if (data.success) {
@@ -1988,7 +1988,7 @@ function initializePage(permissions) {
         const enableTradeOfferDiscount = localStorage.getItem('enableTradeOfferDiscount') === 'true';
         const enableTradeOfferAmount = localStorage.getItem('enableTradeOfferAmount') === 'true';
         const enableFOC = localStorage.getItem('enableFOC') === 'true';
-        const enableTaxation = false;
+        const enableTaxation = true;
 
         cell5.style.display = enableCarton ? '' : 'none';
         cell6.style.display = enableDozen ? '' : 'none';
@@ -2518,7 +2518,7 @@ function initializePage(permissions) {
 
                 if (customerId) {
                     try {
-                        const response = await fetch(`../../../../server/api/sale/pos_invoice/get-product-price.php?customer_id=${customerId}&product_id=${value}`);
+                        const response = await fetch(`../../../../server/api/sale/sale_tax_invoice/get-product-price.php?customer_id=${customerId}&product_id=${value}`);
                         const data = await response.json();
                         if (data.success) {
                             // Only use rate list price if in TP mode
@@ -2547,7 +2547,7 @@ function initializePage(permissions) {
                 const enableCashDiscountPercent = localStorage.getItem('enableCashDiscountPercent') === 'true';
                 const enableTradeOfferDiscount = localStorage.getItem('enableTradeOfferDiscount') === 'true';
                 const enableFOC = localStorage.getItem('enableFOC') === 'true';
-                const enableTaxation = false;
+                const enableTaxation = true;
 
                 if (product) {
                     if (enableCashDiscountPercent && product.default_discount) {
@@ -2761,7 +2761,7 @@ function initializePage(permissions) {
     // Load invoice-level tax regimes and display columns dynamically
     async function loadInvoiceLevelTaxRegimes(customerId, companyId = null) {
         try {
-            let url = `../../../../server/api/sale/pos_invoice/get-invoice-level-taxes.php?customer_id=${customerId}`;
+            let url = `../../../../server/api/sale/sale_tax_invoice/get-invoice-level-taxes.php?customer_id=${customerId}`;
             if (companyId) {
                 url += `&company_id=${companyId}`;
             }
@@ -3131,7 +3131,7 @@ function initializePage(permissions) {
         }
 
         try {
-            const response = await fetch(`../../../../server/api/sale/pos_invoice/pos-delete.php?id=${draftId}`, {
+            const response = await fetch(`../../../../server/api/sale/sale_tax_invoice/pos-delete.php?id=${draftId}`, {
                 method: 'DELETE'
             });
             const data = await response.json();
@@ -3651,8 +3651,8 @@ function saveInvoice(status = 'Posted') {
     }
 
     const apiUrl = isEditMode ?
-        '../../../../server/api/sale/pos_invoice/pos-edit.php' :
-        '../../../../server/api/sale/pos_invoice/pos-add.php';
+        '../../../../server/api/sale/sale_tax_invoice/pos-edit.php' :
+        '../../../../server/api/sale/sale_tax_invoice/pos-add.php';
     const method = isEditMode ? 'PUT' : 'POST';
 
     fetch(apiUrl, {
@@ -3757,7 +3757,7 @@ function applyInvoiceSettings() {
     const enableCashDiscountAmount = localStorage.getItem('enableCashDiscountAmount') === 'true';
     const enableTradeOfferAmount = localStorage.getItem('enableTradeOfferAmount') === 'true';
     const enableFOC = localStorage.getItem('enableFOC') === 'true';
-    const enableTaxation = false;
+    const enableTaxation = true;
     const enableInvoiceCashDiscountPercent = localStorage.getItem('enableInvoiceCashDiscountPercent') === 'true';
     const enableInvoiceCashDiscountAmount = localStorage.getItem('enableInvoiceCashDiscountAmount') === 'true';
     const enableShippingFees = localStorage.getItem('enableShippingFees') === 'true';
@@ -4096,7 +4096,7 @@ async function loadPriceHistory(productId) {
     }
 
     try {
-        const response = await fetch(`../../../../server/api/sale/pos_invoice/get-price-history.php?customer_id=${customerId}&product_id=${productId}`);
+        const response = await fetch(`../../../../server/api/sale/sale_tax_invoice/get-price-history.php?customer_id=${customerId}&product_id=${productId}`);
         const data = await response.json();
 
         if (data.success && data.history && data.history.length > 0) {
@@ -4126,8 +4126,8 @@ async function loadProductStock(productId) {
 
     try {
         const url = branchId
-            ? `../../../../server/api/sale/pos_invoice/get-product-stock.php?product_id=${productId}&branch_id=${branchId}`
-            : `../../../../server/api/sale/pos_invoice/get-product-stock.php?product_id=${productId}`;
+            ? `../../../../server/api/sale/sale_tax_invoice/get-product-stock.php?product_id=${productId}&branch_id=${branchId}`
+            : `../../../../server/api/sale/sale_tax_invoice/get-product-stock.php?product_id=${productId}`;
 
         const response = await fetch(url);
         const data = await response.json();
@@ -4358,7 +4358,7 @@ document.addEventListener('keydown', function (e) {
 // Preload next invoice number for instant display
 async function preloadNextInvoiceNumber() {
     try {
-        const response = await fetch('../../../../server/api/sale/pos_invoice/get-next-invoice-number.php');
+        const response = await fetch('../../../../server/api/sale/sale_tax_invoice/get-next-invoice-number.php');
         const data = await response.json();
         if (data.success && data.nextNumber) {
             const billNoEl = document.getElementById('billNo');
@@ -4408,7 +4408,7 @@ function applyCompactMode() {
 // Check if product has child products and show variants button
 async function checkAndShowVariantsButton(row, productId) {
     try {
-        const response = await fetch(`../../../../server/api/sale/pos_invoice/get-child-products.php?parent_id=${productId}`);
+        const response = await fetch(`../../../../server/api/sale/sale_tax_invoice/get-child-products.php?parent_id=${productId}`);
         const data = await response.json();
         if (data.success && data.children.length > 0) {
             const variantsBtn = row.cells[17].querySelector('.btn-secondary');
@@ -4424,7 +4424,7 @@ function openVariantsModal(parentRow) {
     const productId = parentRow.dataset.productId;
     if (!productId) return;
 
-    fetch(`../../../../server/api/sale/pos_invoice/get-child-products.php?parent_id=${productId}`)
+    fetch(`../../../../server/api/sale/sale_tax_invoice/get-child-products.php?parent_id=${productId}`)
         .then(response => response.json())
         .then(data => {
             if (data.success && data.children.length > 0) {
@@ -4761,7 +4761,7 @@ function validateForm() {
 // Load customers - global function
 async function loadCustomers() {
     try {
-        const response = await fetch('../../../../server/api/sale/pos_invoice/get-customers.php');
+        const response = await fetch('../../../../server/api/sale/sale_tax_invoice/get-customers.php');
         const data = await response.json();
 
         if (data.success) {
@@ -4804,7 +4804,7 @@ async function loadCustomers() {
 // Load products - global function
 async function loadProducts() {
     try {
-        const response = await fetch('../../../../server/api/sale/pos_invoice/get-products.php');
+        const response = await fetch('../../../../server/api/sale/sale_tax_invoice/get-products.php');
         const data = await response.json();
 
         if (data.success) {
@@ -5156,7 +5156,7 @@ function applyInvoiceSettingsToRow(row) {
     const enableCashDiscountAmount = localStorage.getItem('enableCashDiscountAmount') === 'true';
     const enableTradeOfferAmount = localStorage.getItem('enableTradeOfferAmount') === 'true';
     const enableFOC = localStorage.getItem('enableFOC') === 'true';
-    const enableTaxation = false;
+    const enableTaxation = true;
 
     // Apply visibility to cells in this row
     const discPercentCell = row.querySelector('.disc-percent-cell');
@@ -5474,7 +5474,7 @@ function saveInvoice(status = 'Posted') {
         });
     }
     
-    const apiUrl = isEditMode ? '../../../../server/api/sale/pos_invoice/pos-edit.php' : '../../../../server/api/sale/pos_invoice/pos-add.php';
+    const apiUrl = isEditMode ? '../../../../server/api/sale/sale_tax_invoice/pos-edit.php' : '../../../../server/api/sale/sale_tax_invoice/pos-add.php';
     const method = isEditMode ? 'PUT' : 'POST';
     
     fetch(apiUrl, {

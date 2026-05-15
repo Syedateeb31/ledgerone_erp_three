@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 require_once '../../../../includes/dashboard.php';
 // Start session if not already started
 if (session_status() == PHP_SESSION_NONE) {
@@ -19,9 +19,9 @@ if (!$user_id) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>LedgerOne ERP - Sale Invoice</title>
+    <title>LedgerOne ERP - Sale Tax Invoice</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="../../../assets/css/sale/pos_invoice/pos-add.css">
+    <link rel="stylesheet" href="../../../assets/css/sale/sale_tax_invoice/pos-add.css">
 </head>
 <body class="light-theme">
     <div class="container">
@@ -891,14 +891,14 @@ if (!$user_id) {
         </div>
     </div>
 
-    <script src="../../../assets/js/sale/pos_invoice/pos-add-uom.js?v=<?php echo time(); ?>&debug=1"></script>
-    <script src="../../../assets/js/sale/pos_invoice/pos-add-scheme.js?v=<?php echo time(); ?>"></script>
-    <script src="../../../assets/js/sale/pos_invoice/invoice-level-taxes-dynamic.js?v=<?php echo time(); ?>"></script>
-    <script src="../../../assets/js/sale/pos_invoice/pos-tax-calculation.js?v=<?php echo time(); ?>"></script>
-    <script src="../../../assets/js/sale/pos_invoice/withholding-tax.js?v=<?php echo time(); ?>"></script>
-    <script src="../../../assets/js/sale/pos_invoice/stock-validation.js?v=<?php echo time(); ?>"></script>
-    <script src="../../../assets/js/sale/pos_invoice/pos-add.js?v=<?php echo time(); ?>"></script>
-    <script src="../../../assets/js/sale/pos_invoice/tax-integration.js?v=<?php echo time(); ?>"></script>
-    <script src="../../../assets/js/sale/pos_invoice/supplier-product-filter.js?v=<?php echo time(); ?>"></script>
+    <script src="../../../assets/js/sale/sale_tax_invoice/pos-add-uom.js?v=<?php echo time(); ?>&debug=1"></script>
+    <script src="../../../assets/js/sale/sale_tax_invoice/pos-add-scheme.js?v=<?php echo time(); ?>"></script>
+    <script src="../../../assets/js/sale/sale_tax_invoice/invoice-level-taxes-dynamic.js?v=<?php echo time(); ?>"></script>
+    <script src="../../../assets/js/sale/sale_tax_invoice/pos-tax-calculation.js?v=<?php echo time(); ?>"></script>
+    <script src="../../../assets/js/sale/sale_tax_invoice/withholding-tax.js?v=<?php echo time(); ?>"></script>
+    <script src="../../../assets/js/sale/sale_tax_invoice/stock-validation.js?v=<?php echo time(); ?>"></script>
+    <script src="../../../assets/js/sale/sale_tax_invoice/pos-add.js?v=<?php echo time(); ?>"></script>
+    <script src="../../../assets/js/sale/sale_tax_invoice/tax-integration.js?v=<?php echo time(); ?>"></script>
+    <script src="../../../assets/js/sale/sale_tax_invoice/supplier-product-filter.js?v=<?php echo time(); ?>"></script>
 </body>
 </html>
