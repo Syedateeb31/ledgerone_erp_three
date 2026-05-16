@@ -197,8 +197,8 @@
                     <th width="10%" class="text-right">Disc Amt</th>
                     <th width="7%" class="text-right">TO %</th>
                     <th width="10%" class="text-right">TO Amt</th>
-                    <th width="7%" class="text-right">GST %</th>
-                    <th width="10%" class="text-right">GST Amt</th>
+                    <th width="7%" class="text-right">Tax %</th>
+                    <th width="10%" class="text-right">Tax Amt</th>
                     <th width="7%" class="text-right">FOC Qty</th>
                     <th width="12%" class="text-right">Net Amt</th>
                 </tr>
@@ -239,14 +239,6 @@
                 <tr>
                     <td>Discount Amount:</td>
                     <td class="text-right" id="discountAmount">0.00</td>
-                </tr>
-                <tr>
-                    <td>GST (%):</td>
-                    <td class="text-right" id="gstPercent">0.00%</td>
-                </tr>
-                <tr>
-                    <td>GST Amount:</td>
-                    <td class="text-right" id="gstAmount">0.00</td>
                 </tr>
                 <tr>
                     <td>Shipping Fees:</td>
@@ -392,8 +384,8 @@
                     <td class="text-right">${currencySymbol} ${parseFloat(item.discount_amount).toFixed(2)}</td>
                     <td class="text-right">${parseFloat(item.trade_offer_percent || 0).toFixed(2)}%</td>
                     <td class="text-right">${currencySymbol} ${parseFloat(item.trade_offer_amount || 0).toFixed(2)}</td>
-                    <td class="text-right">${parseFloat(item.gst_percent || 0).toFixed(2)}%</td>
-                    <td class="text-right">${currencySymbol} ${parseFloat(item.gst_amount || 0).toFixed(2)}</td>
+                    <td class="text-right">${parseFloat(item.tax_percent || 0).toFixed(2)}%</td>
+                    <td class="text-right">${currencySymbol} ${parseFloat(item.tax_amount || 0).toFixed(2)}</td>
                     <td class="text-right">${parseFloat(item.foc_quantity || 0).toFixed(2)}</td>
                     <td class="text-right">${currencySymbol} ${parseFloat(item.net_amount).toFixed(2)}</td>
                 `;
@@ -404,7 +396,7 @@
                 totalGrossAmount += parseFloat(item.gross_amount);
                 totalDiscountAmountItems += parseFloat(item.discount_amount);
                 totalTradeOfferAmountItems += parseFloat(item.trade_offer_amount || 0);
-                totalGSTAmountItems += parseFloat(item.gst_amount || 0);
+                totalGSTAmountItems += parseFloat(item.tax_amount || 0);
                 totalFOCQty += parseFloat(item.foc_quantity || 0);
                 totalNetAmountItems += parseFloat(item.net_amount);
             });
@@ -423,8 +415,6 @@
             document.getElementById('totalBill').textContent = `${currencySymbol} ${parseFloat(invoice.total_bill).toFixed(2)}`;
             document.getElementById('discountPercent').textContent = parseFloat(invoice.total_discount_percent).toFixed(2) + '%';
             document.getElementById('discountAmount').textContent = `${currencySymbol} ${parseFloat(invoice.total_discount_amount).toFixed(2)}`;
-            document.getElementById('gstPercent').textContent = parseFloat(invoice.total_gst_percent || 0).toFixed(2) + '%';
-            document.getElementById('gstAmount').textContent = `${currencySymbol} ${parseFloat(invoice.total_gst_amount || 0).toFixed(2)}`;
             document.getElementById('shippingFees').textContent = `${currencySymbol} ${parseFloat(invoice.shipping_fees || 0).toFixed(2)}`;
             document.getElementById('netAmount').textContent = `${currencySymbol} ${parseFloat(invoice.net_amount).toFixed(2)}`;
             

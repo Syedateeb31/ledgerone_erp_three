@@ -149,10 +149,10 @@ if (!$user_id) {
                                 <th width="8%"><span id="discountAmountLabel">Disc Amt</span></th>
                                 <th width="5%">TO %</th>
                                 <th width="8%">TO Amt</th>
-                                <th width="5%">GST %</th>
-                                <th width="8%">GST Amt</th>
+                                <th width="5%">Tax %</th>
+                                <th width="8%">Tax Amt</th>
                                 <th width="5%">FOC Qty</th>
-                                <th width="8%"><span id="netAmountLabel">Net Amount</span></th>
+                                <th width="8%"><span id="netAmountLabel">Net Amount (₨)</span></th>
                                 <th width="4%">Actions</th>
                             </tr>
                         </thead>
@@ -170,7 +170,7 @@ if (!$user_id) {
                                 <th></th>
                                 <th id="totalTradeOfferAmountItems">0.00</th>
                                 <th></th>
-                                <th id="totalGSTAmountItems">0.00</th>
+                                <th id="totalTaxAmountItems">0.00</th>
                                 <th id="totalFOCQty">0.00</th>
                                 <th id="totalNetAmountItems">0.00</th>
                                 <th></th>
@@ -201,16 +201,8 @@ if (!$user_id) {
                         <input type="number" id="totalDiscountAmount" class="table-input" min="0" step="0.01" value="0">
                     </div>
                     <div class="summary-item">
-                        <span class="summary-label">GST %</span>
-                        <input type="number" id="totalGSTPercent" class="table-input" min="0" max="100" step="0.01" value="0">
-                    </div>
-                    <div class="summary-item">
-                        <span class="summary-label" id="totalGSTAmountLabel">GST Amount</span>
-                        <input type="number" id="totalGSTAmount" class="table-input" min="0" step="0.01" value="0">
-                    </div>
-                    <div class="summary-item">
                         <span class="summary-label" id="shippingFeesLabel">Shipping Fees</span>
-                        <input type="number" id="shippingFees" class="table-input" min="0" step="0.01" value="0">
+                        <input type="number" id="shippingFees" class="table-input" min="0" step="0.01" value="0" readonly tabindex="-1">
                     </div>
                     <div class="summary-item">
                         <span class="summary-label" id="netAmountSummaryLabel">Net Amount</span>
@@ -267,7 +259,7 @@ if (!$user_id) {
             </div>
             <div class="form-group">
                 <label>
-                    <input type="checkbox" id="enableTaxation"> Enable Taxation
+                    <input type="checkbox" id="enableTaxation"> Enable Tax
                 </label>
             </div>
             <div class="form-group">

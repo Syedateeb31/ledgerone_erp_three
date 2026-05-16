@@ -100,7 +100,7 @@ try {
             tenant_id, purchase_invoice_id, product_id, uom_id,
             quantity, purchase_price, gross_amount, discount_percent,
             discount_amount, net_amount, vehicle_no, trade_offer_percent, trade_offer_amount,
-            gst_percent, gst_amount, foc_quantity, created_by, updated_by
+            tax_percent, tax_amount, foc_quantity, created_by, updated_by
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ");
     

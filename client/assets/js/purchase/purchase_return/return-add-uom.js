@@ -105,7 +105,7 @@ function updateFooterTotals() {
         const grossCell = row.querySelector('.gross-cell');
         const discAmountCell = row.querySelector('.disc-amount-cell');
         const toAmountCell = row.querySelector('.to-amount-cell');
-        const gstAmountCell = row.querySelector('.gst-amount-cell');
+        const taxAmountCell = row.querySelector('.tax-amount-cell');
         const focCell = row.querySelector('.foc-cell');
         const netCell = row.querySelector('.net-cell');
         
@@ -113,7 +113,7 @@ function updateFooterTotals() {
         if (grossCell) totalGross += parseFloat(grossCell.querySelector('input').value) || 0;
         if (discAmountCell) totalDisc += parseFloat(discAmountCell.querySelector('input').value) || 0;
         if (toAmountCell) totalTO += parseFloat(toAmountCell.querySelector('input').value) || 0;
-        if (gstAmountCell) totalGST += parseFloat(gstAmountCell.querySelector('input').value) || 0;
+        if (taxAmountCell) totalGST += parseFloat(taxAmountCell.querySelector('input').value) || 0;
         if (focCell) totalFOC += parseFloat(focCell.querySelector('input').value) || 0;
         if (netCell) totalNet += parseFloat(netCell.querySelector('input').value) || 0;
     }
@@ -122,7 +122,7 @@ function updateFooterTotals() {
     document.getElementById('totalGrossAmount').textContent = totalGross.toFixed(2);
     document.getElementById('totalDiscountAmountItems').textContent = totalDisc.toFixed(2);
     document.getElementById('totalTradeOfferAmountItems').textContent = totalTO.toFixed(2);
-    document.getElementById('totalGSTAmountItems').textContent = totalGST.toFixed(2);
+    document.getElementById('totalTaxAmountItems').textContent = totalGST.toFixed(2);
     document.getElementById('totalFOCQty').textContent = totalFOC.toFixed(2);
     document.getElementById('totalNetAmountItems').textContent = totalNet.toFixed(2);
 }
@@ -276,8 +276,8 @@ function calculateRowAmounts(row, qty, price) {
     const discAmountCell = row.querySelector('.disc-amount-cell');
     const toPercentCell = row.querySelector('.to-percent-cell');
     const toAmountCell = row.querySelector('.to-amount-cell');
-    const gstPercentCell = row.querySelector('.gst-percent-cell');
-    const gstAmountCell = row.querySelector('.gst-amount-cell');
+    const taxPercentCell = row.querySelector('.tax-percent-cell');
+    const taxAmountCell = row.querySelector('.tax-amount-cell');
     const netCell = row.querySelector('.net-cell');
     
     const gross = qty * price;
@@ -295,11 +295,11 @@ function calculateRowAmounts(row, qty, price) {
     
     const afterTO = afterDiscount - toAmount;
     
-    const gstPercent = parseFloat(gstPercentCell.querySelector('input').value) || 0;
-    const gstAmount = afterTO * (gstPercent / 100);
-    gstAmountCell.querySelector('input').value = gstAmount.toFixed(2);
+    const taxPercent = parseFloat(taxPercentCell.querySelector('input').value) || 0;
+    const taxAmount = afterTO * (taxPercent / 100);
+    taxAmountCell.querySelector('input').value = taxAmount.toFixed(2);
     
-    const net = afterTO + gstAmount;
+    const net = afterTO + taxAmount;
     netCell.querySelector('input').value = net.toFixed(2);
     
     updateReturnSummaryDynamic();
@@ -323,13 +323,15 @@ function updateReturnSummaryDynamic() {
     const discountAmount = totalBill * (discountPercent / 100);
     const afterDiscount = totalBill - discountAmount;
     
-    const gstPercent = parseFloat(document.getElementById('totalGSTPercent').value) || 0;
-    const gstAmount = afterDiscount * (gstPercent / 100);
-    const shippingFees = parseFloat(document.getElementById('shippingFees').value) || 0;
-    const netAmount = afterDiscount + gstAmount + shippingFees;
+    const taxPercent = parseFloat(document.getElementById('totalTaxPercent')?.value) || 0;
+    const taxAmount = afterDiscount * (taxPercent / 100);
+    const shippingFeesEl = document.getElementById('shippingFees');
+    const shippingFees = parseFloat(shippingFeesEl.value) || 0;
+    const shippingFeesType = shippingFeesEl.dataset.type || 'add';
+    const netAmount = afterDiscount + taxAmount + (shippingFeesType === 'subtract' ? -shippingFees : shippingFees);
     
     document.getElementById('totalDiscountAmount').value = discountAmount.toFixed(2);
-    document.getElementById('totalGSTAmount').value = gstAmount.toFixed(2);
+    if (document.getElementById('totalTaxAmount')) document.getElementById('totalTaxAmount').value = taxAmount.toFixed(2);
     document.getElementById('netAmount').textContent = netAmount.toFixed(2);
     
     updateFooterTotals();

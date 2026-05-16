@@ -356,8 +356,6 @@ document.addEventListener('DOMContentLoaded', function () {
                         lastRow.querySelector('.disc-amount-cell input').value = item.discount_amount;
                         lastRow.querySelector('.to-percent-cell input').value = item.trade_offer_percent || 0;
                         lastRow.querySelector('.to-amount-cell input').value = item.trade_offer_amount || 0;
-                        lastRow.querySelector('.gst-percent-cell input').value = item.gst_percent || 0;
-                        lastRow.querySelector('.gst-amount-cell input').value = item.gst_amount || 0;
                         lastRow.querySelector('.foc-cell input').value = item.foc_quantity || 0;
                         lastRow.querySelector('.gross-cell input').value = item.gross_amount;
                         lastRow.querySelector('.net-cell input').value = item.net_amount;
@@ -396,14 +394,21 @@ document.addEventListener('DOMContentLoaded', function () {
                             console.log(`✗ NOT FOUND uom_id ${entry.uom_id}`);
                         }
                     });
+                    // Set tax percent BEFORE recalculating so it's used in calculation
+                    row.querySelector('.tax-percent-cell input').value = item.tax_percent || 0;
                     // Recalculate amounts after setting unit values
                     calculateTotalQuantity(row);
                 });
 
+                // Autopopulate shipping fees from invoice
+                const shippingFees = data.shipping_fees || 0;
+                const shippingFeesType = data.shipping_fees_type || 'add';
+                document.getElementById('shippingFees').value = shippingFees;
+                document.getElementById('shippingFees').dataset.type = shippingFeesType;
+
                 // Update summary
                 updateReturnSummaryDynamic();
             } else {
-                alert('Error loading purchase order: ' + data.message);
             }
         } catch (error) {
             console.error('Error loading purchase order details:', error);
@@ -492,8 +497,6 @@ document.addEventListener('DOMContentLoaded', function () {
                         lastRow.querySelector('.disc-amount-cell input').value = item.discount_amount;
                         lastRow.querySelector('.to-percent-cell input').value = item.trade_offer_percent || 0;
                         lastRow.querySelector('.to-amount-cell input').value = item.trade_offer_amount || 0;
-                        lastRow.querySelector('.gst-percent-cell input').value = item.gst_percent || 0;
-                        lastRow.querySelector('.gst-amount-cell input').value = item.gst_amount || 0;
                         lastRow.querySelector('.foc-cell input').value = item.foc_quantity || 0;
                         lastRow.querySelector('.gross-cell input').value = item.gross_amount;
                         lastRow.querySelector('.net-cell input').value = item.net_amount;
@@ -508,15 +511,17 @@ document.addEventListener('DOMContentLoaded', function () {
                                 unitInput.value = entry.quantity;
                             }
                         });
+                        // Set tax percent after unit cells exist, then recalculate
+                        lastRow.querySelector('.tax-percent-cell input').value = item.tax_percent || item.gst_percent || 0;
+                        calculateTotalQuantity(lastRow);
                     }
                 });
 
                 // Update summary
                 document.getElementById('totalDiscountPercent').value = returnData.total_discount_percent;
                 document.getElementById('totalDiscountAmount').value = returnData.total_discount_amount;
-                document.getElementById('totalGSTPercent').value = returnData.total_gst_percent || 0;
-                document.getElementById('totalGSTAmount').value = returnData.total_gst_amount || 0;
                 document.getElementById('shippingFees').value = returnData.shipping_fees || 0;
+                document.getElementById('shippingFees').dataset.type = returnData.shipping_fees_type || 'add';
                 updateReturnSummaryDynamic();
 
                 document.querySelector('.page-title').textContent = `Edit Purchase Return - ${returnData.bill_no}`;
@@ -1255,9 +1260,9 @@ document.addEventListener('DOMContentLoaded', function () {
         toAmountInput.value = '0.00';
         toAmountCell.appendChild(toAmountInput);
         
-        // GST %
+        // Tax %
         const gstPercentCell = row.insertCell(8);
-        gstPercentCell.className = 'gst-percent-cell';
+        gstPercentCell.className = 'tax-percent-cell';
         const gstPercentInput = document.createElement('input');
         gstPercentInput.type = 'number';
         gstPercentInput.className = 'table-input';
@@ -1278,9 +1283,9 @@ document.addEventListener('DOMContentLoaded', function () {
         });
         gstPercentCell.appendChild(gstPercentInput);
         
-        // GST Amount
+        // Tax Amount
         const gstAmountCell = row.insertCell(9);
-        gstAmountCell.className = 'gst-amount-cell';
+        gstAmountCell.className = 'tax-amount-cell';
         const gstAmountInput = document.createElement('input');
         gstAmountInput.type = 'number';
         gstAmountInput.className = 'table-input';
@@ -1413,7 +1418,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 row.querySelector('.disc-percent-cell input').value = product.default_discount || 0;
                 row.querySelector('.to-percent-cell input').value = product.trade_offer_discount || 0;
                 row.querySelector('.foc-cell input').value = product.default_foc || 0;
-                row.querySelector('.gst-percent-cell input').value = product.sales_tax || 0;
+                row.querySelector('.tax-percent-cell input').value = product.sales_tax || 0;
                 
                 optionsContainer.style.display = 'none';
                 
@@ -1651,12 +1656,12 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         }
 
-        // Calculate total GST Amount
+        // Calculate total Tax Amount
         let totalGSTAmountItems = 0;
         for (let i = 0; i < rows.length; i++) {
-            const gstAmountInput = rows[i].cells[14].querySelector('input');
-            if (gstAmountInput) {
-                totalGSTAmountItems += parseFloat(gstAmountInput.value) || 0;
+            const taxAmountInput = rows[i].querySelector('.tax-amount-cell input');
+            if (taxAmountInput) {
+                totalGSTAmountItems += parseFloat(taxAmountInput.value) || 0;
             }
         }
 
@@ -1678,7 +1683,7 @@ document.addEventListener('DOMContentLoaded', function () {
         document.getElementById('totalGrossAmount').textContent = totalGrossAmount.toFixed(2);
         document.getElementById('totalDiscountAmountItems').textContent = totalDiscountAmountItems.toFixed(2);
         document.getElementById('totalTradeOfferAmountItems').textContent = totalTradeOfferAmountItems.toFixed(2);
-        document.getElementById('totalGSTAmountItems').textContent = totalGSTAmountItems.toFixed(2);
+        document.getElementById('totalTaxAmountItems').textContent = totalGSTAmountItems.toFixed(2);
         document.getElementById('totalFOCQty').textContent = totalFOCQty.toFixed(2);
         document.getElementById('totalNetAmountItems').textContent = totalNetAmountItems.toFixed(2);
 
@@ -1688,13 +1693,15 @@ document.addEventListener('DOMContentLoaded', function () {
         const discountAmount = totalBill * (discountPercent / 100);
         const afterDiscount = totalBill - discountAmount;
 
-        const gstPercent = parseFloat(document.getElementById('totalGSTPercent').value) || 0;
+        const gstPercent = parseFloat(document.getElementById('totalTaxPercent')?.value) || 0;
         const gstAmount = afterDiscount * (gstPercent / 100);
-        const shippingFees = parseFloat(document.getElementById('shippingFees').value) || 0;
-        const netAmount = afterDiscount + gstAmount + shippingFees;
+        const shippingFeesEl = document.getElementById('shippingFees');
+        const shippingFees = parseFloat(shippingFeesEl.value) || 0;
+        const shippingFeesType = shippingFeesEl.dataset.type || 'add';
+        const netAmount = afterDiscount + gstAmount + (shippingFeesType === 'subtract' ? -shippingFees : shippingFees);
 
         document.getElementById('totalDiscountAmount').value = discountAmount.toFixed(2);
-        document.getElementById('totalGSTAmount').value = gstAmount.toFixed(2);
+        if (document.getElementById('totalTaxAmount')) document.getElementById('totalTaxAmount').value = gstAmount.toFixed(2);
         document.getElementById('netAmount').textContent = netAmount.toFixed(2);
     }
 
@@ -1703,12 +1710,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Add event listener for total discount amount
     document.getElementById('totalDiscountAmount').addEventListener('input', updatereturnSummaryFromAmount);
-
-    // Add event listener for total GST percent
-    document.getElementById('totalGSTPercent').addEventListener('input', updatereturnSummary);
-
-    // Add event listener for total GST amount
-    document.getElementById('totalGSTAmount').addEventListener('input', updatereturnSummaryFromGSTAmount);
 
     // Add event listener for shipping fees
     document.getElementById('shippingFees').addEventListener('input', updatereturnSummary);
@@ -1730,13 +1731,15 @@ document.addEventListener('DOMContentLoaded', function () {
         const discountPercent = totalBill > 0 ? (discountAmount / totalBill) * 100 : 0;
         const afterDiscount = totalBill - discountAmount;
 
-        const gstPercent = parseFloat(document.getElementById('totalGSTPercent').value) || 0;
+        const gstPercent = parseFloat(document.getElementById('totalTaxPercent')?.value) || 0;
         const gstAmount = afterDiscount * (gstPercent / 100);
-        const shippingFees = parseFloat(document.getElementById('shippingFees').value) || 0;
-        const netAmount = afterDiscount + gstAmount + shippingFees;
+        const shippingFeesEl = document.getElementById('shippingFees');
+        const shippingFees = parseFloat(shippingFeesEl.value) || 0;
+        const shippingFeesType = shippingFeesEl.dataset.type || 'add';
+        const netAmount = afterDiscount + gstAmount + (shippingFeesType === 'subtract' ? -shippingFees : shippingFees);
 
         document.getElementById('totalDiscountPercent').value = discountPercent.toFixed(2);
-        document.getElementById('totalGSTAmount').value = gstAmount.toFixed(2);
+        if (document.getElementById('totalTaxAmount')) document.getElementById('totalTaxAmount').value = gstAmount.toFixed(2);
         document.getElementById('netAmount').textContent = netAmount.toFixed(2);
     }
 
@@ -1757,13 +1760,15 @@ document.addEventListener('DOMContentLoaded', function () {
         const discountAmount = totalBill * (discountPercent / 100);
         const afterDiscount = totalBill - discountAmount;
 
-        const gstAmount = parseFloat(document.getElementById('totalGSTAmount').value) || 0;
+        const gstAmount = parseFloat(document.getElementById('totalTaxAmount')?.value) || 0;
         const gstPercent = afterDiscount > 0 ? (gstAmount / afterDiscount) * 100 : 0;
-        const shippingFees = parseFloat(document.getElementById('shippingFees').value) || 0;
-        const netAmount = afterDiscount + gstAmount + shippingFees;
+        const shippingFeesEl = document.getElementById('shippingFees');
+        const shippingFees = parseFloat(shippingFeesEl.value) || 0;
+        const shippingFeesType = shippingFeesEl.dataset.type || 'add';
+        const netAmount = afterDiscount + gstAmount + (shippingFeesType === 'subtract' ? -shippingFees : shippingFees);
 
         document.getElementById('totalDiscountAmount').value = discountAmount.toFixed(2);
-        document.getElementById('totalGSTPercent').value = gstPercent.toFixed(2);
+        if (document.getElementById('totalTaxPercent')) document.getElementById('totalTaxPercent').value = gstPercent.toFixed(2);
         document.getElementById('netAmount').textContent = netAmount.toFixed(2);
     }
 
@@ -1843,9 +1848,10 @@ document.addEventListener('DOMContentLoaded', function () {
             totalBill: parseFloat(document.getElementById('totalBill').textContent),
             totalDiscountPercent: parseFloat(document.getElementById('totalDiscountPercent').value) || 0,
             totalDiscountAmount: parseFloat(document.getElementById('totalDiscountAmount').value),
-            totalGSTPercent: parseFloat(document.getElementById('totalGSTPercent').value) || 0,
-            totalGSTAmount: parseFloat(document.getElementById('totalGSTAmount').value) || 0,
+            totalGSTPercent: 0,
+            totalGSTAmount: 0,
             shippingFees: parseFloat(document.getElementById('shippingFees').value) || 0,
+            shippingFeesType: document.getElementById('shippingFees').dataset.type || 'add',
             netAmount: parseFloat(document.getElementById('netAmount').textContent),
             remarks: document.getElementById('remarks').value,
             items: []
@@ -1882,8 +1888,8 @@ document.addEventListener('DOMContentLoaded', function () {
                     discountAmount: parseFloat(row.querySelector('.disc-amount-cell input').value),
                     tradeOfferPercent: parseFloat(row.querySelector('.to-percent-cell input').value) || 0,
                     tradeOfferAmount: parseFloat(row.querySelector('.to-amount-cell input').value) || 0,
-                    gstPercent: parseFloat(row.querySelector('.gst-percent-cell input').value) || 0,
-                    gstAmount: parseFloat(row.querySelector('.gst-amount-cell input').value) || 0,
+                    gstPercent: parseFloat(row.querySelector('.tax-percent-cell input').value) || 0,
+                    gstAmount: parseFloat(row.querySelector('.tax-amount-cell input').value) || 0,
                     focQty: parseFloat(row.querySelector('.foc-cell input').value) || 0,
                     netAmount: parseFloat(row.querySelector('.net-cell input').value)
                 };
@@ -2002,8 +2008,8 @@ document.addEventListener('DOMContentLoaded', function () {
         document.getElementById('enableTaxation').checked = localStorage.getItem('enableTaxation') === 'true';
         document.getElementById('enableInlineCashDiscount').checked = localStorage.getItem('enableInlineCashDiscount') === 'true';
         document.getElementById('enableInlineCashDiscountAmount').checked = localStorage.getItem('enableInlineCashDiscountAmount') === 'true';
-        document.getElementById('enablereturnCashDiscount').checked = localStorage.getItem('enablereturnCashDiscount') === 'true';
-        document.getElementById('enablereturnCashDiscountAmount').checked = localStorage.getItem('enablereturnCashDiscountAmount') === 'true';
+        document.getElementById('enableInvoiceCashDiscount').checked = localStorage.getItem('enablereturnCashDiscount') === 'true';
+        document.getElementById('enableInvoiceCashDiscountAmount').checked = localStorage.getItem('enablereturnCashDiscountAmount') === 'true';
         document.getElementById('enableShippingFees').checked = localStorage.getItem('enableShippingFees') === 'true';
         document.getElementById('settingsModal').style.display = 'flex';
     });
@@ -2020,8 +2026,8 @@ document.addEventListener('DOMContentLoaded', function () {
         localStorage.setItem('enableTaxation', document.getElementById('enableTaxation').checked);
         localStorage.setItem('enableInlineCashDiscount', document.getElementById('enableInlineCashDiscount').checked);
         localStorage.setItem('enableInlineCashDiscountAmount', document.getElementById('enableInlineCashDiscountAmount').checked);
-        localStorage.setItem('enablereturnCashDiscount', document.getElementById('enablereturnCashDiscount').checked);
-        localStorage.setItem('enablereturnCashDiscountAmount', document.getElementById('enablereturnCashDiscountAmount').checked);
+        localStorage.setItem('enablereturnCashDiscount', document.getElementById('enableInvoiceCashDiscount').checked);
+        localStorage.setItem('enablereturnCashDiscountAmount', document.getElementById('enableInvoiceCashDiscountAmount').checked);
         localStorage.setItem('enableShippingFees', document.getElementById('enableShippingFees').checked);
         document.getElementById('settingsModal').style.display = 'none';
 
@@ -2054,8 +2060,8 @@ document.addEventListener('DOMContentLoaded', function () {
         // Hide/show return summary fields
         const discountPercentItem = document.getElementById('totalDiscountPercent')?.closest('.summary-item');
         const discountAmountItem = document.getElementById('totalDiscountAmount')?.closest('.summary-item');
-        const gstPercentItem = document.getElementById('totalGSTPercent')?.closest('.summary-item');
-        const gstAmountItem = document.getElementById('totalGSTAmount')?.closest('.summary-item');
+        const gstPercentItem = document.getElementById('totalTaxPercent')?.closest('.summary-item');
+        const gstAmountItem = document.getElementById('totalTaxAmount')?.closest('.summary-item');
         const shippingFeesItem = document.getElementById('shippingFees')?.closest('.summary-item');
 
         if (discountPercentItem) discountPercentItem.style.display = enablereturnCashDiscount ? '' : 'none';

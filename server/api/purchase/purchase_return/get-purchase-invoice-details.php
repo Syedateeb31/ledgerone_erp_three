@@ -89,7 +89,7 @@ try {
         $totalGross = 0;
         $totalDiscount = 0;
         $totalTradeOffer = 0;
-        $totalGst = 0;
+        $totalTax = 0;
         $totalFoc = 0;
         $totalNet = 0;
         
@@ -110,7 +110,7 @@ try {
                 $totalGross += floatval($item['gross_amount']);
                 $totalDiscount += floatval($item['discount_amount']);
                 $totalTradeOffer += floatval($item['trade_offer_amount']);
-                $totalGst += floatval($item['gst_amount']);
+                $totalTax += floatval($item['tax_amount']);
                 $totalFoc += floatval($item['foc_quantity']);
                 $totalNet += floatval($item['net_amount']);
             }
@@ -130,8 +130,8 @@ try {
             'discount_amount' => $totalDiscount,
             'trade_offer_percent' => $firstItem['trade_offer_percent'],
             'trade_offer_amount' => $totalTradeOffer,
-            'gst_percent' => $firstItem['gst_percent'],
-            'gst_amount' => $totalGst,
+            'tax_percent' => $firstItem['tax_percent'],
+            'tax_amount' => $totalTax,
             'foc_quantity' => $totalFoc,
             'net_amount' => $totalNet,
             'unit_entries' => array_values($uomMap)
@@ -143,7 +143,9 @@ try {
     echo json_encode([
         'success' => true,
         'invoice' => $invoice,
-        'items' => $items
+        'items' => $items,
+        'shipping_fees' => floatval($invoice['shipping_fees'] ?? 0),
+        'shipping_fees_type' => $invoice['shipping_fees_type'] ?? 'add'
     ]);
     
 } catch (Exception $e) {

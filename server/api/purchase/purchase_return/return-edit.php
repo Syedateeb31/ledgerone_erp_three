@@ -100,7 +100,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             $totalGross = 0;
             $totalDiscount = 0;
             $totalTradeOffer = 0;
-            $totalGst = 0;
+            $totalTax = 0;
             $totalFoc = 0;
             $totalNet = 0;
             
@@ -121,7 +121,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                     $totalGross += floatval($item['gross_amount']);
                     $totalDiscount += floatval($item['discount_amount']);
                     $totalTradeOffer += floatval($item['trade_offer_amount']);
-                    $totalGst += floatval($item['gst_amount']);
+                    $totalTax += floatval($item['tax_amount']);
                     $totalFoc += floatval($item['foc_quantity']);
                     $totalNet += floatval($item['net_amount']);
                 }
@@ -141,8 +141,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 'discount_amount' => $totalDiscount,
                 'trade_offer_percent' => $firstItem['trade_offer_percent'],
                 'trade_offer_amount' => $totalTradeOffer,
-                'gst_percent' => $firstItem['gst_percent'],
-                'gst_amount' => $totalGst,
+                'tax_percent' => $firstItem['tax_percent'],
+                'tax_amount' => $totalTax,
                 'foc_quantity' => $totalFoc,
                 'net_amount' => $totalNet,
                 'unit_entries' => array_values($uomMap)
@@ -221,7 +221,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
                 tenant_id, purchase_invoice_id, product_id, uom_id,
                 quantity, purchase_price, gross_amount, discount_percent,
                 discount_amount, net_amount, vehicle_no, trade_offer_percent, trade_offer_amount,
-                gst_percent, gst_amount, foc_quantity, created_by, updated_by
+                tax_percent, tax_amount, foc_quantity, created_by, updated_by
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ");
         
