@@ -104,8 +104,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                     'discount_amount' => 0,
                     'trade_offer_percent' => $item['trade_offer_percent'],
                     'trade_offer_amount' => 0,
-                    'gst_percent' => $item['gst_percent'],
-                    'gst_amount' => 0,
+                    'tax_percent' => $item['tax_percent'],
+                    'tax_amount' => 0,
                     'foc_quantity' => $item['foc_quantity'],
                     'gross_amount' => 0,
                     'net_amount' => 0,
@@ -123,7 +123,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             // Sum amounts
             $groupedItems[$productId]['discount_amount'] += floatval($item['discount_amount']);
             $groupedItems[$productId]['trade_offer_amount'] += floatval($item['trade_offer_amount']);
-            $groupedItems[$productId]['gst_amount'] += floatval($item['gst_amount']);
+            $groupedItems[$productId]['tax_amount'] += floatval($item['tax_amount']);
             $groupedItems[$productId]['gross_amount'] += floatval($item['gross_amount']);
             $groupedItems[$productId]['net_amount'] += floatval($item['net_amount']);
         }
@@ -202,7 +202,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
                 tenant_id, sale_invoice_id, product_id, uom_id,
                 quantity, sale_price, gross_amount, discount_percent,
                 discount_amount, trade_offer_percent, trade_offer_amount,
-                gst_percent, gst_amount, foc_quantity, net_amount, created_by, updated_by
+                tax_percent, tax_amount, foc_quantity, net_amount, created_by, updated_by
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ");
 
@@ -234,8 +234,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
                             $item['discountAmount'] * $proportionOfTotal ?? 0.00,
                             $item['tradeOfferPercent'] ?? 0.00,
                             $item['tradeOfferAmount'] * $proportionOfTotal ?? 0.00,
-                            $item['gstPercent'] ?? 0.00,
-                            $item['gstAmount'] * $proportionOfTotal ?? 0.00,
+                            $item['taxPercent'] ?? 0.00,
+                            $item['taxAmount'] * $proportionOfTotal ?? 0.00,
                             0.00,
                             $item['netAmount'] * $proportionOfTotal,
                             $user_id,
@@ -314,15 +314,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
 
         // Skip accounting ledger for Draft status
         if ($status === 'Posted') {
-            // Calculate total GST
-            $totalGST = 0;
+            // Calculate total Tax
+            $totalTax = 0;
             foreach ($input['items'] as $item) {
-                $totalGST += floatval($item['gstAmount'] ?? 0);
+                $totalTax += floatval($item['taxAmount'] ?? 0);
             }
             
             // Entry 1: Record Sales Return
-            // Dr: Sales Returns & Allowances (Net Amount excluding GST)
-            $netAmountExcludingGST = $input['netAmount'] - $totalGST;
+            // Dr: Sales Returns & Allowances (Net Amount excluding Tax)
+            $netAmountExcludingTax = $input['netAmount'] - $totalTax;
             $pdo->prepare("
                 INSERT INTO accounting_ledger (
                     tenant_id, transaction_type, reference_table, reference_id,
@@ -330,11 +330,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
                 ) VALUES (?, 'Sale Return', 'sale_return', ?, 18, ?, ?, ?)
             ")->execute([
                 $tenant_id, $invoice_id, $input['saleDate'],
-                'Sale Return - ' . $billNo, $netAmountExcludingGST
+                'Sale Return - ' . $billNo, $netAmountExcludingTax
             ]);
             
-            // Dr: Sales Tax Payable (GST reversal)
-            if ($totalGST > 0) {
+            // Dr: Sales Tax Payable (Tax reversal)
+            if ($totalTax > 0) {
                 $pdo->prepare("
                     INSERT INTO accounting_ledger (
                         tenant_id, transaction_type, reference_table, reference_id,
@@ -342,7 +342,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
                     ) VALUES (?, 'Sale Return', 'sale_return', ?, 106, ?, ?, ?)
                 ")->execute([
                     $tenant_id, $invoice_id, $input['saleDate'],
-                    'Sale Return - GST Reversal - ' . $billNo, $totalGST
+                    'Sale Return - Tax Reversal - ' . $billNo, $totalTax
                 ]);
             }
             

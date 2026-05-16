@@ -205,7 +205,7 @@
             <span id="discountAmount">0.00</span>
         </div>
         <div class="total-row">
-            <span>GST:</span>
+            <span>TAX AMT:</span>
             <span id="gstAmount">0.00</span>
         </div>
         <div class="total-row grand-total">
@@ -344,12 +344,12 @@
             document.getElementById('totalBill').textContent = `${currencySymbol}${parseFloat(invoice.total_bill).toFixed(2)}`;
             document.getElementById('discountAmount').textContent = `${currencySymbol}${parseFloat(invoice.total_discount_amount).toFixed(2)}`;
             
-            // Calculate total GST from items
-            let totalGst = 0;
+            // Calculate total TAX from items
+            let totalTax = 0;
             items.forEach(item => {
-                totalGst += parseFloat(item.gst_amount || 0);
+                totalTax += parseFloat(item.tax_amount || 0);
             });
-            document.getElementById('gstAmount').textContent = `${currencySymbol}${totalGst.toFixed(2)}`;
+            document.getElementById('gstAmount').textContent = `${currencySymbol}${totalTax.toFixed(2)}`;
             
             document.getElementById('netAmount').textContent = `${currencySymbol}${parseFloat(invoice.net_amount).toFixed(2)}`;
             

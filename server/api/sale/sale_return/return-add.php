@@ -104,7 +104,7 @@ try {
             tenant_id, sale_invoice_id, product_id, uom_id,
             quantity, sale_price, gross_amount, discount_percent,
             discount_amount, trade_offer_percent, trade_offer_amount,
-            gst_percent, gst_amount, foc_quantity, net_amount, created_by, updated_by
+            tax_percent, tax_amount, foc_quantity, net_amount, created_by, updated_by
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ");
 
@@ -136,9 +136,9 @@ try {
                         $item['discountAmount'] * $proportionOfTotal ?? 0.00,
                         $item['tradeOfferPercent'] ?? 0.00,
                         $item['tradeOfferAmount'] * $proportionOfTotal ?? 0.00,
-                        $item['gstPercent'] ?? 0.00,
-                        $item['gstAmount'] * $proportionOfTotal ?? 0.00,
-                        0.00, // FOC handled separately
+                        $item['taxPercent'] ?? 0.00,
+                        $item['taxAmount'] * $proportionOfTotal ?? 0.00,
+                        $item['focQuantity'] * $proportionOfTotal ?? 0.00,
                         $item['netAmount'] * $proportionOfTotal,
                         $user_id,
                         $user_id
@@ -181,7 +181,7 @@ try {
             }
 
             // Insert stock ledger for FOC quantity if exists
-            if (isset($item['focQty']) && $item['focQty'] > 0) {
+            if (isset($item['focQuantity']) && $item['focQuantity'] > 0) {
                 // Use first unit from unitEntries or default to Piece
                 $focUomId = 9; // Default to Piece
                 if (isset($item['unitEntries']) && count($item['unitEntries']) > 0) {
@@ -200,7 +200,7 @@ try {
                     $input['branchId'],
                     $item['productId'],
                     $invoice_id,
-                    $item['focQty'],
+                    $item['focQuantity'],
                     0,
                     $focUomId,
                     $item['stockStatus'] ?? 'sellable',
@@ -212,15 +212,15 @@ try {
 
     // Skip accounting_ledger for Draft status
     if ($status === 'Posted') {
-        // Calculate total GST
-        $totalGST = 0;
+        // Calculate total Tax
+        $totalTax = 0;
         foreach ($input['items'] as $item) {
-            $totalGST += floatval($item['gstAmount'] ?? 0);
+            $totalTax += floatval($item['taxAmount'] ?? 0);
         }
 
         // Entry 1: Record Sales Return
-        // Dr: Sales Returns & Allowances (Net Amount excluding GST)
-        $netAmountExcludingGST = $input['netAmount'] - $totalGST;
+        // Dr: Sales Returns & Allowances (Net Amount excluding Tax)
+        $netAmountExcludingTax = $input['netAmount'] - $totalTax;
         $pdo->prepare("
             INSERT INTO accounting_ledger (
                 tenant_id, transaction_type, reference_table, reference_id,
@@ -231,11 +231,11 @@ try {
                     $invoice_id,
                     $input['saleDate'],
                     'Sale Return - ' . $billNo,
-                    $netAmountExcludingGST
+                    $netAmountExcludingTax
                 ]);
 
-        // Dr: Sales Tax Payable (GST reversal)
-        if ($totalGST > 0) {
+        // Dr: Sales Tax Payable (Tax reversal)
+        if ($totalTax > 0) {
             $pdo->prepare("
                 INSERT INTO accounting_ledger (
                     tenant_id, transaction_type, reference_table, reference_id,
@@ -245,8 +245,8 @@ try {
                         $tenant_id,
                         $invoice_id,
                         $input['saleDate'],
-                        'Sale Return - GST Reversal - ' . $billNo,
-                        $totalGST
+                        'Sale Return - Tax Reversal - ' . $billNo,
+                        $totalTax
                     ]);
         }
 

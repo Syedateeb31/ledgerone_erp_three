@@ -311,15 +311,17 @@ function addProductFromQuick() {
             })),
             price: parseFloat(priceType === 'mrp' ? product.sale_price : product.trade_price),
             discountPercent: 0,
-            gstPercent: parseFloat(product.sales_tax || 0),
-            status: 'sellable'
+            taxPercent: 0,
+            status: 'sellable',
+            tradeOfferAmount: 0,
+            focQuantity: 0
         };
         
         item.qty = calculateTotalQty(item);
         item.gross = item.qty * item.price;
         item.discountAmount = item.gross * (item.discountPercent / 100);
-        item.gstAmount = (item.gross - item.discountAmount) * (item.gstPercent / 100);
-        item.net = item.gross - item.discountAmount + item.gstAmount;
+        item.taxAmount = (item.gross - item.discountAmount) * (item.taxPercent / 100);
+        item.net = item.gross - item.discountAmount + item.taxAmount;
         
         currentReturn.items.push(item);
         recalculateMaxColumns();
@@ -374,11 +376,14 @@ function renderItems() {
             <input type="number" value="${item.price.toFixed(2)}" step="0.01" class="text-right" onchange="updateItemPrice(${item.id}, this.value)">
             <div class="readonly">${formatCurrency(item.gross)}</div>
             <input type="number" value="${item.discountPercent}" step="0.1" class="text-right" onchange="updateItemDiscount(${item.id}, this.value)">
-            <input type="number" value="${item.gstPercent}" step="0.1" class="text-right" onchange="updateItemGst(${item.id}, this.value)">
+            <input type="number" value="${item.taxPercent}" step="0.1" class="text-right" onchange="updateItemTaxPercent(${item.id}, this.value)">
+            <div class="readonly">${formatCurrency(item.taxAmount)}</div>
             <select onchange="updateItemStatus(${item.id}, this.value)">
                 <option value="sellable" ${item.status === 'sellable' ? 'selected' : ''}>Sellable</option>
                 <option value="damaged" ${item.status === 'damaged' ? 'selected' : ''}>Damaged</option>
             </select>
+            <input type="number" value="${item.tradeOfferAmount.toFixed(2)}" step="0.01" class="text-right" onchange="updateItemTradeOfferAmount(${item.id}, this.value)">
+            <input type="number" value="${item.focQuantity}" step="0.01" class="text-right" onchange="updateItemFocQuantity(${item.id}, this.value)">
             <div class="readonly">${formatCurrency(item.net)}</div>
             <div class="text-center">
                 <button class="btn btn-danger btn-micro" onclick="removeItem(${item.id})">
@@ -420,14 +425,29 @@ window.updateItemDiscount = function(itemId, newPercent) {
     if (item) { item.discountPercent = parseFloat(newPercent) || 0; recalculateItem(item); renderItems(); updateSummary(); }
 };
 
-window.updateItemGst = function(itemId, newPercent) {
+window.updateItemTaxPercent = function(itemId, newPercent) {
     const item = currentReturn.items.find(i => i.id === itemId);
-    if (item) { item.gstPercent = parseFloat(newPercent) || 0; recalculateItem(item); renderItems(); updateSummary(); }
+    if (item) { item.taxPercent = parseFloat(newPercent) || 0; recalculateItem(item); renderItems(); updateSummary(); }
 };
 
 window.updateItemStatus = function(itemId, newStatus) {
     const item = currentReturn.items.find(i => i.id === itemId);
     if (item) item.status = newStatus;
+};
+
+window.updateItemTradeOfferAmount = function(itemId, newAmount) {
+    const item = currentReturn.items.find(i => i.id === itemId);
+    if (item) {
+        item.tradeOfferAmount = parseFloat(newAmount) || 0;
+        recalculateItem(item);
+        renderItems();
+        updateSummary();
+    }
+};
+
+window.updateItemFocQuantity = function(itemId, newQty) {
+    const item = currentReturn.items.find(i => i.id === itemId);
+    if (item) item.focQuantity = parseFloat(newQty) || 0;
 };
 
 window.removeItem = function(itemId) {
@@ -439,14 +459,14 @@ window.removeItem = function(itemId) {
 function recalculateItem(item) {
     item.gross = item.qty * item.price;
     item.discountAmount = item.gross * (item.discountPercent / 100);
-    item.gstAmount = (item.gross - item.discountAmount) * (item.gstPercent / 100);
-    item.net = item.gross - item.discountAmount + item.gstAmount;
+    item.taxAmount = (item.gross - item.discountAmount) * (item.taxPercent / 100);
+    item.net = item.gross - item.discountAmount + item.taxAmount - (item.tradeOfferAmount || 0);
 }
 
 function updateSummary() {
     const totalBill = currentReturn.items.reduce((sum, item) => sum + item.gross, 0);
     const totalDiscount = currentReturn.items.reduce((sum, item) => sum + item.discountAmount, 0);
-    const totalGst = currentReturn.items.reduce((sum, item) => sum + item.gstAmount, 0);
+    const totalTax = currentReturn.items.reduce((sum, item) => sum + item.taxAmount, 0);
     const returnDiscountAmount = parseFloat(document.getElementById('returnDiscountAmount').value) || 0;
     const netAmount = currentReturn.items.reduce((sum, item) => sum + item.net, 0) - returnDiscountAmount;
     const amountRefunded = parseFloat(document.getElementById('amountRefunded').value) || 0;
@@ -457,7 +477,7 @@ function updateSummary() {
     
     document.getElementById('totalBill').textContent = formatCurrency(totalBill);
     document.getElementById('totalDiscount').textContent = formatCurrency(totalDiscount + returnDiscountAmount);
-    document.getElementById('totalGst').textContent = formatCurrency(totalGst);
+    document.getElementById('totalGst').textContent = formatCurrency(totalTax);
     document.getElementById('netAmount').textContent = formatCurrency(netAmount);
     document.getElementById('summaryRefunded').textContent = formatCurrency(amountRefunded);
     document.getElementById('balanceAmount').textContent = formatCurrency(balance);
@@ -486,8 +506,11 @@ function updateTableHeaders() {
         <div class="col-header text-right">PRICE</div>
         <div class="col-header text-right">GROSS</div>
         <div class="col-header text-right">DISC%</div>
-        <div class="col-header text-right">GST%</div>
+        <div class="col-header text-right">TAX%</div>
+        <div class="col-header text-right">TAX AMT</div>
         <div class="col-header text-center">STATUS</div>
+        <div class="col-header text-right">T.O AMT</div>
+        <div class="col-header text-right">FOC QTY</div>
         <div class="col-header text-right">NET</div>
         <div class="col-header text-center">ACT</div>
     `;
@@ -521,7 +544,11 @@ function updateFooterTotals() {
         <div class="text-right" id="totalGross">0.00</div>
         <div></div>
         <div></div>
+        <div class="text-right" id="totalTaxPercent">0.00</div>
+        <div class="text-right" id="totalTaxAmount">0.00</div>
         <div></div>
+        <div class="text-right" id="totalToAmt">0.00</div>
+        <div class="text-right" id="totalFocQty">0.00</div>
         <div class="text-right" id="totalNet">0.00</div>
         <div></div>
     `;
@@ -531,14 +558,18 @@ function updateFooterTotals() {
     // Update totals
     const totalBill = currentReturn.items.reduce((sum, item) => sum + item.gross, 0);
     const totalNet = currentReturn.items.reduce((sum, item) => sum + item.net, 0);
+    const totalToAmt = currentReturn.items.reduce((sum, item) => sum + (item.tradeOfferAmount || 0), 0);
+    const totalFocQty = currentReturn.items.reduce((sum, item) => sum + (item.focQuantity || 0), 0);
     document.getElementById('totalGross').textContent = formatCurrency(totalBill);
+    document.getElementById('totalToAmt').textContent = formatCurrency(totalToAmt);
+    document.getElementById('totalFocQty').textContent = totalFocQty.toFixed(2);
     document.getElementById('totalNet').textContent = formatCurrency(totalNet);
 }
 
 function getGridTemplate() {
     const baseColumns = '30px 120px';
     const unitColumns = ' 70px'.repeat(maxUnitColumns);
-    const endColumns = ' 70px 70px 70px 70px 60px 80px 40px';
+    const endColumns = ' 70px 70px 70px 70px 70px 60px 70px 70px 80px 40px';
     return baseColumns + unitColumns + endColumns;
 }
 
@@ -595,10 +626,12 @@ async function saveReturn() {
             grossAmount: item.gross,
             discountPercent: item.discountPercent,
             discountAmount: item.discountAmount,
-            gstPercent: item.gstPercent,
-            gstAmount: item.gstAmount,
+            taxPercent: item.taxPercent,
+            taxAmount: item.taxAmount,
             netAmount: item.net,
-            stockStatus: item.status
+            stockStatus: item.status,
+            tradeOfferAmount: item.tradeOfferAmount || 0,
+            focQuantity: item.focQuantity || 0
         })),
         status: 'Posted'
     };
@@ -739,8 +772,10 @@ async function loadInvoiceData(invoiceId) {
                         })),
                         price: parseFloat(firstItem.sale_price),
                         discountPercent: parseFloat(firstItem.discount_percent || 0),
-                        gstPercent: parseFloat(firstItem.gst_percent || 0),
-                        status: 'sellable'
+                        taxPercent: parseFloat(firstItem.tax_percent || 0),
+                        status: 'sellable',
+                        tradeOfferAmount: parseFloat(firstItem.trade_offer_amount || 0),
+                        focQuantity: parseFloat(firstItem.foc_quantity || 0)
                     };
                     
                     returnItem.qty = calculateTotalQty(returnItem);

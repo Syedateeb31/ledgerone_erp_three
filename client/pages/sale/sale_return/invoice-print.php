@@ -210,8 +210,8 @@
                     <th width="8%" class="text-right">Disc Amt</th>
                     <th width="5%" class="text-right">T.O %</th>
                     <th width="8%" class="text-right">T.O Amt</th>
-                    <th width="5%" class="text-right">GST %</th>
-                    <th width="8%" class="text-right">GST Amt</th>
+                    <th width="5%" class="text-right">TAX %</th>
+                    <th width="8%" class="text-right">TAX AMT</th>
                     <th width="5%" class="text-right">FOC Qty</th>
                     <th width="9%" class="text-right">Net Amt</th>
                 </tr>
@@ -410,8 +410,8 @@
                     <td class="text-right">${currencySymbol} ${parseFloat(item.discount_amount || 0).toFixed(2)}</td>
                     <td class="text-right">${parseFloat(item.trade_offer_percent || 0).toFixed(2)}%</td>
                     <td class="text-right">${currencySymbol} ${parseFloat(item.trade_offer_amount || 0).toFixed(2)}</td>
-                    <td class="text-right">${parseFloat(item.gst_percent || 0).toFixed(2)}%</td>
-                    <td class="text-right">${currencySymbol} ${parseFloat(item.gst_amount || 0).toFixed(2)}</td>
+                    <td class="text-right">${parseFloat(item.tax_percent || 0).toFixed(2)}%</td>
+                    <td class="text-right">${currencySymbol} ${parseFloat(item.tax_amount || 0).toFixed(2)}</td>
                     <td class="text-right">${parseFloat(item.foc_qty || 0).toFixed(2)}</td>
                     <td class="text-right">${currencySymbol} ${parseFloat(item.net_amount).toFixed(2)}</td>
                 `;
@@ -422,7 +422,7 @@
                 totalGrossAmount += parseFloat(item.gross_amount);
                 totalDiscountAmountItems += parseFloat(item.discount_amount || 0);
                 totalTradeOfferAmountItems += parseFloat(item.trade_offer_amount || 0);
-                totalGstAmountItems += parseFloat(item.gst_amount || 0);
+                totalGstAmountItems += parseFloat(item.tax_amount || 0);
                 totalFocQty += parseFloat(item.foc_qty || 0);
                 totalNetAmountItems += parseFloat(item.net_amount);
             });

@@ -58,9 +58,9 @@ $user_employee_id = $user['employee_id'] ?? null;
         input, select { height: 32px; padding: 0 8px; border: 1px solid var(--border-default); border-radius: 4px; background: white; font-size: 13px; width: 100%; }
         input:focus, select:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px rgba(31,123,255,0.1); }
         .items-container { background: white; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); flex: 1; display: flex; flex-direction: column; overflow: hidden; }
-        .items-header { padding: 8px 12px; background: var(--surface-1); border-bottom: 1px solid var(--border-default); display: grid; grid-template-columns: 30px 120px 60px 60px 70px 70px 70px 70px 60px 80px 40px; gap: 4px; align-items: center; }
+        .items-header { padding: 8px 12px; background: var(--surface-1); border-bottom: 1px solid var(--border-default); display: grid; grid-template-columns: 30px 120px 60px 60px 70px 70px 70px 70px 70px 60px 80px 40px; gap: 4px; align-items: center; }
         .items-body { overflow-y: auto; max-height: calc(100vh - 400px); flex: 1; min-height: 200px; }
-        .item-row { padding: 6px 12px; border-bottom: 1px solid var(--border-default); display: grid; grid-template-columns: 30px 120px 60px 60px 70px 70px 70px 70px 60px 80px 40px; gap: 4px; align-items: center; transition: background 0.2s; }
+        .item-row { padding: 6px 12px; border-bottom: 1px solid var(--border-default); display: grid; grid-template-columns: 30px 120px 60px 60px 70px 70px 70px 70px 70px 60px 80px 40px; gap: 4px; align-items: center; transition: background 0.2s; }
         .item-row:hover { background: #F0F6FF; }
         .item-row input, .item-row select { height: 28px; padding: 0 4px; border: 1px solid var(--border-default); border-radius: 3px; font-size: 12px; }
         .item-row .readonly { background: var(--surface-2); border: none; padding: 4px; text-align: right; font-weight: 500; }
@@ -219,8 +219,11 @@ $user_employee_id = $user['employee_id'] ?? null;
                     <div class="col-header text-right">PRICE</div>
                     <div class="col-header text-right">GROSS</div>
                     <div class="col-header text-right">DISC%</div>
-                    <div class="col-header text-right">GST%</div>
+                    <div class="col-header text-right">TAX%</div>
+                    <div class="col-header text-right">TAX AMT</div>
                     <div class="col-header text-center">STATUS</div>
+                    <div class="col-header text-right">T.O AMT</div>
+                    <div class="col-header text-right">FOC QTY</div>
                     <div class="col-header text-right">NET</div>
                     <div class="col-header text-center">ACT</div>
                 </div>
@@ -233,7 +236,11 @@ $user_employee_id = $user['employee_id'] ?? null;
                     <div class="text-right" id="totalGross">0.00</div>
                     <div></div>
                     <div></div>
+                    <div class="text-right" id="totalTaxPercent">0.00</div>
+                    <div class="text-right" id="totalTaxAmount">0.00</div>
                     <div></div>
+                    <div class="text-right" id="totalToAmt">0.00</div>
+                    <div class="text-right" id="totalFocQty">0.00</div>
                     <div class="text-right" id="totalNet">0.00</div>
                     <div></div>
                 </div>
@@ -249,7 +256,7 @@ $user_employee_id = $user['employee_id'] ?? null;
                     <div class="summary-value" id="totalDiscount">$0.00</div>
                 </div>
                 <div class="summary-item">
-                    <div class="summary-label">GST</div>
+                    <div class="summary-label">TAX AMT</div>
                     <div class="summary-value" id="totalGst">$0.00</div>
                 </div>
                 <div class="summary-item">
