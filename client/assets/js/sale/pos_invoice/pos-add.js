@@ -2729,18 +2729,48 @@ function initializePage(permissions) {
                 document.getElementById('totalDiscountPercent').value = discountPct.toFixed(2);
             }
 
-            const afterDiscount = totalNetAmountItems - invoiceDiscountAmount;
+            const afterMainDiscount = totalNetAmountItems - invoiceDiscountAmount;
+
+            // Extra Discount 1 — base: amount after main invoice discount
+            let extraDiscount1Amount = parseFloat(document.getElementById('extraDiscount1Amount')?.value) || 0;
+            const extraDiscount1Percent = parseFloat(document.getElementById('extraDiscount1Percent')?.value) || 0;
+            if (extraDiscount1Percent > 0) {
+                extraDiscount1Amount = afterMainDiscount * (extraDiscount1Percent / 100);
+                const el = document.getElementById('extraDiscount1Amount');
+                if (el) el.value = extraDiscount1Amount.toFixed(2);
+            } else if (extraDiscount1Amount > 0) {
+                const pct = afterMainDiscount > 0 ? (extraDiscount1Amount / afterMainDiscount) * 100 : 0;
+                const el = document.getElementById('extraDiscount1Percent');
+                if (el) el.value = pct.toFixed(2);
+            }
+            const afterExtraDiscount1 = afterMainDiscount - extraDiscount1Amount;
+
+            // Extra Discount 2 — base: amount after extra discount 1
+            let extraDiscount2Amount = parseFloat(document.getElementById('extraDiscount2Amount')?.value) || 0;
+            const extraDiscount2Percent = parseFloat(document.getElementById('extraDiscount2Percent')?.value) || 0;
+            if (extraDiscount2Percent > 0) {
+                extraDiscount2Amount = afterExtraDiscount1 * (extraDiscount2Percent / 100);
+                const el = document.getElementById('extraDiscount2Amount');
+                if (el) el.value = extraDiscount2Amount.toFixed(2);
+            } else if (extraDiscount2Amount > 0) {
+                const pct = afterExtraDiscount1 > 0 ? (extraDiscount2Amount / afterExtraDiscount1) * 100 : 0;
+                const el = document.getElementById('extraDiscount2Percent');
+                if (el) el.value = pct.toFixed(2);
+            }
+            const afterExtraDiscount2 = afterExtraDiscount1 - extraDiscount2Amount;
+
+            const afterDiscount = afterExtraDiscount2;
 
             // GST calculation - skip if elements don't exist
             const shippingFeesEl = document.getElementById('shippingFees');
             const shippingFees = shippingFeesEl ? parseFloat(shippingFeesEl.value) || 0 : 0;
             const netAmount = afterDiscount + shippingFees;
 
-            console.log('Summary: totalNetAmountItems =', totalNetAmountItems, 'netAmount =', netAmount);
+            console.log('Summary: totalNetAmountItems =', totalNetAmountItems, 'extraDiscount1 =', extraDiscount1Amount, 'extraDiscount2 =', extraDiscount2Amount, 'netAmount =', netAmount);
 
             // Expose invoice totals for invoice-level tax base resolution
             window.currentTotalBill = totalNetAmountItems;              // before any invoice discount
-            window.currentValueExclSalesTax = afterDiscount;            // totalBill - invoiceDiscount
+            window.currentValueExclSalesTax = afterDiscount;            // totalBill - all discounts
             window.currentNetAmount = netAmount;                        // afterDiscount + shippingFees
 
             // Update DOM element
@@ -2996,26 +3026,8 @@ function initializePage(permissions) {
 
     // Update invoice summary from discount amount
     function updateInvoiceSummaryFromAmount() {
-        let totalBill = 0;
-        const rows = itemsTable.rows;
-
-        for (let i = 0; i < rows.length; i++) {
-            const netAmountInput = rows[i].cells[8].querySelector('input');
-            if (netAmountInput) {
-                totalBill += parseFloat(netAmountInput.value) || 0;
-            }
-        }
-
-        document.getElementById('totalBill').textContent = totalBill.toFixed(2);
-
-        const discountAmount = parseFloat(document.getElementById('totalDiscountAmount').value) || 0;
-        const discountPercent = totalBill > 0 ? (discountAmount / totalBill) * 100 : 0;
-        const netAmount = totalBill - discountAmount;
-
-        document.getElementById('totalDiscountPercent').value = discountPercent.toFixed(2);
-        document.getElementById('netAmount').textContent = netAmount.toFixed(2);
-
-        updateRemainingBalance();
+        // Delegate entirely to the main function which handles all discount layers
+        updateInvoiceSummary();
     }
 
     // Validate form before submission
