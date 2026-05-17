@@ -1419,6 +1419,10 @@ function initializePage(permissions) {
                 // Update summary
                 document.getElementById('totalDiscountPercent').value = invoice.total_discount_percent;
                 document.getElementById('totalDiscountAmount').value = invoice.total_discount_amount;
+                document.getElementById('extraDiscount1Percent').value = invoice.extra_discount_1_percent || 0;
+                document.getElementById('extraDiscount1Amount').value  = invoice.extra_discount_1_amount  || 0;
+                document.getElementById('extraDiscount2Percent').value = invoice.extra_discount_2_percent || 0;
+                document.getElementById('extraDiscount2Amount').value  = invoice.extra_discount_2_amount  || 0;
                 document.getElementById('paymentMethod').value = invoice.payment_method || '';
 
                 // Show bank account if payment method is bank_transfer
@@ -2941,6 +2945,46 @@ function initializePage(permissions) {
         totalTaxAmountSummary.addEventListener('input', updateInvoiceSummaryFromTaxAmount);
     }
 
+    // Extra Discount 1 — percent drives amount; amount drives percent
+    const extraDiscount1PercentEl = document.getElementById('extraDiscount1Percent');
+    if (extraDiscount1PercentEl) {
+        extraDiscount1PercentEl.addEventListener('input', function () {
+            if (!this.value || this.value == '0') {
+                const amtEl = document.getElementById('extraDiscount1Amount');
+                if (amtEl) amtEl.value = '0';
+            }
+            updateInvoiceSummary();
+        });
+    }
+    const extraDiscount1AmountEl = document.getElementById('extraDiscount1Amount');
+    if (extraDiscount1AmountEl) {
+        extraDiscount1AmountEl.addEventListener('input', function () {
+            const pctEl = document.getElementById('extraDiscount1Percent');
+            if (pctEl) pctEl.value = '0';
+            updateInvoiceSummary();
+        });
+    }
+
+    // Extra Discount 2 — percent drives amount; amount drives percent
+    const extraDiscount2PercentEl = document.getElementById('extraDiscount2Percent');
+    if (extraDiscount2PercentEl) {
+        extraDiscount2PercentEl.addEventListener('input', function () {
+            if (!this.value || this.value == '0') {
+                const amtEl = document.getElementById('extraDiscount2Amount');
+                if (amtEl) amtEl.value = '0';
+            }
+            updateInvoiceSummary();
+        });
+    }
+    const extraDiscount2AmountEl = document.getElementById('extraDiscount2Amount');
+    if (extraDiscount2AmountEl) {
+        extraDiscount2AmountEl.addEventListener('input', function () {
+            const pctEl = document.getElementById('extraDiscount2Percent');
+            if (pctEl) pctEl.value = '0';
+            updateInvoiceSummary();
+        });
+    }
+
     // Add event listener for shipping fees
     const shippingFees = document.getElementById('shippingFees');
     if (shippingFees) {
@@ -3071,6 +3115,11 @@ function initializePage(permissions) {
         if (totalBill) totalBill.textContent = '0.00';
         if (totalDiscountAmount) totalDiscountAmount.value = '0.00';
         if (netAmount) netAmount.textContent = '0.00';
+
+        ['extraDiscount1Percent','extraDiscount1Amount','extraDiscount2Percent','extraDiscount2Amount'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.value = '0';
+        });
 
         // Set default date to today
         const saleDate = document.getElementById('saleDate');
@@ -5455,6 +5504,10 @@ function saveInvoice(status = 'Posted') {
         totalBill: parseFloat(document.getElementById('totalBill').textContent),
         totalDiscountPercent: parseFloat(document.getElementById('totalDiscountPercent').value) || 0,
         totalDiscountAmount: parseFloat(document.getElementById('totalDiscountAmount').value) || 0,
+        extraDiscount1Percent: parseFloat(document.getElementById('extraDiscount1Percent')?.value) || 0,
+        extraDiscount1Amount: parseFloat(document.getElementById('extraDiscount1Amount')?.value) || 0,
+        extraDiscount2Percent: parseFloat(document.getElementById('extraDiscount2Percent')?.value) || 0,
+        extraDiscount2Amount: parseFloat(document.getElementById('extraDiscount2Amount')?.value) || 0,
         shippingFees: parseFloat(document.getElementById('shippingFees').value) || 0,
         netAmount: parseFloat(document.getElementById('netAmount').textContent),
         withholdingTaxPercent: parseFloat(document.getElementById('withholdingTaxPercent')?.value) || 0,
