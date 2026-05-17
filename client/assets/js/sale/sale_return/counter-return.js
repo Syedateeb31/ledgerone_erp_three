@@ -1,4 +1,4 @@
-let currentReturn = { items: [], customer: null, branch: null, currency: null, salesOfficer: null, supplierMan: null, subAccount: null, company: null };
+let currentReturn = { items: [], customer: null, branch: null, currency: null, salesOfficer: null, supplierMan: null, subAccount: null, company: null, invoiceLevelTaxes: [] };
 let productsData = [], customersData = [], branchesData = [], currenciesData = [], bankAccountsData = [], uomData = [], invoicesData = [], employeesData = [], subAccountsData = [], companiesData = [];
 
 const defaultShortcuts = { product: 'F1', customer: 'F2', branch: 'F3', qty: 'F4', save: 'F10', clear: 'F12' };
@@ -484,6 +484,7 @@ function updateSummary() {
     document.getElementById('itemCount').textContent = currentReturn.items.length;
     
     document.getElementById('balanceAmount').style.color = balance >= 0 ? 'var(--error)' : 'var(--success)';
+    updateNetReceivable();
 }
 
 function updateTableHeaders() {
@@ -609,6 +610,14 @@ async function saveReturn() {
         supplierManId: supplierManId,
         subAccountId: currentReturn.subAccount,
         saleInvoiceId: document.getElementById('saleInvoice').value || null,
+        invoiceLevelTaxes: currentReturn.invoiceLevelTaxes.map(tax => ({
+            taxRegimeId: tax.tax_regime_id ?? null,
+            taxRateId: tax.tax_rate_id ?? null,
+            taxName: tax.tax_name,
+            ratePercentage: parseFloat(tax.rate_percentage || 0),
+            baseAmount: parseFloat(tax.base_amount || 0),
+            taxAmount: parseFloat(tax.tax_amount || 0)
+        })),
         paymentMethod: paymentMethod,
         bankAccountId: paymentMethod === 'bank_transfer' ? document.getElementById('bankAccount').value : null,
         totalBill: currentReturn.items.reduce((sum, item) => sum + item.gross, 0),
@@ -672,6 +681,8 @@ function clearReturn() {
         currentReturn.items = [];
         currentReturn.customer = null;
         currentReturn.company = null;
+        currentReturn.invoiceLevelTaxes = [];
+        renderReturnLevelTaxes();
         renderItems();
         updateSummary();
         document.getElementById('customerSearch').value = '';
@@ -787,11 +798,61 @@ async function loadInvoiceData(invoiceId) {
             recalculateMaxColumns();
             renderItems();
             updateSummary();
+
+            // Fetch and populate invoice-level taxes from the original sale invoice
+            try {
+                const taxResponse = await fetch(`../../../../server/api/sale/pos_invoice/get-invoice-taxes.php?invoice_id=${invoiceId}`);
+                const taxData = await taxResponse.json();
+                currentReturn.invoiceLevelTaxes = (taxData.success && taxData.data && taxData.data.length > 0) ? taxData.data : [];
+            } catch (e) {
+                currentReturn.invoiceLevelTaxes = [];
+            }
+            renderReturnLevelTaxes();
+
             showNotification('Invoice loaded successfully!');
         }
     } catch (error) {
         alert('Error loading invoice: ' + error.message);
     }
+}
+
+function renderReturnLevelTaxes() {
+    const container = document.getElementById('invoiceLevelTaxesContainer');
+    if (!container) return;
+    container.innerHTML = '';
+
+    currentReturn.invoiceLevelTaxes.forEach(tax => {
+        const percentItem = document.createElement('div');
+        percentItem.className = 'summary-item';
+        percentItem.innerHTML = `
+            <div class="summary-label">${tax.tax_name} %</div>
+            <div class="summary-value">${parseFloat(tax.rate_percentage).toFixed(2)}%</div>
+        `;
+        container.appendChild(percentItem);
+
+        const amountItem = document.createElement('div');
+        amountItem.className = 'summary-item';
+        amountItem.innerHTML = `
+            <div class="summary-label">${tax.tax_name} Amt</div>
+            <div class="summary-value" style="color: var(--error);">${formatCurrency(parseFloat(tax.tax_amount))}</div>
+        `;
+        container.appendChild(amountItem);
+    });
+
+    const netReceivableItem = document.getElementById('netReceivableItem');
+    if (netReceivableItem) {
+        netReceivableItem.style.display = currentReturn.invoiceLevelTaxes.length > 0 ? '' : 'none';
+    }
+    updateNetReceivable();
+}
+
+function updateNetReceivable() {
+    const netReceivableEl = document.getElementById('netReceivable');
+    if (!netReceivableEl) return;
+    const returnDiscountAmount = parseFloat(document.getElementById('returnDiscountAmount').value) || 0;
+    const netAmount = currentReturn.items.reduce((sum, item) => sum + item.net, 0) - returnDiscountAmount;
+    const totalInvoiceTax = currentReturn.invoiceLevelTaxes.reduce((sum, t) => sum + parseFloat(t.tax_amount || 0), 0);
+    netReceivableEl.textContent = formatCurrency(netAmount - totalInvoiceTax);
 }
 
 async function loadProducts() {

@@ -98,6 +98,35 @@ try {
     $invoice_id = $pdo->lastInsertId();
     $status = $input['status'] ?? 'Posted';
 
+    // Save invoice-level taxes (copied from original sale invoice)
+    if (!empty($input['invoiceLevelTaxes']) && is_array($input['invoiceLevelTaxes'])) {
+        $taxStmt = $pdo->prepare("
+            INSERT INTO sale_return_taxes (
+                tenant_id, sale_return_id, tax_regime_id, tax_rate_id,
+                tax_name, rate_percentage, base_amount, tax_amount,
+                created_by, updated_by
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ");
+        foreach ($input['invoiceLevelTaxes'] as $tax) {
+            $taxAmount = floatval($tax['taxAmount'] ?? 0);
+            $ratePercentage = floatval($tax['ratePercentage'] ?? 0);
+            if ($taxAmount > 0 || $ratePercentage > 0) {
+                $taxStmt->execute([
+                    $tenant_id,
+                    $invoice_id,
+                    $tax['taxRegimeId'] ?? null,
+                    $tax['taxRateId'] ?? null,
+                    $tax['taxName'] ?? 'Tax',
+                    $ratePercentage,
+                    floatval($tax['baseAmount'] ?? 0),
+                    $taxAmount,
+                    $user_id,
+                    $user_id
+                ]);
+            }
+        }
+    }
+
     // Insert return items - one record per unit entry
     $item_stmt = $pdo->prepare("
         INSERT INTO sale_return_items (

@@ -263,6 +263,12 @@ $user_employee_id = $user['employee_id'] ?? null;
                     <div class="summary-label">NET AMOUNT</div>
                     <div class="summary-value total-amount" id="netAmount">$0.00</div>
                 </div>
+                <!-- Invoice-level taxes populated dynamically from original sale invoice -->
+                <div id="invoiceLevelTaxesContainer" style="display: contents;"></div>
+                <div class="summary-item" id="netReceivableItem" style="display: none;">
+                    <div class="summary-label">NET RECEIVABLE</div>
+                    <div class="summary-value" style="color: var(--success);" id="netReceivable">$0.00</div>
+                </div>
                 <div class="summary-item">
                     <div class="summary-label">REFUNDED</div>
                     <div class="summary-value" id="summaryRefunded">$0.00</div>
