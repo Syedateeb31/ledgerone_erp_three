@@ -152,16 +152,17 @@ function updateDropdown(dropdownElement, products) {
     products.forEach(p => {
         window.dataCache.products.set(parseInt(p.id), p);
     });
-    
+
     const html = products.map(p => {
         const codes = [];
         if (p.qr_code) codes.push(p.qr_code);
         if (p.barcode) codes.push(p.barcode);
         const codeDisplay = codes.length > 0 ? ` (${codes.join(' - ')})` : '';
         const photo = p.photo ? `<img src="../../../assets/uploads/products/${p.photo}" alt="${p.name}" style="width: 30px; height: 30px; object-fit: cover; margin-right: 8px; border-radius: 4px;">` : '';
-        return `<div class="dropdown-option" data-value="${p.id}" data-mrp="${p.mrp}" data-tp="${p.trade_price}" data-unit="${p.default_unit_id}" style="display: flex; align-items: center;">${photo}${p.code} - ${p.name}${codeDisplay}</div>`;
+        // Use data-product (full JSON) so initTableDropdownDynamic click handler can read all fields
+        return `<div class="dropdown-option" data-product='${JSON.stringify(p)}' style="display: flex; align-items: center;">${photo}${p.code} - ${p.name}${codeDisplay}</div>`;
     }).join('');
-    
+
     dropdownElement.innerHTML = html;
 }
 
