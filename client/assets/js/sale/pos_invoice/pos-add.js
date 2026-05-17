@@ -19,6 +19,7 @@ const dataCache = {
     customers: new Map(),
     branches: new Map()
 };
+window.dataCache = dataCache; // expose for cross-script access (e.g. supplier-product-filter.js)
 
 // Default shortcuts
 const defaultShortcuts = {
