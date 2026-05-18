@@ -189,8 +189,7 @@
                 <tr>
                     <th width="5%">#</th>
                     <th width="25%">Product</th>
-                    <th width="8%">Unit</th>
-                    <th width="8%" class="text-right">Qty</th>
+                    <th width="15%">Quantities</th>
                     <th width="10%" class="text-right">Unit Price</th>
                     <th width="10%" class="text-right">Gross Amt</th>
                     <th width="7%" class="text-right">Disc %</th>
@@ -205,13 +204,12 @@
             </thead>
             <tbody id="itemsTableBody">
                 <tr>
-                    <td colspan="8" class="text-center">Loading items...</td>
+                    <td colspan="13" class="text-center">Loading items...</td>
                 </tr>
             </tbody>
             <tfoot>
                 <tr style="background-color: #f5f5f5; font-weight: bold;">
                     <th colspan="3">Totals</th>
-                    <th class="text-right" id="totalQty">0.00</th>
                     <th class="text-right" id="totalUnitPrice">0.00</th>
                     <th class="text-right" id="totalGrossAmount">0.00</th>
                     <th></th>
@@ -369,15 +367,26 @@
             const tbody = document.getElementById('itemsTableBody');
             tbody.innerHTML = '';
             
-            let totalQty = 0, totalUnitPrice = 0, totalGrossAmount = 0, totalDiscountAmountItems = 0, totalTradeOfferAmountItems = 0, totalGSTAmountItems = 0, totalFOCQty = 0, totalNetAmountItems = 0;
+            let totalUnitPrice = 0, totalGrossAmount = 0, totalDiscountAmountItems = 0, totalTradeOfferAmountItems = 0, totalGSTAmountItems = 0, totalFOCQty = 0, totalNetAmountItems = 0;
             
             items.forEach((item, index) => {
+                // Build quantities display from unit_entries (same as purchase invoice print)
+                const unitMap = {};
+                (item.unit_entries || []).forEach(entry => {
+                    const qty = parseFloat(entry.quantity);
+                    if (qty > 0) {
+                        const unitName = entry.uom_name || 'Unit';
+                        unitMap[unitName] = (unitMap[unitName] || 0) + qty;
+                    }
+                });
+                let unitQtyDisplay = Object.keys(unitMap).map(name => `${unitMap[name].toFixed(2)} ${name}`).join(', ');
+                if (!unitQtyDisplay) unitQtyDisplay = '-';
+
                 const row = tbody.insertRow();
                 row.innerHTML = `
                     <td class="text-center">${index + 1}</td>
                     <td>${item.product_name}</td>
-                    <td>Unit</td>
-                    <td class="text-right">${parseFloat(item.quantity).toFixed(2)}</td>
+                    <td>${unitQtyDisplay}</td>
                     <td class="text-right">${currencySymbol} ${parseFloat(item.purchase_price).toFixed(2)}</td>
                     <td class="text-right">${currencySymbol} ${parseFloat(item.gross_amount).toFixed(2)}</td>
                     <td class="text-right">${parseFloat(item.discount_percent).toFixed(2)}%</td>
@@ -389,9 +398,7 @@
                     <td class="text-right">${parseFloat(item.foc_quantity || 0).toFixed(2)}</td>
                     <td class="text-right">${currencySymbol} ${parseFloat(item.net_amount).toFixed(2)}</td>
                 `;
-                
-                // Calculate totals
-                totalQty += parseFloat(item.quantity);
+
                 totalUnitPrice += parseFloat(item.purchase_price);
                 totalGrossAmount += parseFloat(item.gross_amount);
                 totalDiscountAmountItems += parseFloat(item.discount_amount);
@@ -401,8 +408,6 @@
                 totalNetAmountItems += parseFloat(item.net_amount);
             });
             
-            // Update totals row
-            document.getElementById('totalQty').textContent = totalQty.toFixed(2);
             document.getElementById('totalUnitPrice').textContent = `${currencySymbol} ${totalUnitPrice.toFixed(2)}`;
             document.getElementById('totalGrossAmount').textContent = `${currencySymbol} ${totalGrossAmount.toFixed(2)}`;
             document.getElementById('totalDiscountAmountItems').textContent = `${currencySymbol} ${totalDiscountAmountItems.toFixed(2)}`;

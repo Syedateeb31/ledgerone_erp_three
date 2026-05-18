@@ -827,7 +827,6 @@
                 }
 
                 if (invoiceData.success) {
-                    // Load company data if company_id exists
                     if (invoiceData.invoice.company_id) {
                         const companyResponse = await fetch(`../../../../server/api/sale/pos_invoice/get-company-by-id.php?id=${invoiceData.invoice.company_id}`);
                         const companyData = await companyResponse.json();
@@ -835,7 +834,6 @@
                             populateCompanyData(companyData.company);
                         }
                     } else {
-                        // Fallback to tenant's default company
                         const companyResponse = await fetch('../../../../server/api/sale/pos_invoice/get-company.php');
                         const companyData = await companyResponse.json();
                         if (companyData.success) {
@@ -843,7 +841,6 @@
                         }
                     }
                     
-                    // Fetch customer's closing balance before populating invoice data
                     const closingBalanceData = await fetchCustomerClosingBalance(invoiceData.invoice.customer_id, invoiceData.invoice.company_id);
                     populateInvoiceData(invoiceData.invoice, invoiceData.items, closingBalanceData);
                 } else {
@@ -852,6 +849,44 @@
             } catch (error) {
                 alert('Error loading data: ' + error.message);
             }
+        }
+
+        async function loadSingleInvoice(id, createNew = false, addPageBreak = false) {
+            const invoiceResponse = await fetch(`../../../../server/api/sale/pos_invoice/pos-edit.php?id=${id}`);
+            const invoiceData = await invoiceResponse.json();
+            if (!invoiceData.success) return;
+
+            let container;
+            if (createNew) {
+                container = document.querySelector('.invoice-container').cloneNode(true);
+                container.style.display = '';
+                if (addPageBreak) container.style.pageBreakAfter = 'always';
+                document.body.appendChild(container);
+                // Reset dynamic content in cloned container
+                container.querySelector('#itemsTableHeader').innerHTML = '';
+                container.querySelector('#itemsTableBody').innerHTML = '';
+                container.querySelector('.items-table tfoot tr').innerHTML = '';
+                const unitPlaceholder = document.createElement('th');
+                unitPlaceholder.id = 'unitColumnsPlaceholder';
+                unitPlaceholder.style.display = 'none';
+                container.querySelector('#itemsTableHeader').appendChild(unitPlaceholder);
+            } else {
+                container = document.querySelector('.invoice-container');
+                container.style.display = '';
+            }
+
+            if (invoiceData.invoice.company_id) {
+                const companyResponse = await fetch(`../../../../server/api/sale/pos_invoice/get-company-by-id.php?id=${invoiceData.invoice.company_id}`);
+                const companyData = await companyResponse.json();
+                if (companyData.success) populateCompanyData(companyData.company, container);
+            } else {
+                const companyResponse = await fetch('../../../../server/api/sale/pos_invoice/get-company.php');
+                const companyData = await companyResponse.json();
+                if (companyData.success) populateCompanyData(companyData.company, container);
+            }
+
+            const closingBalanceData = await fetchCustomerClosingBalance(invoiceData.invoice.customer_id, invoiceData.invoice.company_id);
+            populateInvoiceData(invoiceData.invoice, invoiceData.items, closingBalanceData, container);
         }
 
         function populateCompanyData(company) {

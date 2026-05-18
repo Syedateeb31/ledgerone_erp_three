@@ -418,6 +418,7 @@ document.addEventListener('DOMContentLoaded', function () {
         
         // Other
         document.getElementById('viewIsWholesaler').textContent = customer.is_wholesaler ? 'Yes' : 'No';
+        document.getElementById('viewOutStation').textContent = customer.is_out_station ? 'Yes' : 'No';
         document.getElementById('viewStatus').innerHTML = customer.is_blacklisted ? 
             '<span class="status-badge status-blacklisted">Blacklisted</span>' : 
             '<span class="status-badge status-active">Active</span>';
@@ -888,6 +889,7 @@ document.addEventListener('DOMContentLoaded', function () {
         
         document.getElementById('editIsWholesaler').checked = customer.is_wholesaler;
         document.getElementById('editBlacklist').checked = customer.is_blacklisted;
+        document.getElementById('editOutStation').checked = !!customer.is_out_station;
         
         // Load opening invoices
         loadEditOpeningInvoices(customer.id).then(hasInvoices => {
@@ -1244,6 +1246,7 @@ document.addEventListener('DOMContentLoaded', function () {
             openingCredit: document.getElementById('editOpeningCredit').value || 0,
             isWholesaler: document.getElementById('editIsWholesaler').checked ? 1 : 0,
             blacklist: document.getElementById('editBlacklist').checked ? 1 : 0,
+            outStation: document.getElementById('editOutStation').checked ? 1 : 0,
             openingInvoices: collectEditInvoiceData(),
             subAccounts: collectEditSubAccountData()
         };

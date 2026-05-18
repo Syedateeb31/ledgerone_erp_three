@@ -91,6 +91,9 @@ if (!$user_id) {
                     <button class="btn btn-secondary" id="resetFiltersBtn">
                         <i class="fas fa-rotate-left"></i> Reset
                     </button>
+                    <button class="btn btn-success" id="printSelectedBtn" style="display:none;">
+                        <i class="fas fa-print"></i> Print Selected (<span id="selectedCount">0</span>)
+                    </button>
                     <button class="btn btn-primary" id="newInvoiceBtn">
                         <i class="fas fa-plus"></i> New Invoice
                     </button>
@@ -114,6 +117,7 @@ if (!$user_id) {
                 <table id="invoicesTable">
                     <thead>
                         <tr>
+                            <th width="3%"><input type="checkbox" id="selectAllCheckbox" title="Select All"></th>
                             <th width="12%">Invoice No</th>
                             <th width="15%">Date</th>
                             <th width="25%">Customer</th>

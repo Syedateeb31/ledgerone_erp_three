@@ -84,6 +84,16 @@ $currency_symbol = $currency['symbol'];
             <h2 class="card-title">Search Filters</h2>
             <div class="form-row">
                 <div class="form-group">
+                    <label class="form-label">Type</label>
+                    <select class="form-input" id="invoice-type">
+                        <option value="">All Types</option>
+                        <option value="Cash">Cash</option>
+                        <option value="Credit">Credit</option>
+                        <option value="OutStation">Out Station</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
                     <label class="form-label">Sales Officer</label>
                     <select class="form-input" id="sales-officer">
                         <option value="">All Sales Officers</option>
@@ -105,6 +115,27 @@ $currency_symbol = $currency['symbol'];
                         <option value="v2">Vendor B</option>
                         <option value="v3">Vendor C</option>
                         <option value="v4">Vendor D</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">City</label>
+                    <select class="form-input" id="city-filter">
+                        <option value="">All Cities</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">City Zone</label>
+                    <select class="form-input" id="city-zone-filter">
+                        <option value="">All City Zones</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Area</label>
+                    <select class="form-input" id="area-filter">
+                        <option value="">All Areas</option>
                     </select>
                 </div>
                 

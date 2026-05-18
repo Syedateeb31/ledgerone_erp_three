@@ -126,6 +126,16 @@ if (!$user_id) {
                                 <span>Customer name is required</span>
                             </div>
                         </div>
+
+                        <div class="form-group col-6">
+                            <div class="checkbox-group">
+                                <input type="checkbox" id="outStation">
+                                <label for="outStation">
+                                    <i class="fas fa-road"></i>
+                                    Out Station
+                                </label>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Contact Information Section -->

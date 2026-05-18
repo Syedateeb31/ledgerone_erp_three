@@ -128,7 +128,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                         $totalGross += floatval($item['gross_amount'] ?? 0);
                         $totalDiscount += floatval($item['discount_amount'] ?? 0);
                         $totalTradeOffer += floatval($item['trade_offer_amount'] ?? 0);
-                        $totalGst += floatval($item['gst_amount'] ?? 0);
+                        $totalGst += floatval($item['tax_amount'] ?? 0);
                         $totalFoc += floatval($item['foc_quantity'] ?? 0);
                         $totalNet += floatval($item['net_amount'] ?? 0);
                     }
@@ -149,8 +149,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                         'discount_amount' => $totalDiscount,
                         'trade_offer_percent' => floatval($firstItem['trade_offer_percent'] ?? 0),
                         'trade_offer_amount' => $totalTradeOffer,
-                        'gst_percent' => floatval($firstItem['gst_percent'] ?? 0),
-                        'gst_amount' => $totalGst,
+                        'tax_percent' => floatval($firstItem['tax_percent'] ?? 0),
+                        'tax_amount' => $totalGst,
                         'foc_quantity' => $totalFoc,
                         'net_amount' => $totalNet,
                         'unit_entries' => array_values($uomMap)

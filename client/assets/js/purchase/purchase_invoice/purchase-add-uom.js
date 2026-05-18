@@ -348,7 +348,8 @@ function updateInvoiceSummaryDynamic() {
     
     const shippingFeesElement = document.getElementById('shippingFees');
     const shippingFees = shippingFeesElement ? parseFloat(shippingFeesElement.value) || 0 : 0;
-    const netAmount = afterDiscount + shippingFees;
+    const shippingFeesType = document.querySelector('input[name="shippingFeesType"]:checked')?.value || 'add';
+    const netAmount = shippingFeesType === 'subtract' ? afterDiscount - shippingFees : afterDiscount + shippingFees;
     
     const discountAmountElement = document.getElementById('totalDiscountAmount');
     if (discountAmountElement) discountAmountElement.value = discountAmount.toFixed(2);

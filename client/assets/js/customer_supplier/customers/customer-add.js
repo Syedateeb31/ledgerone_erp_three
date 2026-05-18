@@ -10,6 +10,7 @@ document.addEventListener('DOMContentLoaded', function () {
         { id: 'customerCategory', label: 'Customer Category', visible: true },
         { id: 'brandName', label: 'Brand Name', visible: true },
         { id: 'customerName', label: 'Customer Name', visible: true },
+        { id: 'outStation', label: 'Out Station', visible: true },
         { id: 'shopkeeperName', label: 'Shopkeeper Name', visible: false },
         { id: 'address', label: 'Address', visible: false },
         { id: 'primaryPhone', label: 'Primary Phone', visible: false },
@@ -1115,6 +1116,7 @@ document.addEventListener('DOMContentLoaded', function () {
             balancePeriodLimit: document.getElementById('balancePeriodLimit').value || 0,
             isWholesaler: document.getElementById('isWholesaler').checked ? 1 : 0,
             blacklist: document.getElementById('blacklist').checked ? 1 : 0,
+            outStation: document.getElementById('outStation').checked ? 1 : 0,
             openingInvoices: collectInvoiceData(),
             subAccounts: collectSubAccountData()
         };

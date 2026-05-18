@@ -10,41 +10,20 @@ function getProductUOMDetails(product) {
     };
 
     if (details.type === 'group' && product.group_units && product.group_units.length > 0) {
-        // UOM Group - multiple units
         details.units = product.group_units.map(unit => ({
             id: unit.id,
             name: unit.uom_name,
-            conversionFactor: getUnitConversionFactor(unit, product)
+            conversionFactor: unit.is_base_unit == 1 ? 1 : (parseFloat(unit.conversion_factor) || 1)
         }));
     } else if (product.default_unit_id) {
-        // Single unit
         details.units = [{
             id: product.default_unit_id,
             name: product.default_unit_name || 'Unit',
-            conversionFactor: getUnitConversionFactor({
-                unit_scope: product.default_unit_scope,
-                is_base_unit: product.default_is_base_unit,
-                conversion_factor: product.default_conversion_factor
-            }, product)
+            conversionFactor: product.is_base_unit == 1 ? 1 : (parseFloat(product.unit_conversion_factor) || 1)
         }];
     }
 
     return details;
-}
-
-// Get conversion factor for a unit
-function getUnitConversionFactor(unit, product) {
-    if (unit.is_base_unit == 1) {
-        return 1;
-    }
-
-    if (unit.unit_scope === 'universal') {
-        return parseFloat(unit.conversion_factor) || 1;
-    } else if (unit.unit_scope === 'per_product') {
-        return parseFloat(product.product_conversion_factor) || 1;
-    }
-
-    return 1;
 }
 
 // Update table headers based on max units
@@ -280,6 +259,8 @@ function calculateRowAmounts(row, qty, price) {
     const taxAmountCell = row.querySelector('.tax-amount-cell');
     const netCell = row.querySelector('.net-cell');
     
+    if (!grossCell || !discPercentCell || !discAmountCell || !toPercentCell || !toAmountCell || !taxPercentCell || !taxAmountCell || !netCell) return;
+    
     const gross = qty * price;
     grossCell.querySelector('input').value = gross.toFixed(2);
     
@@ -302,6 +283,11 @@ function calculateRowAmounts(row, qty, price) {
     const net = afterTO + taxAmount;
     netCell.querySelector('input').value = net.toFixed(2);
     
+    updateReturnSummaryDynamic();
+}
+
+// Alias for compatibility
+function updatereturnSummaryDynamic() {
     updateReturnSummaryDynamic();
 }
 

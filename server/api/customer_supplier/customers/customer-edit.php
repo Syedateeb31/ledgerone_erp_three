@@ -81,6 +81,7 @@ try {
                 credit_period_limit_days = ?, 
                 is_wholesaler = ?, 
                 is_blacklisted = ?, 
+                is_out_station = ?, 
                 updated_by = ?, 
                 updated_at = CURRENT_TIMESTAMP 
                 WHERE id = ? AND tenant_id = ?";
@@ -116,6 +117,7 @@ try {
             intval($input['balancePeriodLimit'] ?? 0),
             isset($input['isWholesaler']) ? (int)$input['isWholesaler'] : 0,
             isset($input['blacklist']) ? (int)$input['blacklist'] : 0,
+            isset($input['outStation']) ? (int)$input['outStation'] : 0,
             $user_id,
             $customer_id,
             $tenant_id

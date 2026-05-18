@@ -41,7 +41,76 @@ function init() {
     // Load filters and initial data
     loadCompanies();
     loadFilters();
+    loadCities();
+    loadAllAreas();
     fetchReportData();
+}
+
+async function loadCities() {
+    try {
+        const response = await fetch('../../../../server/api/sale/daily_sale_report/get-cities.php');
+        const result = await response.json();
+        if (result.success) {
+            const citySelect = document.getElementById('city-filter');
+            result.cities.forEach(city => {
+                const option = document.createElement('option');
+                option.value = city.id;
+                option.textContent = city.city_name;
+                citySelect.appendChild(option);
+            });
+        }
+    } catch (error) {
+        console.error('Error loading cities:', error);
+    }
+}
+
+async function loadCityZones(cityId) {
+    const cityZoneSelect = document.getElementById('city-zone-filter');
+    cityZoneSelect.innerHTML = '<option value="">All City Zones</option>';
+    document.getElementById('area-filter').innerHTML = '<option value="">All Areas</option>';
+    if (!cityId) return;
+    try {
+        const response = await fetch(`../../../../server/api/sale/daily_sale_report/get-city-zones.php?city_id=${cityId}`);
+        const result = await response.json();
+        if (result.success) {
+            result.city_zones.forEach(zone => {
+                const option = document.createElement('option');
+                option.value = zone.id;
+                option.textContent = zone.city_zone_name;
+                cityZoneSelect.appendChild(option);
+            });
+        }
+    } catch (error) {
+        console.error('Error loading city zones:', error);
+    }
+}
+
+async function loadAreas(cityZoneId) {
+    const areaSelect = document.getElementById('area-filter');
+    const currentVal = areaSelect.value;
+    areaSelect.innerHTML = '<option value="">All Areas</option>';
+    try {
+        const url = cityZoneId
+            ? `../../../../server/api/sale/daily_sale_report/get-areas.php?city_zone_id=${cityZoneId}`
+            : `../../../../server/api/sale/daily_sale_report/get-areas.php`;
+        const response = await fetch(url);
+        const result = await response.json();
+        if (result.success) {
+            result.areas.forEach(area => {
+                const option = document.createElement('option');
+                option.value = area.id;
+                option.textContent = area.area_name;
+                areaSelect.appendChild(option);
+            });
+            if (currentVal) areaSelect.value = currentVal;
+        }
+    } catch (error) {
+        console.error('Error loading areas:', error);
+    }
+}
+
+async function loadAllAreas() {
+    await loadAreas(null);
 }
 
 // Load filter options
@@ -116,6 +185,40 @@ function setupEventListeners() {
     resetBtn.addEventListener('click', handleReset);
     exportBtn.addEventListener('click', handleExport);
     printBtn.addEventListener('click', handlePrint);
+    
+    // City cascading (top-down)
+    document.getElementById('city-filter').addEventListener('change', function() {
+        loadCityZones(this.value);
+    });
+    document.getElementById('city-zone-filter').addEventListener('change', function() {
+        loadAreas(this.value);
+    });
+
+    // Area selected — auto-populate City and City Zone (bottom-up)
+    document.getElementById('area-filter').addEventListener('change', async function() {
+        const areaId = this.value;
+        if (!areaId) return;
+        try {
+            const response = await fetch(`../../../../server/api/sale/daily_sale_report/get-area-hierarchy.php?area_id=${areaId}`);
+            const result = await response.json();
+            if (result.success && result.hierarchy) {
+                const h = result.hierarchy;
+
+                // Set City
+                document.getElementById('city-filter').value = h.city_id;
+
+                // Load City Zones for that city, then set the correct one
+                await loadCityZones(h.city_id);
+                document.getElementById('city-zone-filter').value = h.city_zone_id;
+
+                // Reload areas for that city zone, keep area selection
+                await loadAreas(h.city_zone_id);
+                document.getElementById('area-filter').value = areaId;
+            }
+        } catch (error) {
+            console.error('Error loading area hierarchy:', error);
+        }
+    });
 }
 
 // Switch between report types
@@ -151,21 +254,29 @@ async function fetchReportData() {
     loading.classList.add('active');
     
     const reportType = itemWiseToggle.classList.contains('active') ? 'item-wise' : 'bill-wise';
+    const invoiceType = document.getElementById('invoice-type').value;
     const salesOfficer = document.getElementById('sales-officer').value;
     const supplierMan = document.getElementById('supplier-man').value;
     const vendor = document.getElementById('vendor').value;
     const company = document.getElementById('company').value;
     const dateFrom = document.getElementById('date-from').value;
     const dateTo = document.getElementById('date-to').value;
+    const cityId = document.getElementById('city-filter').value;
+    const cityZoneId = document.getElementById('city-zone-filter').value;
+    const areaId = document.getElementById('area-filter').value;
     
     const params = new URLSearchParams({
         report_type: reportType,
+        ...(invoiceType && { invoice_type: invoiceType }),
         ...(salesOfficer && { sales_officer_id: salesOfficer }),
         ...(supplierMan && { supplier_man_id: supplierMan }),
         ...(vendor && { vendor_id: vendor }),
         ...(company && { company_id: company }),
         ...(dateFrom && { date_from: dateFrom }),
-        ...(dateTo && { date_to: dateTo })
+        ...(dateTo && { date_to: dateTo }),
+        ...(cityId && { city_id: cityId }),
+        ...(cityZoneId && { city_zone_id: cityZoneId }),
+        ...(areaId && { area_id: areaId })
     });
     
     try {
@@ -301,10 +412,15 @@ function handleSearch() {
 
 // Handle reset
 function handleReset() {
+    document.getElementById('invoice-type').value = '';
     document.getElementById('sales-officer').value = '';
     document.getElementById('supplier-man').value = '';
     document.getElementById('vendor').value = '';
     document.getElementById('company').value = '';
+    document.getElementById('city-filter').value = '';
+    document.getElementById('city-zone-filter').innerHTML = '<option value="">All City Zones</option>';
+    document.getElementById('area-filter').innerHTML = '<option value="">All Areas</option>';
+    loadAllAreas();
 
     // Reset to default dates
     const today = new Date();
@@ -330,23 +446,31 @@ function handleExport() {
 // Handle print
 function handlePrint() {
     const reportType = itemWiseToggle.classList.contains('active') ? 'item-wise' : 'bill-wise';
+    const invoiceType = document.getElementById('invoice-type').value;
     const salesOfficer = document.getElementById('sales-officer').value;
     const supplierMan = document.getElementById('supplier-man').value;
     const vendor = document.getElementById('vendor').value;
     const company = document.getElementById('company').value;
     const dateFrom = document.getElementById('date-from').value;
     const dateTo = document.getElementById('date-to').value;
+    const cityId = document.getElementById('city-filter').value;
+    const cityZoneId = document.getElementById('city-zone-filter').value;
+    const areaId = document.getElementById('area-filter').value;
     const refNum = generateReference();
     
     const params = new URLSearchParams({
         report_type: reportType,
         reference: refNum,
+        ...(invoiceType && { invoice_type: invoiceType }),
         ...(salesOfficer && { sales_officer_id: salesOfficer }),
         ...(supplierMan && { supplier_man_id: supplierMan }),
         ...(vendor && { vendor_id: vendor }),
         ...(company && { company_id: company }),
         ...(dateFrom && { date_from: dateFrom }),
-        ...(dateTo && { date_to: dateTo })
+        ...(dateTo && { date_to: dateTo }),
+        ...(cityId && { city_id: cityId }),
+        ...(cityZoneId && { city_zone_id: cityZoneId }),
+        ...(areaId && { area_id: areaId })
     });
     
     window.open(`print.php?${params}`, '_blank');

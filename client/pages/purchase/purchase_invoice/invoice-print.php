@@ -455,7 +455,7 @@
                 totalGrossAmount += parseFloat(item.gross_amount);
                 totalDiscountAmountItems += parseFloat(item.discount_amount);
                 totalTradeOfferAmountItems += parseFloat(item.trade_offer_amount || 0);
-                totalGSTAmountItems += parseFloat(item.gst_amount || 0);
+                totalGSTAmountItems += parseFloat(item.tax_amount || 0);
                 totalFOCQty += parseFloat(item.foc_quantity || 0);
                 totalNetAmountItems += parseFloat(item.net_amount);
             });

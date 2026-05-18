@@ -206,6 +206,12 @@ $currency_symbol = $currency['symbol'] ?? '$';
                             <label class="required">Customer Name</label>
                             <input type="text" id="editCustomerName" required>
                         </div>
+                        <div class="form-group col-6">
+                            <div class="checkbox-group">
+                                <input type="checkbox" id="editOutStation">
+                                <label for="editOutStation">Out Station</label>
+                            </div>
+                        </div>
                         <div class="form-group col-12">
                             <label>Address</label>
                             <textarea id="editAddress"></textarea>
@@ -460,6 +466,10 @@ $currency_symbol = $currency['symbol'] ?? '$';
                     <div class="form-group col-8">
                         <label>Customer Name</label>
                         <div class="view-field" id="viewCustomerName"></div>
+                    </div>
+                    <div class="form-group col-4">
+                        <label>Out Station</label>
+                        <div class="view-field" id="viewOutStation"></div>
                     </div>
                     <div class="form-group col-12">
                         <label>Address</label>

@@ -452,16 +452,18 @@ document.addEventListener('DOMContentLoaded', function () {
 
                 // Load items with dynamic UOM
                 if (items && items.length > 0) {
+                    // First pass: add all rows and set productUomData
                     items.forEach(item => {
                         addRowDynamic();
                         const lastRow = itemsTable.rows[itemsTable.rows.length - 1];
-                        
-                        // Set product
+
                         lastRow.cells[1].querySelector('.search-input').value = `${item.product_code || ''} - ${item.product_name || ''}`;
                         lastRow.cells[1].querySelector('.item-code').value = item.product_id || '';
-                        
-                        // Build UOM details from unit_entries
-                        const uomDetails = {
+                        lastRow.dataset.productId = item.product_id || '';
+
+                        // Use real product UOM details if available, else build from unit_entries
+                        const product = productsData.find(p => p.id == item.product_id);
+                        const uomDetails = product ? getProductUOMDetails(product) : {
                             type: item.uom_type || 'unit',
                             units: (item.unit_entries || []).map(entry => ({
                                 id: entry.uom_id,
@@ -470,54 +472,54 @@ document.addEventListener('DOMContentLoaded', function () {
                             }))
                         };
                         lastRow.dataset.productUomData = JSON.stringify(uomDetails);
-                        lastRow.dataset.productId = item.product_id || '';
-                        
-                        // Set price and other fields
-                        const priceCell = lastRow.querySelector('.price-cell input');
+                    });
+
+                    // Recalculate columns ONCE after all rows are added
+                    recalculateMaxColumns();
+
+                    // Second pass: set all field values AFTER unit cells are created
+                    items.forEach((item, idx) => {
+                        const row = itemsTable.rows[idx];
+
+                        const priceCell = row.querySelector('.price-cell input');
                         if (priceCell) priceCell.value = item.purchase_price || 0;
-                        
-                        const discPercentCell = lastRow.querySelector('.disc-percent-cell input');
+
+                        const discPercentCell = row.querySelector('.disc-percent-cell input');
                         if (discPercentCell) discPercentCell.value = item.discount_percent || 0;
-                        
-                        const discAmountCell = lastRow.querySelector('.disc-amount-cell input');
+
+                        const discAmountCell = row.querySelector('.disc-amount-cell input');
                         if (discAmountCell) discAmountCell.value = item.discount_amount || 0;
-                        
-                        const toPercentCell = lastRow.querySelector('.to-percent-cell input');
+
+                        const toPercentCell = row.querySelector('.to-percent-cell input');
                         if (toPercentCell) toPercentCell.value = item.trade_offer_percent || 0;
-                        
-                        const toAmountCell = lastRow.querySelector('.to-amount-cell input');
+
+                        const toAmountCell = row.querySelector('.to-amount-cell input');
                         if (toAmountCell) toAmountCell.value = item.trade_offer_amount || 0;
-                        
-                        const taxPercentCell = lastRow.querySelector('.tax-percent-cell input');
-                        if (taxPercentCell) taxPercentCell.value = item.gst_percent || 0;
-                        
-                        const taxAmountCell = lastRow.querySelector('.tax-amount-cell input');
-                        if (taxAmountCell) taxAmountCell.value = item.gst_amount || 0;
-                        
-                        const focCell = lastRow.querySelector('.foc-cell input');
+
+                        const taxPercentCell = row.querySelector('.tax-percent-cell input');
+                        if (taxPercentCell) taxPercentCell.value = item.tax_percent || 0;
+
+                        const taxAmountCell = row.querySelector('.tax-amount-cell input');
+                        if (taxAmountCell) taxAmountCell.value = item.tax_amount || 0;
+
+                        const focCell = row.querySelector('.foc-cell input');
                         if (focCell) focCell.value = item.foc_quantity || 0;
-                        
-                        const grossCell = lastRow.querySelector('.gross-cell input');
+
+                        const grossCell = row.querySelector('.gross-cell input');
                         if (grossCell) grossCell.value = item.gross_amount || 0;
-                        
-                        const netCell = lastRow.querySelector('.net-cell input');
+
+                        const netCell = row.querySelector('.net-cell input');
                         if (netCell) netCell.value = item.net_amount || 0;
-                        
-                        // Recalculate columns to add unit cells
-                        recalculateMaxColumns();
-                        
-                        // Set unit values
+
+                        // Set unit quantities
                         if (item.unit_entries && item.unit_entries.length > 0) {
                             item.unit_entries.forEach(entry => {
-                                const unitInput = lastRow.querySelector(`.unit-input[data-unit-id="${entry.uom_id}"]`);
-                                if (unitInput) {
-                                    unitInput.value = entry.quantity || 0;
-                                }
+                                const unitInput = row.querySelector(`.unit-input[data-unit-id="${entry.uom_id}"]`);
+                                if (unitInput) unitInput.value = entry.quantity || 0;
                             });
                         }
                     });
                 } else {
-                    // Add empty row if no items
                     addRowDynamic();
                 }
 
@@ -1711,6 +1713,9 @@ document.addEventListener('DOMContentLoaded', function () {
     if (shippingFeesEl) {
         shippingFeesEl.addEventListener('input', updateInvoiceSummaryDynamic);
     }
+    document.querySelectorAll('input[name="shippingFeesType"]').forEach(radio => {
+        radio.addEventListener('change', updateInvoiceSummaryDynamic);
+    });
 
     // Add event listener for supplier selection to load invoice-level taxes
     document.getElementById('supplierCode').addEventListener('change', function() {

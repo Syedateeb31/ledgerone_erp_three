@@ -31,6 +31,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         if (isEditMode) {
             loadreturnData(editId);
+            saveBtn.innerHTML = '<i class="fas fa-save"></i> Update Return';
         } else {
             // Add first row after data is loaded
             addRowDynamic();
@@ -333,74 +334,46 @@ document.addEventListener('DOMContentLoaded', function () {
                     tbody.deleteRow(0);
                 }
 
-                // Add items from purchase invoice
+                // First pass: add rows and set productUomData
                 items.forEach(item => {
                     addRowDynamic();
                     const lastRow = tbody.rows[tbody.rows.length - 1];
-                    
-                    // Find product in productsData
+                    lastRow.cells[1].querySelector('.search-input').value = `${item.product_code} - ${item.product_name}`;
+                    lastRow.cells[1].querySelector('.item-code').value = item.product_id;
                     const product = productsData.find(p => p.id == item.product_id);
-                    if (product) {
-                        // Set product
-                        lastRow.cells[1].querySelector('.search-input').value = `${item.product_code} - ${item.product_name}`;
-                        lastRow.cells[1].querySelector('.item-code').value = item.product_id;
-                        
-                        // Get UOM details and set product data
-                        const uomDetails = getProductUOMDetails(product);
-                        lastRow.dataset.productUomData = JSON.stringify(uomDetails);
-                        lastRow.dataset.productId = product.id;
-                        
-                        // Set price and other fields
-                        lastRow.querySelector('.price-cell input').value = item.purchase_price;
-                        lastRow.querySelector('.disc-percent-cell input').value = item.discount_percent;
-                        lastRow.querySelector('.disc-amount-cell input').value = item.discount_amount;
-                        lastRow.querySelector('.to-percent-cell input').value = item.trade_offer_percent || 0;
-                        lastRow.querySelector('.to-amount-cell input').value = item.trade_offer_amount || 0;
-                        lastRow.querySelector('.foc-cell input').value = item.foc_quantity || 0;
-                        lastRow.querySelector('.gross-cell input').value = item.gross_amount;
-                        lastRow.querySelector('.net-cell input').value = item.net_amount;
-                    }
+                    const uomDetails = product ? getProductUOMDetails(product) : {
+                        type: item.uom_type || 'unit',
+                        units: (item.unit_entries || []).map(entry => ({ id: entry.uom_id, name: entry.uom_name, conversionFactor: 1 }))
+                    };
+                    lastRow.dataset.productUomData = JSON.stringify(uomDetails);
+                    lastRow.dataset.productId = item.product_id;
                 });
 
-                console.log('Before recalculateMaxColumns, checking rows:');
-                for (let i = 0; i < tbody.rows.length; i++) {
-                    console.log(`Row ${i} has productUomData:`, tbody.rows[i].dataset.productUomData);
-                }
-
-                // Recalculate columns to add unit cells for all rows
+                // Recalculate columns ONCE after all rows added
                 recalculateMaxColumns();
-                
-                console.log('After recalculateMaxColumns, checking unit inputs:');
-                for (let i = 0; i < tbody.rows.length; i++) {
-                    const unitInputs = tbody.rows[i].querySelectorAll('.unit-input');
-                    console.log(`Row ${i} has ${unitInputs.length} unit inputs`);
-                    unitInputs.forEach(inp => {
-                        console.log(`  Input has data-unit-id: ${inp.dataset.unitId}`);
-                    });
-                }
-                
-                // Set unit values for all rows
+
+                // Second pass: set field values and unit quantities AFTER unit cells exist
                 items.forEach((item, index) => {
                     const row = tbody.rows[index];
-                    console.log(`Setting values for row ${index}`);
-                    const unitInputs = row.querySelectorAll('.unit-input');
-                    console.log(`Row ${index} has ${unitInputs.length} unit inputs`);
+                    row.querySelector('.price-cell input').value = item.purchase_price;
+                    row.querySelector('.disc-percent-cell input').value = item.discount_percent || 0;
+                    row.querySelector('.disc-amount-cell input').value = item.discount_amount || 0;
+                    row.querySelector('.to-percent-cell input').value = item.trade_offer_percent || 0;
+                    row.querySelector('.to-amount-cell input').value = item.trade_offer_amount || 0;
+                    row.querySelector('.tax-percent-cell input').value = item.tax_percent || 0;
+                    row.querySelector('.foc-cell input').value = item.foc_quantity || 0;
+                    row.querySelector('.gross-cell input').value = item.gross_amount || 0;
+                    row.querySelector('.net-cell input').value = item.net_amount || 0;
                     item.unit_entries.forEach(entry => {
                         const unitInput = row.querySelector(`.unit-input[data-unit-id="${entry.uom_id}"]`);
-                        if (unitInput) {
-                            unitInput.value = entry.quantity;
-                            console.log(`✓ Set ${entry.uom_name} = ${entry.quantity}`);
-                        } else {
-                            console.log(`✗ NOT FOUND uom_id ${entry.uom_id}`);
-                        }
+                        if (unitInput) unitInput.value = entry.quantity;
                     });
-                    // Set tax percent BEFORE recalculating so it's used in calculation
-                    row.querySelector('.tax-percent-cell input').value = item.tax_percent || 0;
-                    // Recalculate amounts after setting unit values
                     calculateTotalQuantity(row);
                 });
 
-                // Autopopulate shipping fees from invoice
+                // Autopopulate discount and shipping fees from invoice
+                document.getElementById('totalDiscountPercent').value = parseFloat(invoice.total_discount_percent || 0).toFixed(2);
+                document.getElementById('totalDiscountAmount').value = parseFloat(invoice.total_discount_amount || 0).toFixed(2);
                 const shippingFees = data.shipping_fees || 0;
                 const shippingFeesType = data.shipping_fees_type || 'add';
                 document.getElementById('shippingFees').value = shippingFees;
@@ -474,47 +447,48 @@ document.addEventListener('DOMContentLoaded', function () {
 
                 updateCurrencySymbols();
 
-                // Load items with dynamic UOM
+                // Clear existing items
+                while (itemsTable.rows.length > 0) {
+                    const si = itemsTable.rows[0].cells[1]?.querySelector('.search-input');
+                    if (si?.dropdownOptions) si.dropdownOptions.remove();
+                    itemsTable.deleteRow(0);
+                }
+
+                // First pass: add rows and set productUomData
                 data.items.forEach(item => {
                     addRowDynamic();
                     const lastRow = itemsTable.rows[itemsTable.rows.length - 1];
-                    
-                    // Find product in productsData
+                    lastRow.cells[1].querySelector('.search-input').value = `${item.product_code} - ${item.product_name}`;
+                    lastRow.cells[1].querySelector('.item-code').value = item.product_id;
                     const product = productsData.find(p => p.id == item.product_id);
-                    if (product) {
-                        // Set product
-                        lastRow.cells[1].querySelector('.search-input').value = `${item.product_code} - ${item.product_name}`;
-                        lastRow.cells[1].querySelector('.item-code').value = item.product_id;
-                        
-                        // Get UOM details and set product data
-                        const uomDetails = getProductUOMDetails(product);
-                        lastRow.dataset.productUomData = JSON.stringify(uomDetails);
-                        lastRow.dataset.productId = product.id;
-                        
-                        // Set price and other fields
-                        lastRow.querySelector('.price-cell input').value = item.purchase_price;
-                        lastRow.querySelector('.disc-percent-cell input').value = item.discount_percent;
-                        lastRow.querySelector('.disc-amount-cell input').value = item.discount_amount;
-                        lastRow.querySelector('.to-percent-cell input').value = item.trade_offer_percent || 0;
-                        lastRow.querySelector('.to-amount-cell input').value = item.trade_offer_amount || 0;
-                        lastRow.querySelector('.foc-cell input').value = item.foc_quantity || 0;
-                        lastRow.querySelector('.gross-cell input').value = item.gross_amount;
-                        lastRow.querySelector('.net-cell input').value = item.net_amount;
-                        
-                        // Recalculate columns to add unit cells
-                        recalculateMaxColumns();
-                        
-                        // Set unit values
-                        item.unit_entries.forEach(entry => {
-                            const unitInput = lastRow.querySelector(`.unit-input[data-unit-id="${entry.uom_id}"]`);
-                            if (unitInput) {
-                                unitInput.value = entry.quantity;
-                            }
-                        });
-                        // Set tax percent after unit cells exist, then recalculate
-                        lastRow.querySelector('.tax-percent-cell input').value = item.tax_percent || item.gst_percent || 0;
-                        calculateTotalQuantity(lastRow);
-                    }
+                    const uomDetails = product ? getProductUOMDetails(product) : {
+                        type: item.uom_type || 'unit',
+                        units: (item.unit_entries || []).map(entry => ({ id: entry.uom_id, name: entry.uom_name, conversionFactor: 1 }))
+                    };
+                    lastRow.dataset.productUomData = JSON.stringify(uomDetails);
+                    lastRow.dataset.productId = item.product_id;
+                });
+
+                // Recalculate columns ONCE
+                recalculateMaxColumns();
+
+                // Second pass: set field values AFTER unit cells exist
+                data.items.forEach((item, idx) => {
+                    const row = itemsTable.rows[idx];
+                    row.querySelector('.price-cell input').value = item.purchase_price || 0;
+                    row.querySelector('.disc-percent-cell input').value = item.discount_percent || 0;
+                    row.querySelector('.disc-amount-cell input').value = item.discount_amount || 0;
+                    row.querySelector('.to-percent-cell input').value = item.trade_offer_percent || 0;
+                    row.querySelector('.to-amount-cell input').value = item.trade_offer_amount || 0;
+                    row.querySelector('.tax-percent-cell input').value = item.tax_percent || item.gst_percent || 0;
+                    row.querySelector('.foc-cell input').value = item.foc_quantity || 0;
+                    row.querySelector('.gross-cell input').value = item.gross_amount || 0;
+                    row.querySelector('.net-cell input').value = item.net_amount || 0;
+                    (item.unit_entries || []).forEach(entry => {
+                        const unitInput = row.querySelector(`.unit-input[data-unit-id="${entry.uom_id}"]`);
+                        if (unitInput) unitInput.value = entry.quantity;
+                    });
+                    calculateTotalQuantity(row);
                 });
 
                 // Update summary
@@ -1869,7 +1843,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         // Add return_id if in edit mode
         if (isEditMode) {
-            formData.return_id = editId;
+            formData.invoice_id = editId;
         }
 
         const rows = itemsTable.rows;
@@ -1935,7 +1909,7 @@ document.addEventListener('DOMContentLoaded', function () {
             })
             .finally(() => {
                 saveBtn.disabled = false;
-                saveBtn.innerHTML = '<i class="fas fa-save"></i> Save Order';
+                saveBtn.innerHTML = isEditMode ? '<i class="fas fa-save"></i> Update Return' : '<i class="fas fa-save"></i> Save Return';
             });
     }
 

@@ -64,7 +64,24 @@ try {
                 ORDER BY ugu.id
             ");
             $uomStmt->execute([$product['uom_group_id']]);
-            $product['group_units'] = $uomStmt->fetchAll(PDO::FETCH_ASSOC);
+            $groupUnits = $uomStmt->fetchAll(PDO::FETCH_ASSOC);
+
+            // Override conversion_factor with per-product value if applicable
+            foreach ($groupUnits as &$unit) {
+                if ($unit['unit_scope'] === 'per_product') {
+                    $convStmt = $pdo->prepare("
+                        SELECT conversion_factor 
+                        FROM product_uom_conversions 
+                        WHERE product_id = ? AND uom_id = ?
+                    ");
+                    $convStmt->execute([$product['id'], $unit['id']]);
+                    $convResult = $convStmt->fetch(PDO::FETCH_ASSOC);
+                    if ($convResult) {
+                        $unit['conversion_factor'] = $convResult['conversion_factor'];
+                    }
+                }
+            }
+            $product['group_units'] = $groupUnits;
         } else {
             $product['group_units'] = [];
         }

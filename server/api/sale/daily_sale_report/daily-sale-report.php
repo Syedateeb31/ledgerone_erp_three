@@ -27,6 +27,10 @@ try {
     $company_id = $_GET['company_id'] ?? null;
     $date_from = $_GET['date_from'] ?? null;
     $date_to = $_GET['date_to'] ?? null;
+    $invoice_type = $_GET['invoice_type'] ?? null;
+    $city_id = $_GET['city_id'] ?? null;
+    $city_zone_id = $_GET['city_zone_id'] ?? null;
+    $area_id = $_GET['area_id'] ?? null;
 
     if ($report_type === 'item-wise') {
         // Item-wise report query - get all unit variations
@@ -44,6 +48,7 @@ try {
                 JOIN sale_invoice si ON sii.sale_invoice_id = si.id
                 JOIN products p ON sii.product_id = p.id
                 LEFT JOIN uom u ON sii.uom_id = u.id
+                LEFT JOIN customers c ON si.customer_id = c.id
                 WHERE si.tenant_id = ? AND si.status = 'Posted'";
         
         $params = [$tenant_id];
@@ -71,6 +76,24 @@ try {
         if ($company_id) {
             $sql .= " AND si.company_id = ?";
             $params[] = $company_id;
+        }
+        if ($invoice_type === 'OutStation') {
+            $sql .= " AND c.is_out_station = 1";
+        } elseif ($invoice_type) {
+            $sql .= " AND si.invoice_type = ?";
+            $params[] = $invoice_type;
+        }
+        if ($city_id) {
+            $sql .= " AND c.city_id = ?";
+            $params[] = $city_id;
+        }
+        if ($city_zone_id) {
+            $sql .= " AND c.city_zone_id = ?";
+            $params[] = $city_zone_id;
+        }
+        if ($area_id) {
+            $sql .= " AND c.area_id = ?";
+            $params[] = $area_id;
         }
         
         $sql .= " ORDER BY p.id, u.uom_name";
@@ -164,6 +187,24 @@ try {
         if ($company_id) {
             $sql .= " AND si.company_id = ?";
             $params[] = $company_id;
+        }
+        if ($invoice_type === 'OutStation') {
+            $sql .= " AND c.is_out_station = 1";
+        } elseif ($invoice_type) {
+            $sql .= " AND si.invoice_type = ?";
+            $params[] = $invoice_type;
+        }
+        if ($city_id) {
+            $sql .= " AND c.city_id = ?";
+            $params[] = $city_id;
+        }
+        if ($city_zone_id) {
+            $sql .= " AND c.city_zone_id = ?";
+            $params[] = $city_zone_id;
+        }
+        if ($area_id) {
+            $sql .= " AND c.area_id = ?";
+            $params[] = $area_id;
         }
         
         $sql .= " ORDER BY si.bill_no DESC";

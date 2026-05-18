@@ -26,6 +26,52 @@ function initializeListPage(permissions) {
     let currentPage = 1;
     let totalPages = 1;
     const invoicesTable = document.getElementById('invoicesTable').getElementsByTagName('tbody')[0];
+    let selectedIds = new Set();
+
+    function updateSelectionUI() {
+        const count = selectedIds.size;
+        const printSelectedBtn = document.getElementById('printSelectedBtn');
+        const selectedCount = document.getElementById('selectedCount');
+        printSelectedBtn.style.display = count > 0 ? 'inline-flex' : 'none';
+        selectedCount.textContent = count;
+        const allCheckboxes = invoicesTable.querySelectorAll('.row-checkbox');
+        const selectAll = document.getElementById('selectAllCheckbox');
+        if (allCheckboxes.length > 0) {
+            selectAll.checked = [...allCheckboxes].every(cb => cb.checked);
+            selectAll.indeterminate = !selectAll.checked && [...allCheckboxes].some(cb => cb.checked);
+        } else {
+            selectAll.checked = false;
+            selectAll.indeterminate = false;
+        }
+    }
+
+    function clearSelections() {
+        selectedIds.clear();
+        updateSelectionUI();
+    }
+
+    document.getElementById('selectAllCheckbox').addEventListener('change', function () {
+        const checkboxes = invoicesTable.querySelectorAll('.row-checkbox');
+        checkboxes.forEach(cb => {
+            cb.checked = this.checked;
+            const id = parseInt(cb.dataset.id);
+            this.checked ? selectedIds.add(id) : selectedIds.delete(id);
+        });
+        updateSelectionUI();
+    });
+
+    document.getElementById('printSelectedBtn').addEventListener('click', function () {
+        if (selectedIds.size === 0) return;
+        const ids = [...selectedIds].join(',');
+        const savedChoice = localStorage.getItem('pos_print_preference');
+        const printType = savedChoice || 'full';
+        if (printType === 'thermal') {
+            // thermal has no bulk page, open each separately
+            [...selectedIds].forEach(id => window.open(`thermal-print.php?id=${id}`, '_blank'));
+        } else {
+            window.open(`bulk-print.php?ids=${ids}`, '_blank');
+        }
+    });
     
     // Filter elements
     const dateFrom = document.getElementById('dateFrom');
@@ -70,6 +116,7 @@ function initializeListPage(permissions) {
                 }));
                 currentPage = data.pagination.page;
                 totalPages = data.pagination.pages;
+                clearSelections();
                 populateTable(invoices);
                 updatePagination(data.pagination);
             } else {
@@ -89,6 +136,19 @@ function initializeListPage(permissions) {
             totalAmount += invoice.totalAmount;
             const row = invoicesTable.insertRow();
 
+            // Checkbox cell
+            const checkboxCell = row.insertCell(0);
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.className = 'row-checkbox';
+            checkbox.dataset.id = invoice.id;
+            checkbox.checked = selectedIds.has(invoice.id);
+            checkbox.addEventListener('change', function () {
+                this.checked ? selectedIds.add(invoice.id) : selectedIds.delete(invoice.id);
+                updateSelectionUI();
+            });
+            checkboxCell.appendChild(checkbox);
+
             // Format date
             const formattedDate = new Date(invoice.date).toLocaleDateString('en-US', {
                 year: 'numeric',
@@ -100,13 +160,13 @@ function initializeListPage(permissions) {
             const formattedAmount = `${invoice.currencySymbol} ${parseFloat(invoice.totalAmount).toFixed(2)}`;
 
             // Create cells
-            row.insertCell(0).textContent = invoice.invoiceNo;
-            row.insertCell(1).textContent = formattedDate;
-            row.insertCell(2).textContent = invoice.customer || 'N/A';
-            row.insertCell(3).textContent = invoice.items;
-            row.insertCell(4).textContent = formattedAmount;
+            row.insertCell(1).textContent = invoice.invoiceNo;
+            row.insertCell(2).textContent = formattedDate;
+            row.insertCell(3).textContent = invoice.customer || 'N/A';
+            row.insertCell(4).textContent = invoice.items;
+            row.insertCell(5).textContent = formattedAmount;
 
-            const actionsCell = row.insertCell(5);
+            const actionsCell = row.insertCell(6);
             const actionButtons = document.createElement('div');
             actionButtons.className = 'action-buttons';
 
