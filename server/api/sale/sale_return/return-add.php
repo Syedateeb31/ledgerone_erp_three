@@ -41,34 +41,32 @@ try {
         throw new Exception('At least one item is required');
     }
 
-    $pdo->beginTransaction();
-
     // Generate sequential bill number
     $billStmt = $pdo->prepare("SELECT bill_no FROM sale_return WHERE tenant_id = ? ORDER BY id DESC LIMIT 1");
     $billStmt->execute([$tenant_id]);
     $lastBill = $billStmt->fetchColumn();
 
     if ($lastBill) {
-        $lastNumber = (int) substr($lastBill, 4); // Extract number from SAL-XXXX
+        $lastNumber = (int) substr($lastBill, 4);
         $newNumber = $lastNumber + 1;
     } else {
         $newNumber = 1;
     }
     $billNo = 'SR-' . str_pad($newNumber, 4, '0', STR_PAD_LEFT);
 
+    $pdo->beginTransaction();
+
     // Insert sale return
     $stmt = $pdo->prepare("
         INSERT INTO sale_return (
             tenant_id, company_id, currency_id, bill_no, sale_date, customer_id, branch_id,
-            previous_balance, total_bill, total_discount_percent, 
-            total_discount_amount, net_amount, sale_invoice_no, amount_refunded, 
+            previous_balance, total_bill, total_discount_percent,
+            total_discount_amount, extra_discount_1_amount, extra_discount_2_amount, shipping_fees,
+            net_amount, sale_invoice_no, amount_refunded,
             payment_method, bank_account_id, sale_officer_id, supplier_man_id, sub_account_id, remarks, status, created_by, updated_by
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ");
 
-    // Debug log
-    error_log('Sales Officer ID from input: ' . ($input['salesOfficerId'] ?? 'NULL'));
-    
     $stmt->execute([
         $tenant_id,
         $input['companyId'] ?? null,
@@ -81,6 +79,9 @@ try {
         $input['totalBill'],
         $input['totalDiscountPercent'] ?? 0.00,
         $input['totalDiscountAmount'] ?? 0.00,
+        $input['extraDiscount1Amount'] ?? 0.00,
+        $input['extraDiscount2Amount'] ?? 0.00,
+        $input['shippingFees'] ?? 0.00,
         $input['netAmount'],
         $input['saleInvoiceId'] ?? null,
         $input['amountPaid'] ?? 0.00,

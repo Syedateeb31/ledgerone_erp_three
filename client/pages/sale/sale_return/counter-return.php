@@ -255,9 +255,17 @@ $user_employee_id = $user['employee_id'] ?? null;
                     <div class="summary-label">DISCOUNT</div>
                     <div class="summary-value" id="totalDiscount">$0.00</div>
                 </div>
-                <div class="summary-item">
-                    <div class="summary-label">TAX AMT</div>
-                    <div class="summary-value" id="totalGst">$0.00</div>
+                <div class="summary-item" id="extraDiscount1Item" style="display:none;">
+                    <div class="summary-label">EXTRA DISC 1</div>
+                    <div class="summary-value" id="extraDiscount1Amt">$0.00</div>
+                </div>
+                <div class="summary-item" id="extraDiscount2Item" style="display:none;">
+                    <div class="summary-label">EXTRA DISC 2</div>
+                    <div class="summary-value" id="extraDiscount2Amt">$0.00</div>
+                </div>
+                <div class="summary-item" id="shippingFeesItem" style="display:none;">
+                    <div class="summary-label">SHIPPING FEES</div>
+                    <div class="summary-value" id="shippingFeesAmt">$0.00</div>
                 </div>
                 <div class="summary-item">
                     <div class="summary-label">NET AMOUNT</div>

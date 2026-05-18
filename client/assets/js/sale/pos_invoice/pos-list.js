@@ -409,6 +409,25 @@ function initializeListPage(permissions) {
         container.appendChild(nextBtn);
     }
 
+    // Reset filters button
+    document.getElementById('resetFiltersBtn').addEventListener('click', function () {
+        dateFrom.value = '';
+        dateTo.value = '';
+        searchInput.value = '';
+
+        [['companyFilter', 'companyFilterSearch', 'All Companies'],
+         ['customerFilter', 'customerFilterSearch', 'All Customers'],
+         ['saleOfficerFilter', 'saleOfficerFilterSearch', 'All Sales Officers'],
+         ['supplierManFilter', 'supplierManFilterSearch', 'All Supplier Men']
+        ].forEach(([hiddenId, searchId, placeholder]) => {
+            document.getElementById(hiddenId).value = '';
+            document.getElementById(searchId).value = '';
+            document.getElementById(searchId).placeholder = placeholder;
+        });
+
+        loadInvoices(1);
+    });
+
     // New invoice button
     document.getElementById('newInvoiceBtn').addEventListener('click', function () {
         if (!permissions.includes('Add')) {

@@ -152,13 +152,13 @@ if (!$user_id) {
                                 <!-- Dynamic unit columns will be inserted here -->
                                 <th width="8%"><span id="purchasePriceLabel">Trade Price (TP)</span></th>
                                 <th width="8%"><span id="grossAmountLabel">Gross Amount</span></th>
-                                <th width="5%">Disc %</th>
-                                <th width="8%"><span id="discountAmountLabel">Disc Amt</span></th>
-                                <th width="5%">TO %</th>
-                                <th width="8%">TO Amt</th>
-                                <th width="5%"><span id="taxPercentLabel">Tax %</span></th>
-                                <th width="8%"><span id="taxAmountLabel">Tax Amt</span></th>
-                                <th width="5%">FOC Qty</th>
+                                <th width="5%" data-col="disc-percent">Disc %</th>
+                                <th width="8%" data-col="disc-amount"><span id="discountAmountLabel">Disc Amt</span></th>
+                                <th width="5%" data-col="to-percent">TO %</th>
+                                <th width="8%" data-col="to-amount">TO Amt</th>
+                                <th width="5%" data-col="tax-percent"><span id="taxPercentLabel">Tax %</span></th>
+                                <th width="8%" data-col="tax-amount"><span id="taxAmountLabel">Tax Amt</span></th>
+                                <th width="5%" data-col="foc">FOC Qty</th>
                                 <th width="8%"><span id="netAmountLabel">Net Amount</span></th>
                                 <th width="4%">Actions</th>
                             </tr>
@@ -172,13 +172,13 @@ if (!$user_id) {
                                 <!-- Dynamic unit totals will be inserted here -->
                                 <th id="totalPurchasePrice">0.00</th>
                                 <th id="totalGrossAmount">0.00</th>
-                                <th></th>
-                                <th id="totalDiscountAmountItems">0.00</th>
-                                <th></th>
-                                <th id="totalTradeOfferAmountItems">0.00</th>
-                                <th></th>
-                                <th id="totalTaxAmountItems">0.00</th>
-                                <th id="totalFOCQty">0.00</th>
+                                <th data-col="disc-percent"></th>
+                                <th id="totalDiscountAmountItems" data-col="disc-amount">0.00</th>
+                                <th data-col="to-percent"></th>
+                                <th id="totalTradeOfferAmountItems" data-col="to-amount">0.00</th>
+                                <th data-col="tax-percent"></th>
+                                <th id="totalTaxAmountItems" data-col="tax-amount">0.00</th>
+                                <th id="totalFOCQty" data-col="foc">0.00</th>
                                 <th id="totalNetAmountItems">0.00</th>
                                 <th></th>
                             </tr>

@@ -87,9 +87,14 @@ if (!$user_id) {
                     <i class="fas fa-search"></i>
                     <input type="text" id="searchInput" placeholder="Search by invoice number, customer...">
                 </div>
-                <button class="btn btn-primary" id="newInvoiceBtn">
-                    <i class="fas fa-plus"></i> New Invoice
-                </button>
+                <div style="display:flex; gap:10px;">
+                    <button class="btn btn-secondary" id="resetFiltersBtn">
+                        <i class="fas fa-rotate-left"></i> Reset
+                    </button>
+                    <button class="btn btn-primary" id="newInvoiceBtn">
+                        <i class="fas fa-plus"></i> New Invoice
+                    </button>
+                </div>
             </div>
             
             <div class="summary-section">

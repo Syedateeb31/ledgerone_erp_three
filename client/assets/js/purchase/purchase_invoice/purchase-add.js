@@ -1349,6 +1349,16 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         });
         actionsCell.appendChild(deleteBtn);
+
+        // Apply current settings to this new row
+        applySettingsToRow(row, {
+            enableTradeOffer: localStorage.getItem('enableTradeOffer') === 'true',
+            enableTradeOfferAmount: localStorage.getItem('enableTradeOfferAmount') === 'true',
+            enableFOC: localStorage.getItem('enableFOC') === 'true',
+            enableTaxation: localStorage.getItem('enableTaxation') === 'true',
+            enableInlineCashDiscount: localStorage.getItem('enableInlineCashDiscount') === 'true',
+            enableInlineCashDiscountAmount: localStorage.getItem('enableInlineCashDiscountAmount') === 'true'
+        });
     }
     
     // Initialize dropdown for dynamic rows
@@ -2046,10 +2056,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Apply invoice settings to show/hide columns
     function applyInvoiceSettings() {
-        // Settings are no longer applicable for dynamic UOM system
-        // The old Pcs/Ctn/Dz columns have been removed
-        // Only apply settings for discount, trade offer, GST, FOC, and summary fields
-        
         const enableTradeOffer = localStorage.getItem('enableTradeOffer') === 'true';
         const enableTradeOfferAmount = localStorage.getItem('enableTradeOfferAmount') === 'true';
         const enableFOC = localStorage.getItem('enableFOC') === 'true';
@@ -2059,6 +2065,28 @@ document.addEventListener('DOMContentLoaded', function () {
         const enableInvoiceCashDiscount = localStorage.getItem('enableInvoiceCashDiscount') === 'true';
         const enableInvoiceCashDiscountAmount = localStorage.getItem('enableInvoiceCashDiscountAmount') === 'true';
         const enableShippingFees = localStorage.getItem('enableShippingFees') === 'true';
+
+        // Show/hide thead and tfoot columns via data-col
+        const colMap = [
+            { col: 'disc-percent',  show: enableInlineCashDiscount },
+            { col: 'disc-amount',   show: enableInlineCashDiscountAmount },
+            { col: 'to-percent',    show: enableTradeOffer },
+            { col: 'to-amount',     show: enableTradeOfferAmount },
+            { col: 'tax-percent',   show: enableTaxation },
+            { col: 'tax-amount',    show: enableTaxation },
+            { col: 'foc',           show: enableFOC }
+        ];
+        colMap.forEach(({ col, show }) => {
+            document.querySelectorAll(`#itemsTable [data-col="${col}"]`).forEach(el => {
+                el.style.display = show ? '' : 'none';
+            });
+        });
+
+        // Show/hide cells in all existing rows
+        const rows = document.getElementById('itemsTable').getElementsByTagName('tbody')[0].rows;
+        for (let row of rows) {
+            applySettingsToRow(row, { enableTradeOffer, enableTradeOfferAmount, enableFOC, enableTaxation, enableInlineCashDiscount, enableInlineCashDiscountAmount });
+        }
 
         // Hide/show invoice summary fields
         const discountPercentItem = document.getElementById('totalDiscountPercent')?.closest('.summary-item');
@@ -2072,6 +2100,25 @@ document.addEventListener('DOMContentLoaded', function () {
         if (gstPercentItem) gstPercentItem.style.display = enableTaxation ? '' : 'none';
         if (gstAmountItem) gstAmountItem.style.display = enableTaxation ? '' : 'none';
         if (shippingFeesItem) shippingFeesItem.style.display = enableShippingFees ? '' : 'none';
+    }
+
+    function applySettingsToRow(row, settings) {
+        const { enableTradeOffer, enableTradeOfferAmount, enableFOC, enableTaxation, enableInlineCashDiscount, enableInlineCashDiscountAmount } = settings;
+        const toPercentCell = row.querySelector('.to-percent-cell');
+        const toAmountCell = row.querySelector('.to-amount-cell');
+        const focCell = row.querySelector('.foc-cell');
+        const taxPercentCell = row.querySelector('.tax-percent-cell');
+        const taxAmountCell = row.querySelector('.tax-amount-cell');
+        const discPercentCell = row.querySelector('.disc-percent-cell');
+        const discAmountCell = row.querySelector('.disc-amount-cell');
+
+        if (toPercentCell) toPercentCell.style.display = enableTradeOffer ? '' : 'none';
+        if (toAmountCell) toAmountCell.style.display = enableTradeOfferAmount ? '' : 'none';
+        if (focCell) focCell.style.display = enableFOC ? '' : 'none';
+        if (taxPercentCell) taxPercentCell.style.display = enableTaxation ? '' : 'none';
+        if (taxAmountCell) taxAmountCell.style.display = enableTaxation ? '' : 'none';
+        if (discPercentCell) discPercentCell.style.display = enableInlineCashDiscount ? '' : 'none';
+        if (discAmountCell) discAmountCell.style.display = enableInlineCashDiscountAmount ? '' : 'none';
     }
 
     // Handle UOM change for price conversion

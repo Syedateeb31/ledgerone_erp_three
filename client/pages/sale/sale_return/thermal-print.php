@@ -204,9 +204,17 @@
             <span>Discount:</span>
             <span id="discountAmount">0.00</span>
         </div>
-        <div class="total-row">
-            <span>TAX AMT:</span>
-            <span id="gstAmount">0.00</span>
+        <div class="total-row" id="extraDiscount1Row" style="display:none;">
+            <span>Extra Disc 1:</span>
+            <span id="extraDiscount1Amt">0.00</span>
+        </div>
+        <div class="total-row" id="extraDiscount2Row" style="display:none;">
+            <span>Extra Disc 2:</span>
+            <span id="extraDiscount2Amt">0.00</span>
+        </div>
+        <div class="total-row" id="shippingFeesRow" style="display:none;">
+            <span>Shipping:</span>
+            <span id="shippingFeesAmt">0.00</span>
         </div>
         <div class="total-row grand-total">
             <span>TOTAL:</span>
@@ -343,18 +351,29 @@
             
             document.getElementById('totalBill').textContent = `${currencySymbol}${parseFloat(invoice.total_bill).toFixed(2)}`;
             document.getElementById('discountAmount').textContent = `${currencySymbol}${parseFloat(invoice.total_discount_amount).toFixed(2)}`;
-            
-            // Calculate total TAX from items
-            let totalTax = 0;
-            items.forEach(item => {
-                totalTax += parseFloat(item.tax_amount || 0);
-            });
-            document.getElementById('gstAmount').textContent = `${currencySymbol}${totalTax.toFixed(2)}`;
+
+            // Extra Discount 1
+            const ed1 = parseFloat(invoice.extra_discount_1_amount || 0);
+            const ed1Row = document.getElementById('extraDiscount1Row');
+            if (ed1 > 0) { ed1Row.style.display = ''; document.getElementById('extraDiscount1Amt').textContent = `${currencySymbol}${ed1.toFixed(2)}`; }
+            else { ed1Row.style.display = 'none'; }
+
+            // Extra Discount 2
+            const ed2 = parseFloat(invoice.extra_discount_2_amount || 0);
+            const ed2Row = document.getElementById('extraDiscount2Row');
+            if (ed2 > 0) { ed2Row.style.display = ''; document.getElementById('extraDiscount2Amt').textContent = `${currencySymbol}${ed2.toFixed(2)}`; }
+            else { ed2Row.style.display = 'none'; }
+
+            // Shipping Fees
+            const shipping = parseFloat(invoice.shipping_fees || 0);
+            const shippingRow = document.getElementById('shippingFeesRow');
+            if (shipping > 0) { shippingRow.style.display = ''; document.getElementById('shippingFeesAmt').textContent = `${currencySymbol}${shipping.toFixed(2)}`; }
+            else { shippingRow.style.display = 'none'; }
             
             document.getElementById('netAmount').textContent = `${currencySymbol}${parseFloat(invoice.net_amount).toFixed(2)}`;
             
-            // Calculate paid and balance from receive voucher
-            const amountPaid = parseFloat(invoice.amount_paid) || 0;
+            // Calculate paid and balance
+            const amountPaid = parseFloat(invoice.amount_refunded) || 0;
             const remainingBalance = parseFloat(invoice.net_amount) - amountPaid;
             
             document.getElementById('amountPaid').textContent = `${currencySymbol}${amountPaid.toFixed(2)}`;

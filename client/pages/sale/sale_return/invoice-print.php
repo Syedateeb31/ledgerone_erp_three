@@ -246,12 +246,20 @@
                     <td class="text-right" id="totalBill">0.00</td>
                 </tr>
                 <tr>
-                    <td>Discount (%):</td>
-                    <td class="text-right" id="discountPercent">0.00%</td>
-                </tr>
-                <tr>
-                    <td>Discount Amount:</td>
+                    <td>Discount:</td>
                     <td class="text-right" id="discountAmount">0.00</td>
+                </tr>
+                <tr id="extraDiscount1Row" style="display:none;">
+                    <td>Extra Disc 1:</td>
+                    <td class="text-right" id="extraDiscount1Amt">0.00</td>
+                </tr>
+                <tr id="extraDiscount2Row" style="display:none;">
+                    <td>Extra Disc 2:</td>
+                    <td class="text-right" id="extraDiscount2Amt">0.00</td>
+                </tr>
+                <tr id="shippingFeesRow" style="display:none;">
+                    <td>Shipping Fees:</td>
+                    <td class="text-right" id="shippingFeesAmt">0.00</td>
                 </tr>
                 <tr class="total-row">
                     <td>Net Amount:</td>
@@ -439,8 +447,26 @@
 
             // Populate totals with currency symbol
             document.getElementById('totalBill').textContent = `${currencySymbol} ${parseFloat(invoice.total_bill).toFixed(2)}`;
-            document.getElementById('discountPercent').textContent = parseFloat(invoice.total_discount_percent).toFixed(2) + '%';
             document.getElementById('discountAmount').textContent = `${currencySymbol} ${parseFloat(invoice.total_discount_amount).toFixed(2)}`;
+
+            // Extra Discount 1
+            const ed1 = parseFloat(invoice.extra_discount_1_amount || 0);
+            const ed1Row = document.getElementById('extraDiscount1Row');
+            if (ed1 > 0) { ed1Row.style.display = ''; document.getElementById('extraDiscount1Amt').textContent = `${currencySymbol} ${ed1.toFixed(2)}`; }
+            else { ed1Row.style.display = 'none'; }
+
+            // Extra Discount 2
+            const ed2 = parseFloat(invoice.extra_discount_2_amount || 0);
+            const ed2Row = document.getElementById('extraDiscount2Row');
+            if (ed2 > 0) { ed2Row.style.display = ''; document.getElementById('extraDiscount2Amt').textContent = `${currencySymbol} ${ed2.toFixed(2)}`; }
+            else { ed2Row.style.display = 'none'; }
+
+            // Shipping Fees
+            const shipping = parseFloat(invoice.shipping_fees || 0);
+            const shippingRow = document.getElementById('shippingFeesRow');
+            if (shipping > 0) { shippingRow.style.display = ''; document.getElementById('shippingFeesAmt').textContent = `${currencySymbol} ${shipping.toFixed(2)}`; }
+            else { shippingRow.style.display = 'none'; }
+
             document.getElementById('netAmount').textContent = `${currencySymbol} ${parseFloat(invoice.net_amount).toFixed(2)}`;
 
             // Convert net amount to words

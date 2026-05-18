@@ -1,4 +1,4 @@
-let currentReturn = { items: [], customer: null, branch: null, currency: null, salesOfficer: null, supplierMan: null, subAccount: null, company: null, invoiceLevelTaxes: [] };
+let currentReturn = { items: [], customer: null, branch: null, currency: null, salesOfficer: null, supplierMan: null, subAccount: null, company: null, invoiceLevelTaxes: [], invoiceTotalBill: null, invoiceDiscountAmount: 0, extraDiscount1Amount: 0, extraDiscount2Amount: 0, shippingFees: 0 };
 let productsData = [], customersData = [], branchesData = [], currenciesData = [], bankAccountsData = [], uomData = [], invoicesData = [], employeesData = [], subAccountsData = [], companiesData = [];
 
 const defaultShortcuts = { product: 'F1', customer: 'F2', branch: 'F3', qty: 'F4', save: 'F10', clear: 'F12' };
@@ -464,25 +464,53 @@ function recalculateItem(item) {
 }
 
 function updateSummary() {
-    const totalBill = currentReturn.items.reduce((sum, item) => sum + item.gross, 0);
-    const totalDiscount = currentReturn.items.reduce((sum, item) => sum + item.discountAmount, 0);
-    const totalTax = currentReturn.items.reduce((sum, item) => sum + item.taxAmount, 0);
+    const totalBill = currentReturn.invoiceTotalBill != null ? currentReturn.invoiceTotalBill : currentReturn.items.reduce((sum, item) => sum + item.gross, 0);
     const returnDiscountAmount = parseFloat(document.getElementById('returnDiscountAmount').value) || 0;
-    const netAmount = currentReturn.items.reduce((sum, item) => sum + item.net, 0) - returnDiscountAmount;
+    const ed1 = currentReturn.extraDiscount1Amount || 0;
+    const ed2 = currentReturn.extraDiscount2Amount || 0;
+    const shipping = currentReturn.shippingFees || 0;
+    const netAmount = totalBill - returnDiscountAmount - ed1 - ed2 + shipping;
     const amountRefunded = parseFloat(document.getElementById('amountRefunded').value) || 0;
     const balance = netAmount - amountRefunded;
-    
-    document.getElementById('totalGross').textContent = formatCurrency(totalBill);
+
+    document.getElementById('totalGross').textContent = formatCurrency(currentReturn.items.reduce((sum, item) => sum + item.gross, 0));
     document.getElementById('totalNet').textContent = formatCurrency(currentReturn.items.reduce((sum, item) => sum + item.net, 0));
-    
+
     document.getElementById('totalBill').textContent = formatCurrency(totalBill);
-    document.getElementById('totalDiscount').textContent = formatCurrency(totalDiscount + returnDiscountAmount);
-    document.getElementById('totalGst').textContent = formatCurrency(totalTax);
+    document.getElementById('totalDiscount').textContent = formatCurrency(currentReturn.invoiceDiscountAmount || returnDiscountAmount);
+
+    // Extra Discount 1
+    const ed1Item = document.getElementById('extraDiscount1Item');
+    if (ed1 > 0) {
+        ed1Item.style.display = '';
+        document.getElementById('extraDiscount1Amt').textContent = formatCurrency(ed1);
+    } else {
+        ed1Item.style.display = 'none';
+    }
+
+    // Extra Discount 2
+    const ed2Item = document.getElementById('extraDiscount2Item');
+    if (ed2 > 0) {
+        ed2Item.style.display = '';
+        document.getElementById('extraDiscount2Amt').textContent = formatCurrency(ed2);
+    } else {
+        ed2Item.style.display = 'none';
+    }
+
+    // Shipping Fees
+    const shippingItem = document.getElementById('shippingFeesItem');
+    if (shipping > 0) {
+        shippingItem.style.display = '';
+        document.getElementById('shippingFeesAmt').textContent = formatCurrency(shipping);
+    } else {
+        shippingItem.style.display = 'none';
+    }
+
     document.getElementById('netAmount').textContent = formatCurrency(netAmount);
     document.getElementById('summaryRefunded').textContent = formatCurrency(amountRefunded);
     document.getElementById('balanceAmount').textContent = formatCurrency(balance);
     document.getElementById('itemCount').textContent = currentReturn.items.length;
-    
+
     document.getElementById('balanceAmount').style.color = balance >= 0 ? 'var(--error)' : 'var(--success)';
     updateNetReceivable();
 }
@@ -620,10 +648,13 @@ async function saveReturn() {
         })),
         paymentMethod: paymentMethod,
         bankAccountId: paymentMethod === 'bank_transfer' ? document.getElementById('bankAccount').value : null,
-        totalBill: currentReturn.items.reduce((sum, item) => sum + item.gross, 0),
+        totalBill: currentReturn.invoiceTotalBill != null ? currentReturn.invoiceTotalBill : currentReturn.items.reduce((sum, item) => sum + item.gross, 0),
         totalDiscountPercent: parseFloat(document.getElementById('returnDiscountPercent').value) || 0,
-        totalDiscountAmount: parseFloat(document.getElementById('returnDiscountAmount').value) || 0,
-        netAmount: currentReturn.items.reduce((sum, item) => sum + item.net, 0) - (parseFloat(document.getElementById('returnDiscountAmount').value) || 0),
+        totalDiscountAmount: currentReturn.invoiceDiscountAmount || parseFloat(document.getElementById('returnDiscountAmount').value) || 0,
+        extraDiscount1Amount: currentReturn.extraDiscount1Amount || 0,
+        extraDiscount2Amount: currentReturn.extraDiscount2Amount || 0,
+        shippingFees: currentReturn.shippingFees || 0,
+        netAmount: (currentReturn.invoiceTotalBill != null ? currentReturn.invoiceTotalBill : currentReturn.items.reduce((sum, item) => sum + item.gross, 0)) - (parseFloat(document.getElementById('returnDiscountAmount').value) || 0) - (currentReturn.extraDiscount1Amount || 0) - (currentReturn.extraDiscount2Amount || 0) + (currentReturn.shippingFees || 0),
         amountPaid: parseFloat(document.getElementById('amountRefunded').value) || 0,
         items: currentReturn.items.map(item => ({
             productId: item.productId,
@@ -682,6 +713,11 @@ function clearReturn() {
         currentReturn.customer = null;
         currentReturn.company = null;
         currentReturn.invoiceLevelTaxes = [];
+        currentReturn.invoiceTotalBill = null;
+        currentReturn.invoiceDiscountAmount = 0;
+        currentReturn.extraDiscount1Amount = 0;
+        currentReturn.extraDiscount2Amount = 0;
+        currentReturn.shippingFees = 0;
         renderReturnLevelTaxes();
         renderItems();
         updateSummary();
@@ -797,6 +833,14 @@ async function loadInvoiceData(invoiceId) {
             
             recalculateMaxColumns();
             renderItems();
+
+            // Set total bill and extra discounts from original invoice
+            currentReturn.invoiceTotalBill = parseFloat(invoice.total_bill || 0);
+            currentReturn.invoiceDiscountAmount = parseFloat(invoice.total_discount_amount || 0);
+            currentReturn.extraDiscount1Amount = parseFloat(invoice.extra_discount_1_amount || 0);
+            currentReturn.extraDiscount2Amount = parseFloat(invoice.extra_discount_2_amount || 0);
+            currentReturn.shippingFees = parseFloat(invoice.shipping_fees || 0);
+
             updateSummary();
 
             // Fetch and populate invoice-level taxes from the original sale invoice
@@ -850,7 +894,11 @@ function updateNetReceivable() {
     const netReceivableEl = document.getElementById('netReceivable');
     if (!netReceivableEl) return;
     const returnDiscountAmount = parseFloat(document.getElementById('returnDiscountAmount').value) || 0;
-    const netAmount = currentReturn.items.reduce((sum, item) => sum + item.net, 0) - returnDiscountAmount;
+    const totalBill = currentReturn.invoiceTotalBill != null ? currentReturn.invoiceTotalBill : currentReturn.items.reduce((sum, item) => sum + item.gross, 0);
+    const ed1 = currentReturn.extraDiscount1Amount || 0;
+    const ed2 = currentReturn.extraDiscount2Amount || 0;
+    const shipping = currentReturn.shippingFees || 0;
+    const netAmount = totalBill - returnDiscountAmount - ed1 - ed2 + shipping;
     const totalInvoiceTax = currentReturn.invoiceLevelTaxes.reduce((sum, t) => sum + parseFloat(t.tax_amount || 0), 0);
     netReceivableEl.textContent = formatCurrency(netAmount - totalInvoiceTax);
 }
