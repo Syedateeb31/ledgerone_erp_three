@@ -1419,10 +1419,6 @@ function initializePage(permissions) {
                 // Update summary
                 document.getElementById('totalDiscountPercent').value = invoice.total_discount_percent;
                 document.getElementById('totalDiscountAmount').value = invoice.total_discount_amount;
-                document.getElementById('extraDiscount1Percent').value = invoice.extra_discount_1_percent || 0;
-                document.getElementById('extraDiscount1Amount').value  = invoice.extra_discount_1_amount  || 0;
-                document.getElementById('extraDiscount2Percent').value = invoice.extra_discount_2_percent || 0;
-                document.getElementById('extraDiscount2Amount').value  = invoice.extra_discount_2_amount  || 0;
                 document.getElementById('paymentMethod').value = invoice.payment_method || '';
 
                 // Show bank account if payment method is bank_transfer
@@ -1453,6 +1449,14 @@ function initializePage(permissions) {
                 
                 // Apply invoice settings after loading data
                 applyInvoiceSettings();
+
+                // Re-populate extra discount values AFTER applyInvoiceSettings —
+                // it resets disabled inputs to '0' when the feature is off in localStorage.
+                document.getElementById('extraDiscount1Percent').value = invoice.extra_discount_1_percent || 0;
+                document.getElementById('extraDiscount1Amount').value  = invoice.extra_discount_1_amount  || 0;
+                document.getElementById('extraDiscount2Percent').value = invoice.extra_discount_2_percent || 0;
+                document.getElementById('extraDiscount2Amount').value  = invoice.extra_discount_2_amount  || 0;
+
                 updateInvoiceSummary();
 
                 // Update page title

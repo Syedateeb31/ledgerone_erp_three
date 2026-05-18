@@ -435,6 +435,22 @@
                     <td>Discount Amount:</td>
                     <td class="text-right" id="discountAmount">0.00</td>
                 </tr>
+                <tr id="extraDiscount1PercentRow" style="display: none;">
+                    <td>Extra Discount 1 (%):</td>
+                    <td class="text-right" id="extraDiscount1Percent">0.00%</td>
+                </tr>
+                <tr id="extraDiscount1AmountRow" style="display: none;">
+                    <td>Extra Discount 1 Amt:</td>
+                    <td class="text-right" id="extraDiscount1Amount">0.00</td>
+                </tr>
+                <tr id="extraDiscount2PercentRow" style="display: none;">
+                    <td>Extra Discount 2 (%):</td>
+                    <td class="text-right" id="extraDiscount2Percent">0.00%</td>
+                </tr>
+                <tr id="extraDiscount2AmountRow" style="display: none;">
+                    <td>Extra Discount 2 Amt:</td>
+                    <td class="text-right" id="extraDiscount2Amount">0.00</td>
+                </tr>
                 <tr id="shippingFeesRow" style="display: none;">
                     <td>Shipping Fees:</td>
                     <td class="text-right" id="shippingFees">0.00</td>
@@ -548,8 +564,6 @@
             { id: 'disc_pct', label: 'Disc %', width: '5%' },
             { id: 'disc_amt', label: 'Disc Amt', width: '8%' },
             { id: 'to_amt', label: 'T.O Amt', width: '8%' },
-            { id: 'gst_pct', label: 'GST %', width: '5%' },
-            { id: 'gst_amt', label: 'GST Amt', width: '8%' },
             { id: 'foc', label: 'FOC Qty', width: '5%' },
             { id: 'net', label: 'Net Amt', width: '9%' }
         ];
@@ -565,9 +579,10 @@
         const enableCashDiscountAmount = localStorage.getItem('enableCashDiscountAmount') === 'true';
         const enableTradeOfferDiscount = localStorage.getItem('enableTradeOfferDiscount') === 'true';
         const enableTradeOfferAmount = localStorage.getItem('enableTradeOfferAmount') === 'true';
-        const enableTaxation = localStorage.getItem('enableTaxation') === 'true';
         const enableFOC = localStorage.getItem('enableFOC') === 'true';
-        const enableShippingFees = localStorage.getItem('enableShippingFees') === 'true';
+        const enableShippingFees    = localStorage.getItem('enableShippingFees')    === 'true';
+        const enableExtraDiscount1  = localStorage.getItem('enableExtraDiscount1')  === 'true';
+        const enableExtraDiscount2  = localStorage.getItem('enableExtraDiscount2')  === 'true';
 
         // Get totals layout preference
         const totalsLayout = localStorage.getItem('totalsLayout') || 'vertical';
@@ -638,7 +653,7 @@
             headerRow.appendChild(unitPlaceholder);
 
             // Add remaining columns
-            const remainingCols = ['price', 'gross', 'disc_pct', 'disc_amt', 'to_amt', 'gst_pct', 'gst_amt', 'foc', 'net'];
+            const remainingCols = ['price', 'gross', 'disc_pct', 'disc_amt', 'to_amt', 'foc', 'net'];
             remainingCols.forEach(colId => {
                 const col = columnConfig.find(c => c.id === colId);
                 if (col && col.visible === false) return;
@@ -653,8 +668,6 @@
                     case 'disc_pct': th.textContent = 'Disc %'; th.width = '5%'; break;
                     case 'disc_amt': th.textContent = 'Disc Amt'; th.width = '8%'; break;
                     case 'to_amt': th.textContent = 'T.O Amt'; th.width = '8%'; break;
-                    case 'gst_pct': th.textContent = 'Tax %'; th.width = '5%'; break;
-                    case 'gst_amt': th.textContent = 'Tax Amt'; th.width = '8%'; break;
                     case 'foc': th.textContent = 'FOC Qty'; th.width = '5%'; break;
                     case 'net': th.textContent = 'Net Amt'; th.width = '9%'; break;
                 }
@@ -663,8 +676,6 @@
                 if (colId === 'disc_pct' && !enableCashDiscountPercent) th.style.display = 'none';
                 if (colId === 'disc_amt' && !enableCashDiscountAmount) th.style.display = 'none';
                 if (colId === 'to_amt' && !enableTradeOfferAmount) th.style.display = 'none';
-                if (colId === 'gst_pct' && !enableTaxation) th.style.display = 'none';
-                if (colId === 'gst_amt' && !enableTaxation) th.style.display = 'none';
                 if (colId === 'foc' && !enableFOC) th.style.display = 'none';
 
                 headerRow.appendChild(th);
@@ -723,15 +734,13 @@
 
             // Remaining columns with totals
             const remainingCols = [
-                { id: 'price', label: '', hasTotal: true, totalId: 'totalUnitPrice' },
-                { id: 'gross', label: '', hasTotal: true, totalId: 'totalGrossAmount' },
+                { id: 'price',    label: '', hasTotal: true,  totalId: 'totalUnitPrice' },
+                { id: 'gross',    label: '', hasTotal: true,  totalId: 'totalGrossAmount' },
                 { id: 'disc_pct', label: '', hasTotal: false },
-                { id: 'disc_amt', label: '', hasTotal: true, totalId: 'totalDiscountAmountItems' },
-                { id: 'to_amt', label: '', hasTotal: true, totalId: 'totalTradeOfferAmountItems' },
-                { id: 'gst_pct', label: '', hasTotal: false },
-                { id: 'gst_amt', label: '', hasTotal: true, totalId: 'totalGstAmountItems' },
-                { id: 'foc', label: '', hasTotal: true, totalId: 'totalFocQty' },
-                { id: 'net', label: '', hasTotal: true, totalId: 'totalNetAmountItems' }
+                { id: 'disc_amt', label: '', hasTotal: true,  totalId: 'totalDiscountAmountItems' },
+                { id: 'to_amt',   label: '', hasTotal: true,  totalId: 'totalTradeOfferAmountItems' },
+                { id: 'foc',      label: '', hasTotal: true,  totalId: 'totalFocQty' },
+                { id: 'net',      label: '', hasTotal: true,  totalId: 'totalNetAmountItems' }
             ];
 
             remainingCols.forEach(colDef => {
@@ -751,8 +760,6 @@
                 if (colDef.id === 'disc_pct' && !enableCashDiscountPercent) th.style.display = 'none';
                 if (colDef.id === 'disc_amt' && !enableCashDiscountAmount) th.style.display = 'none';
                 if (colDef.id === 'to_amt' && !enableTradeOfferAmount) th.style.display = 'none';
-                if (colDef.id === 'gst_pct' && !enableTaxation) th.style.display = 'none';
-                if (colDef.id === 'gst_amt' && !enableTaxation) th.style.display = 'none';
                 if (colDef.id === 'foc' && !enableFOC) th.style.display = 'none';
 
                 totalsRow.appendChild(th);
@@ -767,8 +774,6 @@
         document.querySelectorAll('.disc-amt-col').forEach(el => el.style.display = enableCashDiscountAmount ? 'table-cell' : 'none');
         document.querySelectorAll('.to-pct-col').forEach(el => el.style.display = enableTradeOfferDiscount ? 'table-cell' : 'none');
         document.querySelectorAll('.to-amt-col').forEach(el => el.style.display = enableTradeOfferAmount ? 'table-cell' : 'none');
-        document.querySelectorAll('.gst-pct-col').forEach(el => el.style.display = enableTaxation ? 'table-cell' : 'none');
-        document.querySelectorAll('.gst-amt-col').forEach(el => el.style.display = enableTaxation ? 'table-cell' : 'none');
         document.querySelectorAll('.foc-col').forEach(el => el.style.display = enableFOC ? 'table-cell' : 'none');
 
         // Get invoice ID from URL
@@ -964,7 +969,7 @@
             const tbody = document.getElementById('itemsTableBody');
             tbody.innerHTML = '';
 
-            let totalQty = 0, totalPcs = 0, totalCtn = 0, totalDz = 0, totalUnitPrice = 0, totalGrossAmount = 0, totalDiscountAmountItems = 0, totalTradeOfferAmountItems = 0, totalGstAmountItems = 0, totalFocQty = 0, totalNetAmountItems = 0;
+            let totalQty = 0, totalPcs = 0, totalCtn = 0, totalDz = 0, totalUnitPrice = 0, totalGrossAmount = 0, totalDiscountAmountItems = 0, totalTradeOfferAmountItems = 0, totalFocQty = 0, totalNetAmountItems = 0;
 
             // Group items by product_id to reconstruct rows with multiple units
             const itemsByProduct = {};
@@ -1053,10 +1058,8 @@
                     { id: 'gross', value: currencySymbol + ' ' + parseFloat(item.gross_amount).toFixed(2), visible: true },
                     { id: 'disc_pct', value: parseFloat(item.discount_percent || 0).toFixed(2) + '%', visible: enableCashDiscountPercent },
                     { id: 'disc_amt', value: currencySymbol + ' ' + parseFloat(item.discount_amount || 0).toFixed(2), visible: enableCashDiscountAmount },
-                    { id: 'to_amt', value: currencySymbol + ' ' + parseFloat(item.trade_offer_amount || 0).toFixed(2), visible: enableTradeOfferAmount },
-                    { id: 'gst_pct', value: parseFloat(item.tax_percent || 0).toFixed(2) + '%', visible: enableTaxation },
-                    { id: 'gst_amt', value: currencySymbol + ' ' + parseFloat(item.tax_amount || 0).toFixed(2), visible: enableTaxation },
-                    { id: 'foc', value: parseFloat(item.foc_quantity || 0).toFixed(2), visible: enableFOC },
+                    { id: 'to_amt',   value: currencySymbol + ' ' + parseFloat(item.trade_offer_amount || 0).toFixed(2), visible: enableTradeOfferAmount },
+                    { id: 'foc',      value: parseFloat(item.foc_quantity || 0).toFixed(2), visible: enableFOC },
                     { id: 'net', value: currencySymbol + ' ' + parseFloat(item.net_amount).toFixed(2), visible: true }
                 ];
 
@@ -1083,7 +1086,6 @@
                 totalGrossAmount += parseFloat(item.gross_amount);
                 totalDiscountAmountItems += parseFloat(item.discount_amount || 0);
                 totalTradeOfferAmountItems += parseFloat(item.trade_offer_amount || 0);
-                totalGstAmountItems += parseFloat(item.tax_amount || 0);
                 totalFocQty += parseFloat(item.foc_quantity || 0);
                 totalNetAmountItems += parseFloat(item.net_amount);
             });
@@ -1125,7 +1127,7 @@
                     }
 
                     // Remaining columns - all dashes for child items
-                    const remainingCols = ['price', 'gross', 'disc_pct', 'disc_amt', 'to_amt', 'gst_pct', 'gst_amt', 'foc', 'net'];
+                    const remainingCols = ['price', 'gross', 'disc_pct', 'disc_amt', 'to_amt', 'foc', 'net'];
                     remainingCols.forEach(colId => {
                         const col = columnConfig.find(c => c.id === colId);
                         if (col && col.visible === false) return;
@@ -1138,8 +1140,6 @@
                         if (colId === 'disc_pct' && !enableCashDiscountPercent) td.style.display = 'none';
                         if (colId === 'disc_amt' && !enableCashDiscountAmount) td.style.display = 'none';
                         if (colId === 'to_amt' && !enableTradeOfferAmount) td.style.display = 'none';
-                        if (colId === 'gst_pct' && !enableTaxation) td.style.display = 'none';
-                        if (colId === 'gst_amt' && !enableTaxation) td.style.display = 'none';
                         if (colId === 'foc' && !enableFOC) td.style.display = 'none';
                     });
                 });
@@ -1154,7 +1154,6 @@
             const totalGrossAmountEl = document.getElementById('totalGrossAmount');
             const totalDiscountAmountItemsEl = document.getElementById('totalDiscountAmountItems');
             const totalTradeOfferAmountItemsEl = document.getElementById('totalTradeOfferAmountItems');
-            const totalGstAmountItemsEl = document.getElementById('totalGstAmountItems');
             const totalFocQtyEl = document.getElementById('totalFocQty');
             const totalNetAmountItemsEl = document.getElementById('totalNetAmountItems');
 
@@ -1166,7 +1165,6 @@
             if (totalGrossAmountEl) totalGrossAmountEl.textContent = `${currencySymbol} ${totalGrossAmount.toFixed(2)}`;
             if (totalDiscountAmountItemsEl) totalDiscountAmountItemsEl.textContent = `${currencySymbol} ${totalDiscountAmountItems.toFixed(2)}`;
             if (totalTradeOfferAmountItemsEl) totalTradeOfferAmountItemsEl.textContent = `${currencySymbol} ${totalTradeOfferAmountItems.toFixed(2)}`;
-            if (totalGstAmountItemsEl) totalGstAmountItemsEl.textContent = `${currencySymbol} ${totalGstAmountItems.toFixed(2)}`;
             if (totalFocQtyEl) totalFocQtyEl.textContent = totalFocQty.toFixed(2);
             if (totalNetAmountItemsEl) totalNetAmountItemsEl.textContent = `${currencySymbol} ${totalNetAmountItems.toFixed(2)}`;
 
@@ -1189,6 +1187,10 @@
                 { id: 'totalBill', label: localStorage.getItem('labelTotalBill') || 'Total Bill', value: `${currencySymbol} ${parseFloat(invoice.total_bill).toFixed(2)}`, show: localStorage.getItem('hidePrintTotalBill') !== 'true' },
                 { id: 'discountPercent', label: 'Discount (%)', value: parseFloat(invoice.total_discount_percent).toFixed(2) + '%', show: enableInvoiceCashDiscountPercent },
                 { id: 'discountAmount', label: localStorage.getItem('labelDiscountAmount') || 'Discount Amount', value: `${currencySymbol} ${parseFloat(invoice.total_discount_amount).toFixed(2)}`, show: enableInvoiceCashDiscountAmount },
+                { id: 'extraDiscount1Percent', label: 'Extra Discount 1 (%)', value: `${parseFloat(invoice.extra_discount_1_percent || 0).toFixed(2)}%`, show: enableExtraDiscount1 && parseFloat(invoice.extra_discount_1_percent || 0) > 0 },
+                { id: 'extraDiscount1Amount',  label: 'Extra Discount 1 Amt', value: `${currencySymbol} ${parseFloat(invoice.extra_discount_1_amount  || 0).toFixed(2)}`, show: enableExtraDiscount1 && parseFloat(invoice.extra_discount_1_amount  || 0) > 0 },
+                { id: 'extraDiscount2Percent', label: 'Extra Discount 2 (%)', value: `${parseFloat(invoice.extra_discount_2_percent || 0).toFixed(2)}%`, show: enableExtraDiscount2 && parseFloat(invoice.extra_discount_2_percent || 0) > 0 },
+                { id: 'extraDiscount2Amount',  label: 'Extra Discount 2 Amt', value: `${currencySymbol} ${parseFloat(invoice.extra_discount_2_amount  || 0).toFixed(2)}`, show: enableExtraDiscount2 && parseFloat(invoice.extra_discount_2_amount  || 0) > 0 },
                 { id: 'shippingFees', label: localStorage.getItem('labelShippingFees') || 'Shipping Fees', value: `${currencySymbol} ${parseFloat(invoice.shipping_fees || 0).toFixed(2)}`, show: enableShippingFees && invoice.shipping_fees },
                 { id: 'netAmount', label: localStorage.getItem('labelNetAmount') || 'Net Amount', value: `${currencySymbol} ${parseFloat(invoice.net_amount).toFixed(2)}`, show: localStorage.getItem('hidePrintNetAmount') !== 'true', isTotal: true },
                 { id: 'amountPaid', label: localStorage.getItem('labelAmountPaid') || 'Amount Paid', value: `${currencySymbol} ${amountPaid.toFixed(2)}`, show: localStorage.getItem('hidePrintAmountPaid') !== 'true' },
@@ -1218,6 +1220,23 @@
                 if (enableInvoiceCashDiscountAmount) {
                     document.getElementById('discountAmountRow').style.display = '';
                     document.getElementById('discountAmount').textContent = `${currencySymbol} ${parseFloat(invoice.total_discount_amount).toFixed(2)}`;
+                }
+
+                if (enableExtraDiscount1 && parseFloat(invoice.extra_discount_1_percent || 0) > 0) {
+                    document.getElementById('extraDiscount1PercentRow').style.display = '';
+                    document.getElementById('extraDiscount1Percent').textContent = parseFloat(invoice.extra_discount_1_percent).toFixed(2) + '%';
+                }
+                if (enableExtraDiscount1 && parseFloat(invoice.extra_discount_1_amount || 0) > 0) {
+                    document.getElementById('extraDiscount1AmountRow').style.display = '';
+                    document.getElementById('extraDiscount1Amount').textContent = `${currencySymbol} ${parseFloat(invoice.extra_discount_1_amount).toFixed(2)}`;
+                }
+                if (enableExtraDiscount2 && parseFloat(invoice.extra_discount_2_percent || 0) > 0) {
+                    document.getElementById('extraDiscount2PercentRow').style.display = '';
+                    document.getElementById('extraDiscount2Percent').textContent = parseFloat(invoice.extra_discount_2_percent).toFixed(2) + '%';
+                }
+                if (enableExtraDiscount2 && parseFloat(invoice.extra_discount_2_amount || 0) > 0) {
+                    document.getElementById('extraDiscount2AmountRow').style.display = '';
+                    document.getElementById('extraDiscount2Amount').textContent = `${currencySymbol} ${parseFloat(invoice.extra_discount_2_amount).toFixed(2)}`;
                 }
 
                 if (enableShippingFees && invoice.shipping_fees && parseFloat(invoice.shipping_fees) > 0) {
