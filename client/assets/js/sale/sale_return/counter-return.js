@@ -478,7 +478,8 @@ function updateSummary() {
     document.getElementById('totalNet').textContent = formatCurrency(currentReturn.items.reduce((sum, item) => sum + item.net, 0));
 
     document.getElementById('totalBill').textContent = formatCurrency(totalBill);
-    document.getElementById('totalDiscount').textContent = formatCurrency(currentReturn.invoiceDiscountAmount || returnDiscountAmount);
+    const itemsDiscountTotal = currentReturn.items.reduce((sum, item) => sum + (item.discountAmount || 0), 0);
+    document.getElementById('totalDiscount').textContent = formatCurrency(itemsDiscountTotal + returnDiscountAmount);
 
     // Extra Discount 1
     const ed1Item = document.getElementById('extraDiscount1Item');
