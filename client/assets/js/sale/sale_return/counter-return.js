@@ -374,7 +374,7 @@ function renderItems() {
                         <div style="font-size: 9px; color: var(--subtext); text-align: center;">${unit.name}</div>
                         <input type="number" value="${unit.qty}" min="0" step="0.01" class="text-right" 
                             style="height: 24px; padding: 0 4px; font-size: 11px;" 
-                            onchange="updateUnitQty(${item.id}, ${i}, this.value)">
+                            oninput="updateUnitQty(${item.id}, ${i}, this.value)">
                     </div>
                 `;
             } else {
@@ -383,17 +383,17 @@ function renderItems() {
         }
         
         html += `
-            <input type="number" value="${item.price.toFixed(2)}" step="0.01" class="text-right" onchange="updateItemPrice(${item.id}, this.value)">
+            <input type="number" value="${item.price.toFixed(2)}" step="0.01" class="text-right" oninput="updateItemPrice(${item.id}, this.value)">
             <div class="readonly">${formatCurrency(item.gross)}</div>
-            <input type="number" value="${item.discountPercent}" step="0.1" class="text-right" onchange="updateItemDiscount(${item.id}, this.value)">
-            <input type="number" value="${item.taxPercent}" step="0.1" class="text-right" onchange="updateItemTaxPercent(${item.id}, this.value)">
+            <input type="number" value="${item.discountPercent}" step="0.1" class="text-right" oninput="updateItemDiscount(${item.id}, this.value)">
+            <input type="number" value="${item.taxPercent}" step="0.1" class="text-right" oninput="updateItemTaxPercent(${item.id}, this.value)">
             <div class="readonly">${formatCurrency(item.taxAmount)}</div>
             <select onchange="updateItemStatus(${item.id}, this.value)">
                 <option value="sellable" ${item.status === 'sellable' ? 'selected' : ''}>Sellable</option>
                 <option value="damaged" ${item.status === 'damaged' ? 'selected' : ''}>Damaged</option>
             </select>
-            <input type="number" value="${item.tradeOfferAmount.toFixed(2)}" step="0.01" class="text-right" onchange="updateItemTradeOfferAmount(${item.id}, this.value)">
-            <input type="number" value="${item.focQuantity}" step="0.01" class="text-right" onchange="updateItemFocQuantity(${item.id}, this.value)">
+            <input type="number" value="${item.tradeOfferAmount.toFixed(2)}" step="0.01" class="text-right" oninput="updateItemTradeOfferAmount(${item.id}, this.value)">
+            <input type="number" value="${item.focQuantity}" step="0.01" class="text-right" oninput="updateItemFocQuantity(${item.id}, this.value)">
             <div class="readonly">${formatCurrency(item.net)}</div>
             <div class="text-center">
                 <button class="btn btn-danger btn-micro" onclick="removeItem(${item.id})">
@@ -414,30 +414,31 @@ window.updateUnitQty = function(itemId, unitIndex, newQty) {
     if (item && item.units[unitIndex]) {
         item.units[unitIndex].qty = parseFloat(newQty) || 0;
         item.qty = calculateTotalQty(item);
+        currentReturn.invoiceTotalBill = null;
         recalculateItem(item);
-        renderItems();
+        updateFooterTotals();
         updateSummary();
     }
 };
 
 window.updateItemQty = function(itemId, newQty) {
     const item = currentReturn.items.find(i => i.id === itemId);
-    if (item) { item.qty = parseFloat(newQty) || 1; recalculateItem(item); renderItems(); updateSummary(); }
+    if (item) { item.qty = parseFloat(newQty) || 1; currentReturn.invoiceTotalBill = null; recalculateItem(item); updateSummary(); }
 };
 
 window.updateItemPrice = function(itemId, newPrice) {
     const item = currentReturn.items.find(i => i.id === itemId);
-    if (item) { item.price = parseFloat(newPrice) || 0; recalculateItem(item); renderItems(); updateSummary(); }
+    if (item) { item.price = parseFloat(newPrice) || 0; currentReturn.invoiceTotalBill = null; recalculateItem(item); updateFooterTotals(); updateSummary(); }
 };
 
 window.updateItemDiscount = function(itemId, newPercent) {
     const item = currentReturn.items.find(i => i.id === itemId);
-    if (item) { item.discountPercent = parseFloat(newPercent) || 0; recalculateItem(item); renderItems(); updateSummary(); }
+    if (item) { item.discountPercent = parseFloat(newPercent) || 0; currentReturn.invoiceTotalBill = null; recalculateItem(item); updateFooterTotals(); updateSummary(); }
 };
 
 window.updateItemTaxPercent = function(itemId, newPercent) {
     const item = currentReturn.items.find(i => i.id === itemId);
-    if (item) { item.taxPercent = parseFloat(newPercent) || 0; recalculateItem(item); renderItems(); updateSummary(); }
+    if (item) { item.taxPercent = parseFloat(newPercent) || 0; currentReturn.invoiceTotalBill = null; recalculateItem(item); updateFooterTotals(); updateSummary(); }
 };
 
 window.updateItemStatus = function(itemId, newStatus) {
@@ -448,9 +449,10 @@ window.updateItemStatus = function(itemId, newStatus) {
 window.updateItemTradeOfferAmount = function(itemId, newAmount) {
     const item = currentReturn.items.find(i => i.id === itemId);
     if (item) {
+        currentReturn.invoiceTotalBill = null;
         item.tradeOfferAmount = parseFloat(newAmount) || 0;
         recalculateItem(item);
-        renderItems();
+        updateFooterTotals();
         updateSummary();
     }
 };
@@ -472,6 +474,20 @@ function recalculateItem(item) {
     item.discountAmount = item.gross * (item.discountPercent / 100);
     item.taxAmount = (item.gross - item.discountAmount) * (item.taxPercent / 100);
     item.net = item.gross - item.discountAmount + item.taxAmount - (item.tradeOfferAmount || 0);
+
+    // Update readonly display cells in-place
+    const tbody = document.getElementById('itemsBody');
+    if (!tbody) return;
+    tbody.querySelectorAll('.item-row').forEach(row => {
+        const inputs = row.querySelectorAll('input');
+        // Find row by checking if any input has oninput referencing this item.id
+        const belongs = Array.from(inputs).some(inp => (inp.getAttribute('oninput') || '').includes('(' + item.id + ','));
+        if (!belongs) return;
+        const readonlyCells = row.querySelectorAll('.readonly');
+        if (readonlyCells[0]) readonlyCells[0].textContent = formatCurrency(item.gross);
+        if (readonlyCells[1]) readonlyCells[1].textContent = formatCurrency(item.taxAmount);
+        if (readonlyCells[2]) readonlyCells[2].textContent = formatCurrency(item.net);
+    });
 }
 
 function updateSummary() {
@@ -827,7 +843,7 @@ async function loadInvoiceData(invoiceId) {
                     // Create unit quantity map from invoice items
                     const unitQtyMap = {};
                     items.forEach(item => {
-                        unitQtyMap[item.uom_id] = parseFloat(item.quantity);
+                        unitQtyMap[parseInt(item.uom_id)] = parseFloat(item.quantity);
                     });
                     
                     const returnItem = {
@@ -1023,7 +1039,7 @@ async function loadEditData(returnId) {
             };
 
             const unitQtyMap = {};
-            (item.unit_entries || []).forEach(e => { unitQtyMap[e.uom_id] = parseFloat(e.quantity); });
+            (item.unit_entries || []).forEach(e => { unitQtyMap[parseInt(e.uom_id)] = parseFloat(e.quantity); });
 
             const returnItem = {
                 id: Date.now() + Math.random(),

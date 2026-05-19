@@ -207,7 +207,6 @@
                     <th width="8%" class="text-right">Gross Amt</th>
                     <th width="5%" class="text-right">Disc %</th>
                     <th width="8%" class="text-right">Disc Amt</th>
-                    <th width="5%" class="text-right">T.O %</th>
                     <th width="8%" class="text-right">T.O Amt</th>
                     <th width="5%" class="text-right">TAX %</th>
                     <th width="8%" class="text-right">TAX AMT</th>
@@ -227,7 +226,6 @@
                     <th class="text-right" id="totalGrossAmount">0.00</th>
                     <th></th>
                     <th class="text-right" id="totalDiscountAmountItems">0.00</th>
-                    <th></th>
                     <th class="text-right" id="totalTradeOfferAmountItems">0.00</th>
                     <th></th>
                     <th class="text-right" id="totalGstAmountItems">0.00</th>
@@ -425,7 +423,6 @@
                     <td class="text-right">${currencySymbol} ${parseFloat(item.gross_amount).toFixed(2)}</td>
                     <td class="text-right">${parseFloat(item.discount_percent || 0).toFixed(2)}%</td>
                     <td class="text-right">${currencySymbol} ${parseFloat(item.discount_amount || 0).toFixed(2)}</td>
-                    <td class="text-right">${parseFloat(item.trade_offer_percent || 0).toFixed(2)}%</td>
                     <td class="text-right">${currencySymbol} ${parseFloat(item.trade_offer_amount || 0).toFixed(2)}</td>
                     <td class="text-right">${parseFloat(item.tax_percent || 0).toFixed(2)}%</td>
                     <td class="text-right">${currencySymbol} ${parseFloat(item.tax_amount || 0).toFixed(2)}</td>
