@@ -95,9 +95,15 @@ $currency_symbol = $currency['symbol'];
                 
                 <div class="form-group">
                     <label class="form-label">Sales Officer</label>
-                    <select class="form-input" id="sales-officer">
-                        <option value="">All Sales Officers</option>
-                    </select>
+                    <div class="multi-select-dropdown" id="sales-officer-dropdown">
+                        <div class="multi-select-trigger" id="sales-officer-trigger">
+                            <span id="sales-officer-label">All Sales Officers</span>
+                            <i class="fas fa-chevron-down"></i>
+                        </div>
+                        <div class="multi-select-options" id="sales-officer-options">
+                            <!-- Options loaded dynamically -->
+                        </div>
+                    </div>
                 </div>
                 
                 <div class="form-group">

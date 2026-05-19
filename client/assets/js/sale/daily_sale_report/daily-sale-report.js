@@ -27,6 +27,9 @@ const referenceNumber = document.getElementById('reference-number');
 const itemsSoldItem = document.getElementById('items-sold-item');
 const billsGeneratedItem = document.getElementById('bills-generated-item');
 
+// Selected sales officers map: { id -> name }
+let selectedSalesOfficers = {};
+
 // Initialize the application
 function init() {
     // Set default dates
@@ -43,7 +46,32 @@ function init() {
     loadFilters();
     loadCities();
     loadAllAreas();
+    initSalesOfficerDropdown();
     fetchReportData();
+}
+
+function initSalesOfficerDropdown() {
+    const trigger = document.getElementById('sales-officer-trigger');
+    const options = document.getElementById('sales-officer-options');
+    trigger.addEventListener('click', function(e) {
+        e.stopPropagation();
+        trigger.classList.toggle('open');
+        options.classList.toggle('open');
+    });
+    document.addEventListener('click', function() {
+        trigger.classList.remove('open');
+        options.classList.remove('open');
+    });
+}
+
+function updateSalesOfficerLabel() {
+    const label = document.getElementById('sales-officer-label');
+    const names = Object.values(selectedSalesOfficers);
+    label.textContent = names.length === 0 ? 'All Sales Officers' : names.join(', ');
+}
+
+function getSelectedOfficerIds() {
+    return Object.keys(selectedSalesOfficers);
 }
 
 async function loadCities() {
@@ -139,14 +167,26 @@ async function loadFilters() {
         const result = await response.json();
         
         if (result.success) {
-            // Populate sales officers
-            const salesOfficerSelect = document.getElementById('sales-officer');
-            salesOfficerSelect.innerHTML = '<option value="">All Sales Officers</option>';
+            // Populate sales officers as checkboxes
+            const salesOfficerOptions = document.getElementById('sales-officer-options');
+            salesOfficerOptions.innerHTML = '';
             result.salesOfficers.forEach(officer => {
-                const option = document.createElement('option');
-                option.value = officer.id;
-                option.textContent = officer.full_name;
-                salesOfficerSelect.appendChild(option);
+                const label = document.createElement('label');
+                label.className = 'multi-select-option';
+                const cb = document.createElement('input');
+                cb.type = 'checkbox';
+                cb.value = officer.id;
+                cb.addEventListener('change', function() {
+                    if (this.checked) {
+                        selectedSalesOfficers[officer.id] = officer.full_name;
+                    } else {
+                        delete selectedSalesOfficers[officer.id];
+                    }
+                    updateSalesOfficerLabel();
+                });
+                label.appendChild(cb);
+                label.appendChild(document.createTextNode(officer.full_name));
+                salesOfficerOptions.appendChild(label);
             });
             
             // Populate supplier men
@@ -241,12 +281,12 @@ function switchReportType(type) {
 // Generate unique reference number
 function generateReference() {
     const reportType = itemWiseToggle.classList.contains('active') ? 'I' : 'B';
-    const salesOfficer = document.getElementById('sales-officer').value || '0';
+    const officerIds = getSelectedOfficerIds();
+    const salesOfficerStr = officerIds.length > 0 ? officerIds.join('-') : '0';
     const vendor = document.getElementById('vendor').value || '0';
     const dateFrom = document.getElementById('date-from').value.replace(/-/g, '');
     const dateTo = document.getElementById('date-to').value.replace(/-/g, '');
-    
-    return `DSR-${reportType}-${salesOfficer}-${vendor}-${dateFrom}-${dateTo}`;
+    return `DSR-${reportType}-${salesOfficerStr}-${vendor}-${dateFrom}-${dateTo}`;
 }
 
 // Fetch report data from API
@@ -255,7 +295,7 @@ async function fetchReportData() {
     
     const reportType = itemWiseToggle.classList.contains('active') ? 'item-wise' : 'bill-wise';
     const invoiceType = document.getElementById('invoice-type').value;
-    const salesOfficer = document.getElementById('sales-officer').value;
+    const officerIds = getSelectedOfficerIds();
     const supplierMan = document.getElementById('supplier-man').value;
     const vendor = document.getElementById('vendor').value;
     const company = document.getElementById('company').value;
@@ -268,7 +308,6 @@ async function fetchReportData() {
     const params = new URLSearchParams({
         report_type: reportType,
         ...(invoiceType && { invoice_type: invoiceType }),
-        ...(salesOfficer && { sales_officer_id: salesOfficer }),
         ...(supplierMan && { supplier_man_id: supplierMan }),
         ...(vendor && { vendor_id: vendor }),
         ...(company && { company_id: company }),
@@ -278,6 +317,7 @@ async function fetchReportData() {
         ...(cityZoneId && { city_zone_id: cityZoneId }),
         ...(areaId && { area_id: areaId })
     });
+    officerIds.forEach(id => params.append('sales_officer_ids[]', id));
     
     try {
         const response = await fetch(`../../../../server/api/sale/daily_sale_report/daily-sale-report.php?${params}`);
@@ -318,11 +358,48 @@ function loadItemWiseData() {
     const endIndex = startIndex + itemsPerPage;
     const paginatedData = itemWiseData.slice(startIndex, endIndex);
 
-    paginatedData.forEach((item, index) => {
-        const row = document.createElement('tr');
-        const indent = item.isChild ? 'padding-left: 30px;' : '';
-        const quantityStr = item.units.map(u => `${u.unit} ${parseInt(u.qty)}`).join(', ');
-        row.innerHTML = `
+    // Group by sales_officer_name if multiple officers selected
+    const officerIds = getSelectedOfficerIds();
+    const groupByOfficer = officerIds.length > 1;
+
+    if (groupByOfficer) {
+        // Group items by officer
+        const groups = {};
+        paginatedData.forEach(item => {
+            const key = item.sales_officer_name || 'Unknown';
+            if (!groups[key]) groups[key] = [];
+            groups[key].push(item);
+        });
+
+        let globalIndex = startIndex;
+        Object.entries(groups).forEach(([officerName, items]) => {
+            // Officer header row
+            const headerRow = document.createElement('tr');
+            headerRow.innerHTML = `<td colspan="6" style="background: var(--surface-2); font-weight: 600; font-size: 13px; padding: 8px 16px; color: var(--primary);">${officerName}</td>`;
+            itemWiseDataContainer.appendChild(headerRow);
+
+            items.forEach(item => {
+                globalIndex++;
+                const row = document.createElement('tr');
+                const indent = item.isChild ? 'padding-left: 30px;' : '';
+                const quantityStr = item.units.map(u => `${u.unit} ${parseInt(u.qty)}`).join(', ');
+                row.innerHTML = `
+                    <td>${globalIndex}</td>
+                    <td style="${indent}">${item.isChild ? '↳ ' : ''}${item.product}</td>
+                    <td class="text-right">${quantityStr}</td>
+                    <td class="text-right">${parseFloat(item.foc_qty || 0).toLocaleString()}</td>
+                    <td class="text-right">${currencySymbol}${parseFloat(item.rate).toFixed(2)}</td>
+                    <td class="text-right">${currencySymbol}${parseFloat(item.amount).toLocaleString()}</td>
+                `;
+                itemWiseDataContainer.appendChild(row);
+            });
+        });
+    } else {
+        paginatedData.forEach((item, index) => {
+            const row = document.createElement('tr');
+            const indent = item.isChild ? 'padding-left: 30px;' : '';
+            const quantityStr = item.units.map(u => `${u.unit} ${parseInt(u.qty)}`).join(', ');
+            row.innerHTML = `
                     <td>${startIndex + index + 1}</td>
                     <td style="${indent}">${item.isChild ? '↳ ' : ''}${item.product}</td>
                     <td class="text-right">${quantityStr}</td>
@@ -330,8 +407,9 @@ function loadItemWiseData() {
                     <td class="text-right">${currencySymbol}${parseFloat(item.rate).toFixed(2)}</td>
                     <td class="text-right">${currencySymbol}${parseFloat(item.amount).toLocaleString()}</td>
                 `;
-        itemWiseDataContainer.appendChild(row);
-    });
+            itemWiseDataContainer.appendChild(row);
+        });
+    }
 
     reportCount.textContent = `${itemWiseData.length} items found`;
     renderPagination(itemWiseData.length);
@@ -352,9 +430,41 @@ function loadBillWiseData() {
     const endIndex = startIndex + itemsPerPage;
     const paginatedData = billWiseData.slice(startIndex, endIndex);
 
-    paginatedData.forEach((item, index) => {
-        const row = document.createElement('tr');
-        row.innerHTML = `
+    const officerIds = getSelectedOfficerIds();
+    const groupByOfficer = officerIds.length > 1;
+
+    if (groupByOfficer) {
+        const groups = {};
+        paginatedData.forEach(item => {
+            const key = item.sales_officer_name || 'Unknown';
+            if (!groups[key]) groups[key] = [];
+            groups[key].push(item);
+        });
+
+        let globalIndex = startIndex;
+        Object.entries(groups).forEach(([officerName, items]) => {
+            const headerRow = document.createElement('tr');
+            headerRow.innerHTML = `<td colspan="6" style="background: var(--surface-2); font-weight: 600; font-size: 13px; padding: 8px 16px; color: var(--primary);">${officerName}</td>`;
+            billWiseDataContainer.appendChild(headerRow);
+
+            items.forEach(item => {
+                globalIndex++;
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${globalIndex}</td>
+                    <td><strong>${item.invoiceNo}</strong></td>
+                    <td>${item.custCode}</td>
+                    <td>${item.custName}</td>
+                    <td>${item.address || '-'}</td>
+                    <td class="text-right"><strong>${currencySymbol}${parseFloat(item.netAmount).toLocaleString()}</strong></td>
+                `;
+                billWiseDataContainer.appendChild(row);
+            });
+        });
+    } else {
+        paginatedData.forEach((item, index) => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
                     <td>${startIndex + index + 1}</td>
                     <td><strong>${item.invoiceNo}</strong></td>
                     <td>${item.custCode}</td>
@@ -362,8 +472,9 @@ function loadBillWiseData() {
                     <td>${item.address || '-'}</td>
                     <td class="text-right"><strong>${currencySymbol}${parseFloat(item.netAmount).toLocaleString()}</strong></td>
                 `;
-        billWiseDataContainer.appendChild(row);
-    });
+            billWiseDataContainer.appendChild(row);
+        });
+    }
 
     reportCount.textContent = `${billWiseData.length} bills found`;
     renderPagination(billWiseData.length);
@@ -413,7 +524,10 @@ function handleSearch() {
 // Handle reset
 function handleReset() {
     document.getElementById('invoice-type').value = '';
-    document.getElementById('sales-officer').value = '';
+    // Reset sales officers
+    selectedSalesOfficers = {};
+    document.querySelectorAll('#sales-officer-options input[type="checkbox"]').forEach(cb => cb.checked = false);
+    updateSalesOfficerLabel();
     document.getElementById('supplier-man').value = '';
     document.getElementById('vendor').value = '';
     document.getElementById('company').value = '';
@@ -447,7 +561,7 @@ function handleExport() {
 function handlePrint() {
     const reportType = itemWiseToggle.classList.contains('active') ? 'item-wise' : 'bill-wise';
     const invoiceType = document.getElementById('invoice-type').value;
-    const salesOfficer = document.getElementById('sales-officer').value;
+    const officerIds = getSelectedOfficerIds();
     const supplierMan = document.getElementById('supplier-man').value;
     const vendor = document.getElementById('vendor').value;
     const company = document.getElementById('company').value;
@@ -462,7 +576,6 @@ function handlePrint() {
         report_type: reportType,
         reference: refNum,
         ...(invoiceType && { invoice_type: invoiceType }),
-        ...(salesOfficer && { sales_officer_id: salesOfficer }),
         ...(supplierMan && { supplier_man_id: supplierMan }),
         ...(vendor && { vendor_id: vendor }),
         ...(company && { company_id: company }),
@@ -472,6 +585,7 @@ function handlePrint() {
         ...(cityZoneId && { city_zone_id: cityZoneId }),
         ...(areaId && { area_id: areaId })
     });
+    officerIds.forEach(id => params.append('sales_officer_ids[]', id));
     
     window.open(`print.php?${params}`, '_blank');
 }

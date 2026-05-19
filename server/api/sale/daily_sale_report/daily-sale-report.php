@@ -21,7 +21,11 @@ if (!$user_id || !$tenant_id) {
 
 try {
     $report_type = $_GET['report_type'] ?? 'item-wise';
-    $sales_officer_id = $_GET['sales_officer_id'] ?? null;
+    $sales_officer_ids = isset($_GET['sales_officer_ids']) ? array_filter(array_map('intval', (array)$_GET['sales_officer_ids'])) : [];
+    // backward compat with single sales_officer_id
+    if (empty($sales_officer_ids) && !empty($_GET['sales_officer_id'])) {
+        $sales_officer_ids = [intval($_GET['sales_officer_id'])];
+    }
     $supplier_man_id = $_GET['supplier_man_id'] ?? null;
     $vendor_id = $_GET['vendor_id'] ?? null;
     $company_id = $_GET['company_id'] ?? null;
@@ -43,12 +47,15 @@ try {
                     sii.foc_quantity as foc_qty,
                     sii.sale_price as rate,
                     sii.net_amount as amount,
-                    CASE WHEN sii.parent_row_id IS NOT NULL THEN 1 ELSE 0 END as is_child
+                    CASE WHEN sii.parent_row_id IS NOT NULL THEN 1 ELSE 0 END as is_child,
+                    si.sale_officer_id,
+                    COALESCE(e.full_name, 'Unknown') as sales_officer_name
                 FROM sale_invoice_items sii
                 JOIN sale_invoice si ON sii.sale_invoice_id = si.id
                 JOIN products p ON sii.product_id = p.id
                 LEFT JOIN uom u ON sii.uom_id = u.id
                 LEFT JOIN customers c ON si.customer_id = c.id
+                LEFT JOIN employees e ON si.sale_officer_id = e.id
                 WHERE si.tenant_id = ? AND si.status = 'Posted'";
         
         $params = [$tenant_id];
@@ -61,9 +68,10 @@ try {
             $sql .= " AND si.sale_date <= ?";
             $params[] = $date_to;
         }
-        if ($sales_officer_id) {
-            $sql .= " AND si.sale_officer_id = ?";
-            $params[] = $sales_officer_id;
+        if (!empty($sales_officer_ids)) {
+            $placeholders = implode(',', array_fill(0, count($sales_officer_ids), '?'));
+            $sql .= " AND si.sale_officer_id IN ($placeholders)";
+            $params = array_merge($params, $sales_officer_ids);
         }
         if ($supplier_man_id) {
             $sql .= " AND si.supplier_man_id = ?";
@@ -96,16 +104,16 @@ try {
             $params[] = $area_id;
         }
         
-        $sql .= " ORDER BY p.id, u.uom_name";
+        $sql .= " ORDER BY si.sale_officer_id, p.id, u.uom_name";
         
         $stmt = $pdo->prepare($sql);
         $stmt->execute($params);
         $rawData = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
-        // Group by product and combine units with quantities
+        // Group by officer+product and combine units with quantities
         $grouped = [];
         foreach ($rawData as $item) {
-            $key = $item['id'];
+            $key = $item['sale_officer_id'] . '_' . $item['id'];
             if (!isset($grouped[$key])) {
                 $grouped[$key] = [
                     'id' => $item['id'],
@@ -115,7 +123,8 @@ try {
                     'foc_qty' => 0,
                     'rate' => $item['rate'],
                     'amount' => 0,
-                    'units' => []
+                    'units' => [],
+                    'sales_officer_name' => $item['sales_officer_name']
                 ];
             }
             
@@ -161,9 +170,11 @@ try {
                     c.address,
                     si.total_bill as billAmount,
                     0 as returnAmount,
-                    si.net_amount as netAmount
+                    si.net_amount as netAmount,
+                    COALESCE(e.full_name, 'Unknown') as sales_officer_name
                 FROM sale_invoice si
                 JOIN customers c ON si.customer_id = c.id
+                LEFT JOIN employees e ON si.sale_officer_id = e.id
                 WHERE si.tenant_id = ? AND si.status = 'Posted'";
         
         $params = [$tenant_id];
@@ -176,9 +187,10 @@ try {
             $sql .= " AND si.sale_date <= ?";
             $params[] = $date_to;
         }
-        if ($sales_officer_id) {
-            $sql .= " AND si.sale_officer_id = ?";
-            $params[] = $sales_officer_id;
+        if (!empty($sales_officer_ids)) {
+            $placeholders = implode(',', array_fill(0, count($sales_officer_ids), '?'));
+            $sql .= " AND si.sale_officer_id IN ($placeholders)";
+            $params = array_merge($params, $sales_officer_ids);
         }
         if ($supplier_man_id) {
             $sql .= " AND si.supplier_man_id = ?";

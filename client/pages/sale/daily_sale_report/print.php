@@ -32,19 +32,36 @@ $tenant = $stmt->fetch();
 // Get report parameters
 $report_type = $_GET['report_type'] ?? 'item-wise';
 $reference = $_GET['reference'] ?? null;
-$sales_officer_id = $_GET['sales_officer_id'] ?? null;
+$sales_officer_ids = isset($_GET['sales_officer_ids']) ? array_filter(array_map('intval', (array)$_GET['sales_officer_ids'])) : [];
+// backward compat
+if (empty($sales_officer_ids) && !empty($_GET['sales_officer_id'])) {
+    $sales_officer_ids = [intval($_GET['sales_officer_id'])];
+}
+$supplier_man_id = $_GET['supplier_man_id'] ?? null;
 $vendor_id = $_GET['vendor_id'] ?? null;
 $company_id = $_GET['company_id'] ?? null;
 $date_from = $_GET['date_from'] ?? null;
 $date_to = $_GET['date_to'] ?? null;
 
-// Get sales officer name
-$sales_officer_name = 'All';
-if ($sales_officer_id) {
+// Get sales officer names
+$sales_officer_names = 'All';
+if (!empty($sales_officer_ids)) {
+    $placeholders = implode(',', array_fill(0, count($sales_officer_ids), '?'));
+    $stmt = $pdo->prepare("SELECT id, full_name FROM employees WHERE id IN ($placeholders) AND tenant_id = ?");
+    $stmt->execute(array_merge($sales_officer_ids, [$tenant_id]));
+    $officers = $stmt->fetchAll(PDO::FETCH_KEY_PAIR);
+    $sales_officer_names = implode(', ', array_values($officers));
+} else {
+    $officers = [];
+}
+
+// Get supplier man name
+$supplier_man_name = 'All';
+if ($supplier_man_id) {
     $stmt = $pdo->prepare("SELECT full_name FROM employees WHERE id = ? AND tenant_id = ?");
-    $stmt->execute([$sales_officer_id, $tenant_id]);
-    $officer = $stmt->fetch();
-    if ($officer) $sales_officer_name = $officer['full_name'];
+    $stmt->execute([$supplier_man_id, $tenant_id]);
+    $sm = $stmt->fetch();
+    if ($sm) $supplier_man_name = $sm['full_name'];
 }
 
 // Get vendor name
@@ -75,50 +92,44 @@ if ($report_type === 'item-wise') {
                 sii.foc_quantity as foc_qty,
                 sii.sale_price as rate,
                 sii.net_amount as amount,
-                CASE WHEN sii.parent_row_id IS NOT NULL THEN 1 ELSE 0 END as is_child
+                CASE WHEN sii.parent_row_id IS NOT NULL THEN 1 ELSE 0 END as is_child,
+                si.sale_officer_id,
+                COALESCE(e.full_name, 'Unknown') as sales_officer_name
             FROM sale_invoice_items sii
             JOIN sale_invoice si ON sii.sale_invoice_id = si.id
             JOIN products p ON sii.product_id = p.id
             LEFT JOIN uom u ON sii.uom_id = u.id
+            LEFT JOIN employees e ON si.sale_officer_id = e.id
             WHERE si.tenant_id = ? AND si.status = 'Posted'";
     
     $params = [$tenant_id];
     
-    if ($date_from) {
-        $sql .= " AND si.sale_date >= ?";
-        $params[] = $date_from;
+    if ($date_from) { $sql .= " AND si.sale_date >= ?"; $params[] = $date_from; }
+    if ($date_to)   { $sql .= " AND si.sale_date <= ?"; $params[] = $date_to; }
+    if (!empty($sales_officer_ids)) {
+        $ph = implode(',', array_fill(0, count($sales_officer_ids), '?'));
+        $sql .= " AND si.sale_officer_id IN ($ph)";
+        $params = array_merge($params, $sales_officer_ids);
     }
-    if ($date_to) {
-        $sql .= " AND si.sale_date <= ?";
-        $params[] = $date_to;
-    }
-    if ($sales_officer_id) {
-        $sql .= " AND si.sale_officer_id = ?";
-        $params[] = $sales_officer_id;
-    }
-    if ($vendor_id) {
-        $sql .= " AND p.vendor_id = ?";
-        $params[] = $vendor_id;
-    }
-    if ($company_id) {
-        $sql .= " AND si.company_id = ?";
-        $params[] = $company_id;
-    }
+    if ($supplier_man_id) { $sql .= " AND si.supplier_man_id = ?"; $params[] = $supplier_man_id; }
+    if ($vendor_id)       { $sql .= " AND p.vendor_id = ?"; $params[] = $vendor_id; }
+    if ($company_id)      { $sql .= " AND si.company_id = ?"; $params[] = $company_id; }
     
-    $sql .= " ORDER BY p.id, u.uom_name";
+    $sql .= " ORDER BY si.sale_officer_id, p.id, u.uom_name";
     
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
     $rawData = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
-    $grouped = [];
+    // Group by officer -> product
+    $byOfficer = [];
     foreach ($rawData as $item) {
-        $key = $item['id'];
-        if (!isset($grouped[$key])) {
-            $grouped[$key] = [
-                'id' => $item['id'],
+        $officerName = $item['sales_officer_name'];
+        $key = $item['sale_officer_id'] . '_' . $item['id'];
+        if (!isset($byOfficer[$officerName])) $byOfficer[$officerName] = [];
+        if (!isset($byOfficer[$officerName][$key])) {
+            $byOfficer[$officerName][$key] = [
                 'product' => $item['product'],
-                'parent_product_id' => $item['parent_product_id'],
                 'is_child' => $item['is_child'],
                 'foc_qty' => 0,
                 'rate' => $item['rate'],
@@ -126,31 +137,16 @@ if ($report_type === 'item-wise') {
                 'units' => []
             ];
         }
-        
         $unitName = $item['unit'] ?? '-';
-        // Check if this unit already exists for this product
         $unitExists = false;
-        foreach ($grouped[$key]['units'] as &$existingUnit) {
-            if ($existingUnit['unit'] === $unitName) {
-                $existingUnit['qty'] += $item['qty'];
-                $unitExists = true;
-                break;
-            }
+        foreach ($byOfficer[$officerName][$key]['units'] as &$eu) {
+            if ($eu['unit'] === $unitName) { $eu['qty'] += $item['qty']; $unitExists = true; break; }
         }
-        
-        // If unit doesn't exist, add it
-        if (!$unitExists) {
-            $grouped[$key]['units'][] = [
-                'unit' => $unitName,
-                'qty' => $item['qty']
-            ];
-        }
-        
-        $grouped[$key]['foc_qty'] += $item['foc_qty'];
-        $grouped[$key]['amount'] += $item['amount'];
+        if (!$unitExists) $byOfficer[$officerName][$key]['units'][] = ['unit' => $unitName, 'qty' => $item['qty']];
+        $byOfficer[$officerName][$key]['foc_qty'] += $item['foc_qty'];
+        $byOfficer[$officerName][$key]['amount']  += $item['amount'];
     }
-    
-    $data = array_values($grouped);
+    $multiOfficer = !empty($sales_officer_ids) && count($byOfficer) > 1;
 } else {
     $sql = "SELECT 
                 si.bill_no as invoiceNo,
@@ -159,35 +155,40 @@ if ($report_type === 'item-wise') {
                 c.address,
                 si.total_bill as billAmount,
                 0 as returnAmount,
-                si.net_amount as netAmount
+                si.net_amount as netAmount,
+                COALESCE(e.full_name, 'Unknown') as sales_officer_name,
+                si.sale_officer_id
             FROM sale_invoice si
             JOIN customers c ON si.customer_id = c.id
+            LEFT JOIN employees e ON si.sale_officer_id = e.id
             WHERE si.tenant_id = ? AND si.status = 'Posted'";
     
     $params = [$tenant_id];
     
-    if ($date_from) {
-        $sql .= " AND si.sale_date >= ?";
-        $params[] = $date_from;
+    if ($date_from) { $sql .= " AND si.sale_date >= ?"; $params[] = $date_from; }
+    if ($date_to)   { $sql .= " AND si.sale_date <= ?"; $params[] = $date_to; }
+    if (!empty($sales_officer_ids)) {
+        $ph = implode(',', array_fill(0, count($sales_officer_ids), '?'));
+        $sql .= " AND si.sale_officer_id IN ($ph)";
+        $params = array_merge($params, $sales_officer_ids);
     }
-    if ($date_to) {
-        $sql .= " AND si.sale_date <= ?";
-        $params[] = $date_to;
-    }
-    if ($sales_officer_id) {
-        $sql .= " AND si.sale_officer_id = ?";
-        $params[] = $sales_officer_id;
-    }
-    if ($company_id) {
-        $sql .= " AND si.company_id = ?";
-        $params[] = $company_id;
-    }
+    if ($supplier_man_id) { $sql .= " AND si.supplier_man_id = ?"; $params[] = $supplier_man_id; }
+    if ($company_id)      { $sql .= " AND si.company_id = ?"; $params[] = $company_id; }
     
-    $sql .= " ORDER BY si.bill_no DESC";
+    $sql .= " ORDER BY si.sale_officer_id, si.bill_no DESC";
     
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
-    $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $rawBills = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    // Group by officer
+    $byOfficerBill = [];
+    foreach ($rawBills as $row) {
+        $name = $row['sales_officer_name'];
+        if (!isset($byOfficerBill[$name])) $byOfficerBill[$name] = [];
+        $byOfficerBill[$name][] = $row;
+    }
+    $multiOfficerBill = !empty($sales_officer_ids) && count($byOfficerBill) > 1;
 }
 ?>
 <!DOCTYPE html>
@@ -349,7 +350,8 @@ if ($report_type === 'item-wise') {
         <div class="report-info">
             <div>
                 <strong>Reference #:</strong> <?php echo htmlspecialchars($reference ?? 'N/A'); ?><br>
-                <strong>Sales Officer:</strong> <?php echo htmlspecialchars($sales_officer_name); ?><br>
+                <strong>Sales Officer:</strong> <?php echo htmlspecialchars($sales_officer_names); ?><br>
+                <strong>Supplier Man:</strong> <?php echo htmlspecialchars($supplier_man_name); ?><br>
                 <strong>Vendor:</strong> <?php echo htmlspecialchars($vendor_name); ?><br>
                 <strong>Company:</strong> <?php echo htmlspecialchars($company_name); ?>
             </div>
@@ -376,22 +378,28 @@ if ($report_type === 'item-wise') {
                 <tbody>
                     <?php 
                     $totalAmount = 0;
-                    foreach ($data as $index => $item): 
-                        if (!$item['is_child']) {
-                            $totalAmount += $item['amount'];
-                        }
-                        $indent = $item['is_child'] ? 'padding-left: 30px;' : '';
-                        $arrow = $item['is_child'] ? '↳ ' : '';
+                    $sNo = 0;
+                    foreach ($byOfficer as $officerName => $items):
+                        if ($multiOfficer): ?>
+                        <tr>
+                            <td colspan="6" style="background:#f0f0f0; font-weight:bold; padding:6px 8px;"><?php echo htmlspecialchars($officerName); ?></td>
+                        </tr>
+                        <?php endif;
+                        foreach ($items as $item):
+                            $sNo++;
+                            if (!$item['is_child']) $totalAmount += $item['amount'];
+                            $indent = $item['is_child'] ? 'padding-left: 30px;' : '';
+                            $arrow  = $item['is_child'] ? '↳ ' : '';
                     ?>
                         <tr>
-                            <td class="text-center"><?php echo $index + 1; ?></td>
+                            <td class="text-center"><?php echo $sNo; ?></td>
                             <td style="<?php echo $indent; ?>"><?php echo $arrow . htmlspecialchars($item['product']); ?></td>
                             <td class="text-right"><?php echo implode(', ', array_map(function($u) { return $u['unit'] . ' ' . intval($u['qty']); }, $item['units'])); ?></td>
                             <td class="text-right"><?php echo number_format($item['foc_qty'], 2); ?></td>
                             <td class="text-right"><?php echo $currency_symbol . number_format($item['rate'], 2); ?></td>
                             <td class="text-right"><?php echo $currency_symbol . number_format($item['amount'], 2); ?></td>
                         </tr>
-                    <?php endforeach; ?>
+                    <?php endforeach; endforeach; ?>
                 </tbody>
             </table>
             
@@ -418,27 +426,35 @@ if ($report_type === 'item-wise') {
                     $totalBillAmount = 0;
                     $totalReturnAmount = 0;
                     $totalNetAmount = 0;
-                    foreach ($data as $index => $item): 
-                        $totalBillAmount += $item['billAmount'];
-                        $totalReturnAmount += $item['returnAmount'];
-                        $totalNetAmount += $item['netAmount'];
+                    $sNoBill = 0;
+                    foreach ($byOfficerBill as $officerName => $bills):
+                        if ($multiOfficerBill): ?>
+                        <tr>
+                            <td colspan="6" style="background:#f0f0f0; font-weight:bold; padding:6px 8px;"><?php echo htmlspecialchars($officerName); ?></td>
+                        </tr>
+                        <?php endif;
+                        foreach ($bills as $item):
+                            $sNoBill++;
+                            $totalBillAmount += $item['billAmount'];
+                            $totalReturnAmount += $item['returnAmount'];
+                            $totalNetAmount += $item['netAmount'];
                     ?>
                         <tr>
-                            <td class="text-center"><?php echo $index + 1; ?></td>
+                            <td class="text-center"><?php echo $sNoBill; ?></td>
                             <td><?php echo htmlspecialchars($item['invoiceNo']); ?></td>
                             <td><?php echo htmlspecialchars($item['custCode']); ?></td>
                             <td><?php echo htmlspecialchars($item['custName']); ?></td>
                             <td><?php echo htmlspecialchars($item['address'] ?? '-'); ?></td>
                             <td class="text-right"><?php echo $currency_symbol . number_format($item['netAmount'], 2); ?></td>
                         </tr>
-                    <?php endforeach; ?>
+                    <?php endforeach; endforeach; ?>
                 </tbody>
             </table>
             
             <div class="summary">
                 <div class="summary-row">
                     <div class="summary-label">Total Bills:</div>
-                    <div class="summary-value"><?php echo count($data); ?></div>
+                    <div class="summary-value"><?php echo $sNoBill; ?></div>
                 </div>
                 <div class="summary-row">
                     <div class="summary-label">Net Amount:</div>

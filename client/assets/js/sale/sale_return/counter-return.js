@@ -4,11 +4,16 @@ let productsData = [], customersData = [], branchesData = [], currenciesData = [
 const defaultShortcuts = { product: 'F1', customer: 'F2', branch: 'F3', qty: 'F4', save: 'F10', clear: 'F12' };
 let shortcuts = { ...defaultShortcuts };
 
+const urlParams = new URLSearchParams(window.location.search);
+const editId = urlParams.get('edit');
+const isEditMode = !!editId;
+
 document.addEventListener('DOMContentLoaded', async function() {
     await Promise.all([loadProducts(), loadCustomers(), loadBranches(), loadCurrencies(), loadBankAccounts(), loadUOM(), loadSaleInvoices(), loadEmployees(), loadCompanies()]);
     loadShortcuts();
     updateDate();
     await loadNextReturnNo();
+    
     
     initDropdown('branchSearch', 'branchOptions', 'branch', branchesData, (b) => `${b.branch_code} - ${b.branch_name} (${b.branch_type})`, (id) => { currentReturn.branch = parseInt(id); localStorage.setItem('lastSelectedBranch', id); });
     initDropdown('customerSearch', 'customerOptions', 'customer', customersData, (c) => `${c.customer_code} - ${c.customer_name}`, (id) => { 
@@ -78,6 +83,11 @@ document.addEventListener('DOMContentLoaded', async function() {
     
     document.getElementById('saveReturnBtn').addEventListener('click', saveReturn);
     document.getElementById('clearBtn').addEventListener('click', clearReturn);
+    
+    if (isEditMode) {
+        loadEditData(editId);
+        document.getElementById('saveReturnBtn').innerHTML = '<i class="fas fa-save"></i> UPDATE (F10)';
+    }
     
     document.addEventListener('keydown', (e) => {
         if (document.getElementById('shortcutsModal').style.display === 'flex') return;
@@ -452,6 +462,7 @@ window.updateItemFocQuantity = function(itemId, newQty) {
 
 window.removeItem = function(itemId) {
     currentReturn.items = currentReturn.items.filter(i => i.id !== itemId);
+    currentReturn.invoiceTotalBill = null;
     renderItems();
     updateSummary();
 };
@@ -464,13 +475,13 @@ function recalculateItem(item) {
 }
 
 function updateSummary() {
-    const totalBill = currentReturn.invoiceTotalBill != null ? currentReturn.invoiceTotalBill : currentReturn.items.reduce((sum, item) => sum + item.gross, 0);
+    const totalBill = currentReturn.invoiceTotalBill != null ? currentReturn.invoiceTotalBill : currentReturn.items.reduce((sum, item) => sum + item.net, 0);
     const returnDiscountAmount = parseFloat(document.getElementById('returnDiscountAmount').value) || 0;
     const ed1 = currentReturn.extraDiscount1Amount || 0;
     const ed2 = currentReturn.extraDiscount2Amount || 0;
     const shipping = currentReturn.shippingFees || 0;
     const itemsNetTotal = currentReturn.items.reduce((sum, item) => sum + item.net, 0);
-    const netAmount = itemsNetTotal - returnDiscountAmount - ed1 - ed2 + shipping;
+    const netAmount = totalBill - returnDiscountAmount - ed1 - ed2 + shipping;
     const amountRefunded = parseFloat(document.getElementById('amountRefunded').value) || 0;
     const balance = netAmount - amountRefunded;
 
@@ -631,6 +642,7 @@ async function saveReturn() {
     const supplierManId = parseInt(document.getElementById('supplierMan').value) || currentReturn.supplierMan || null;
     
     const returnData = {
+        invoice_id: isEditMode ? editId : undefined,
         saleDate: document.getElementById('currentDate').value,
         companyId: currentReturn.company,
         customerId: currentReturn.customer,
@@ -650,13 +662,13 @@ async function saveReturn() {
         })),
         paymentMethod: paymentMethod,
         bankAccountId: paymentMethod === 'bank_transfer' ? document.getElementById('bankAccount').value : null,
-        totalBill: currentReturn.invoiceTotalBill != null ? currentReturn.invoiceTotalBill : currentReturn.items.reduce((sum, item) => sum + item.gross, 0),
+        totalBill: currentReturn.invoiceTotalBill != null ? currentReturn.invoiceTotalBill : currentReturn.items.reduce((sum, item) => sum + item.net, 0),
         totalDiscountPercent: parseFloat(document.getElementById('returnDiscountPercent').value) || 0,
         totalDiscountAmount: currentReturn.invoiceDiscountAmount || parseFloat(document.getElementById('returnDiscountAmount').value) || 0,
         extraDiscount1Amount: currentReturn.extraDiscount1Amount || 0,
         extraDiscount2Amount: currentReturn.extraDiscount2Amount || 0,
         shippingFees: currentReturn.shippingFees || 0,
-        netAmount: (currentReturn.invoiceTotalBill != null ? currentReturn.invoiceTotalBill : currentReturn.items.reduce((sum, item) => sum + item.gross, 0)) - (parseFloat(document.getElementById('returnDiscountAmount').value) || 0) - (currentReturn.extraDiscount1Amount || 0) - (currentReturn.extraDiscount2Amount || 0) + (currentReturn.shippingFees || 0),
+        netAmount: (currentReturn.invoiceTotalBill != null ? currentReturn.invoiceTotalBill : currentReturn.items.reduce((sum, item) => sum + item.net, 0)) - (parseFloat(document.getElementById('returnDiscountAmount').value) || 0) - (currentReturn.extraDiscount1Amount || 0) - (currentReturn.extraDiscount2Amount || 0) + (currentReturn.shippingFees || 0),
         amountPaid: parseFloat(document.getElementById('amountRefunded').value) || 0,
         items: currentReturn.items.map(item => ({
             productId: item.productId,
@@ -679,8 +691,12 @@ async function saveReturn() {
     };
     
     try {
-        const response = await fetch('../../../../server/api/sale/sale_return/return-add.php', {
-            method: 'POST',
+        const apiUrl = isEditMode
+            ? '../../../../server/api/sale/sale_return/return-edit.php'
+            : '../../../../server/api/sale/sale_return/return-add.php';
+        const method = isEditMode ? 'PUT' : 'POST';
+        const response = await fetch(apiUrl, {
+            method: method,
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(returnData)
         });
@@ -688,19 +704,24 @@ async function saveReturn() {
         const data = await response.json();
         
         if (data.success) {
-            showNotification('Return saved successfully!');
-            window.open(`thermal-print.php?id=${data.invoice_id}`, '_blank');
-            setTimeout(() => {
-                currentReturn.items = [];
-                renderItems();
-                updateSummary();
-                loadNextReturnNo();
-                document.getElementById('returnDiscountPercent').value = 0;
-                document.getElementById('returnDiscountAmount').value = 0;
-                document.getElementById('amountRefunded').value = 0;
-                document.getElementById('invoiceSearch').value = '';
-                document.getElementById('saleInvoice').value = '';
-            }, 500);
+            const returnId = isEditMode ? editId : data.invoice_id;
+            showNotification(isEditMode ? 'Return updated successfully!' : 'Return saved successfully!');
+            window.open(`thermal-print.php?id=${returnId}`, '_blank');
+            if (isEditMode) {
+                setTimeout(() => window.location.href = 'return-list.php', 500);
+            } else {
+                setTimeout(() => {
+                    currentReturn.items = [];
+                    renderItems();
+                    updateSummary();
+                    loadNextReturnNo();
+                    document.getElementById('returnDiscountPercent').value = 0;
+                    document.getElementById('returnDiscountAmount').value = 0;
+                    document.getElementById('amountRefunded').value = 0;
+                    document.getElementById('invoiceSearch').value = '';
+                    document.getElementById('saleInvoice').value = '';
+                }, 500);
+            }
         } else {
             alert('Error: ' + data.message);
         }
@@ -900,13 +921,140 @@ function updateNetReceivable() {
     const netReceivableEl = document.getElementById('netReceivable');
     if (!netReceivableEl) return;
     const returnDiscountAmount = parseFloat(document.getElementById('returnDiscountAmount').value) || 0;
-    const totalBill = currentReturn.invoiceTotalBill != null ? currentReturn.invoiceTotalBill : currentReturn.items.reduce((sum, item) => sum + item.gross, 0);
+    const totalBill = currentReturn.invoiceTotalBill != null ? currentReturn.invoiceTotalBill : currentReturn.items.reduce((sum, item) => sum + item.net, 0);
     const ed1 = currentReturn.extraDiscount1Amount || 0;
     const ed2 = currentReturn.extraDiscount2Amount || 0;
     const shipping = currentReturn.shippingFees || 0;
     const netAmount = totalBill - returnDiscountAmount - ed1 - ed2 + shipping;
     const totalInvoiceTax = currentReturn.invoiceLevelTaxes.reduce((sum, t) => sum + parseFloat(t.tax_amount || 0), 0);
     netReceivableEl.textContent = formatCurrency(netAmount - totalInvoiceTax);
+}
+
+async function loadEditData(returnId) {
+    try {
+        const response = await fetch(`../../../../server/api/sale/sale_return/return-edit.php?id=${returnId}`);
+        const data = await response.json();
+        if (!data.success) { alert('Error loading return: ' + data.message); return; }
+
+        const inv = data.invoice;
+
+        // Header fields
+        document.getElementById('currentDate').value = inv.sale_date || '';
+        document.getElementById('returnNo').textContent = inv.bill_no || '';
+
+        // Company
+        document.getElementById('company').value = inv.company_id || '';
+        currentReturn.company = parseInt(inv.company_id) || null;
+
+        // Branch
+        const branch = branchesData.find(b => b.id == inv.branch_id);
+        if (branch) {
+            document.getElementById('branchSearch').value = `${branch.branch_code} - ${branch.branch_name} (${branch.branch_type})`;
+            document.getElementById('branch').value = inv.branch_id;
+            currentReturn.branch = parseInt(inv.branch_id);
+        }
+
+        // Customer
+        const customer = customersData.find(c => c.id == inv.customer_id);
+        if (customer) {
+            document.getElementById('customerSearch').value = `${customer.customer_code} - ${customer.customer_name}`;
+            document.getElementById('customer').value = inv.customer_id;
+            currentReturn.customer = parseInt(inv.customer_id);
+        }
+
+        // Sales Officer
+        if (inv.sale_officer_id) {
+            const officer = employeesData.find(e => e.id == inv.sale_officer_id);
+            if (officer) {
+                document.getElementById('salesOfficerSearch').value = `${officer.employee_id} - ${officer.full_name}`;
+                document.getElementById('salesOfficer').value = inv.sale_officer_id;
+                currentReturn.salesOfficer = parseInt(inv.sale_officer_id);
+            }
+        }
+
+        // Supplier Man
+        if (inv.supplier_man_id) {
+            const sm = employeesData.find(e => e.id == inv.supplier_man_id);
+            if (sm) {
+                document.getElementById('supplierManSearch').value = `${sm.employee_id} - ${sm.full_name}`;
+                document.getElementById('supplierMan').value = inv.supplier_man_id;
+                currentReturn.supplierMan = parseInt(inv.supplier_man_id);
+            }
+        }
+
+        // Sub Account
+        if (inv.sub_account_id) {
+            await loadSubAccounts(inv.customer_id);
+            document.getElementById('subAccount').value = inv.sub_account_id;
+            currentReturn.subAccount = parseInt(inv.sub_account_id);
+        }
+
+        // Sale Invoice
+        if (inv.sale_invoice_no) {
+            document.getElementById('invoiceSearch').value = inv.sale_invoice_no;
+            document.getElementById('saleInvoice').value = inv.sale_invoice_no;
+        }
+
+        // Payment
+        document.getElementById('paymentMethod').value = inv.payment_method === 'Bank Transfer' ? 'bank_transfer' : 'cash';
+        if (inv.payment_method === 'Bank Transfer' && inv.bank_account_id) {
+            document.getElementById('bankAccountContainer').classList.remove('hidden');
+            document.getElementById('bankAccount').value = inv.bank_account_id;
+        }
+        document.getElementById('amountRefunded').value = parseFloat(inv.amount_refunded || 0);
+
+        // Discounts
+        document.getElementById('returnDiscountPercent').value = parseFloat(inv.total_discount_percent || 0);
+        document.getElementById('returnDiscountAmount').value = parseFloat(inv.total_discount_amount || 0);
+
+        // Set invoice-level values
+        currentReturn.invoiceTotalBill = parseFloat(inv.total_bill || 0);
+        currentReturn.invoiceDiscountAmount = parseFloat(inv.total_discount_amount || 0);
+        currentReturn.extraDiscount1Amount = parseFloat(inv.extra_discount_1_amount || 0);
+        currentReturn.extraDiscount2Amount = parseFloat(inv.extra_discount_2_amount || 0);
+        currentReturn.shippingFees = parseFloat(inv.shipping_fees || 0);
+
+        // Load items
+        currentReturn.items = [];
+        data.items.forEach(item => {
+            const product = productsData.find(p => p.id == item.product_id);
+            const uomDetails = product ? getProductUOMDetails(product) : {
+                units: (item.unit_entries || []).map(e => ({ id: e.uom_id, name: e.uom_name, conversionFactor: 1 }))
+            };
+
+            const unitQtyMap = {};
+            (item.unit_entries || []).forEach(e => { unitQtyMap[e.uom_id] = parseFloat(e.quantity); });
+
+            const returnItem = {
+                id: Date.now() + Math.random(),
+                product: item.product_name,
+                productId: item.product_id,
+                units: uomDetails.units.map(u => ({
+                    id: u.id,
+                    name: u.name,
+                    conversionFactor: u.conversionFactor,
+                    qty: unitQtyMap[u.id] || 0
+                })),
+                price: parseFloat(item.sale_price),
+                discountPercent: parseFloat(item.discount_percent || 0),
+                taxPercent: parseFloat(item.tax_percent || 0),
+                status: 'sellable',
+                tradeOfferAmount: parseFloat(item.trade_offer_amount || 0),
+                focQuantity: parseFloat(item.foc_quantity || 0)
+            };
+            returnItem.qty = calculateTotalQty(returnItem);
+            recalculateItem(returnItem);
+            currentReturn.items.push(returnItem);
+        });
+
+        recalculateMaxColumns();
+        renderItems();
+        updateSummary();
+
+        document.getElementById('returnNo').textContent = inv.bill_no;
+    } catch (error) {
+        alert('Error loading return data: ' + error.message);
+    }
 }
 
 async function loadProducts() {

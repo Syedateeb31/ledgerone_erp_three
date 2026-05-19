@@ -271,7 +271,7 @@ function initializeListPage(permissions) {
             alert('You do not have permission to edit returns.');
             return;
         }
-        window.location.href = `return-add.php?edit=${id}`;
+        window.location.href = `counter-return.php?edit=${id}`;
     }
 
     function printInvoice(id) {
