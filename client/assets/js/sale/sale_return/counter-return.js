@@ -843,6 +843,10 @@ async function loadInvoiceData(invoiceId) {
             currentReturn.extraDiscount2Amount = parseFloat(invoice.extra_discount_2_amount || 0);
             currentReturn.shippingFees = parseFloat(invoice.shipping_fees || 0);
 
+            // Populate return discount inputs from invoice
+            document.getElementById('returnDiscountPercent').value = parseFloat(invoice.total_discount_percent || 0);
+            document.getElementById('returnDiscountAmount').value = parseFloat(invoice.total_discount_amount || 0);
+
             updateSummary();
 
             // Fetch and populate invoice-level taxes from the original sale invoice
