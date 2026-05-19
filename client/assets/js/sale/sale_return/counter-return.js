@@ -469,7 +469,8 @@ function updateSummary() {
     const ed1 = currentReturn.extraDiscount1Amount || 0;
     const ed2 = currentReturn.extraDiscount2Amount || 0;
     const shipping = currentReturn.shippingFees || 0;
-    const netAmount = totalBill - returnDiscountAmount - ed1 - ed2 + shipping;
+    const itemsNetTotal = currentReturn.items.reduce((sum, item) => sum + item.net, 0);
+    const netAmount = itemsNetTotal - returnDiscountAmount - ed1 - ed2 + shipping;
     const amountRefunded = parseFloat(document.getElementById('amountRefunded').value) || 0;
     const balance = netAmount - amountRefunded;
 
