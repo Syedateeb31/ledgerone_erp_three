@@ -2934,7 +2934,12 @@ function initializePage(permissions) {
     // Add event listener for total discount amount
     const totalDiscountAmount = document.getElementById('totalDiscountAmount');
     if (totalDiscountAmount) {
-        totalDiscountAmount.addEventListener('input', updateInvoiceSummaryFromAmount);
+        totalDiscountAmount.addEventListener('input', function () {
+            // Clear percent so the amount field drives the calculation, not the stale percent
+            const pctEl = document.getElementById('totalDiscountPercent');
+            if (pctEl) pctEl.value = '0';
+            updateInvoiceSummary();
+        });
     }
 
     // Add event listener for total GST percent
