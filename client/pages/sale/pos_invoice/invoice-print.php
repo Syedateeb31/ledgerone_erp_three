@@ -1222,10 +1222,10 @@
                 { id: 'totalBill', label: localStorage.getItem('labelTotalBill') || 'Total Bill', value: `${currencySymbol} ${parseFloat(invoice.total_bill).toFixed(2)}`, show: localStorage.getItem('hidePrintTotalBill') !== 'true' },
                 { id: 'discountPercent', label: 'Discount (%)', value: parseFloat(invoice.total_discount_percent).toFixed(2) + '%', show: enableInvoiceCashDiscountPercent },
                 { id: 'discountAmount', label: localStorage.getItem('labelDiscountAmount') || 'Discount Amount', value: `${currencySymbol} ${parseFloat(invoice.total_discount_amount).toFixed(2)}`, show: enableInvoiceCashDiscountAmount },
-                { id: 'extraDiscount1Percent', label: 'Extra Discount 1 (%)', value: `${parseFloat(invoice.extra_discount_1_percent || 0).toFixed(2)}%`, show: enableExtraDiscount1 && parseFloat(invoice.extra_discount_1_percent || 0) > 0 },
-                { id: 'extraDiscount1Amount',  label: 'Extra Discount 1 Amt', value: `${currencySymbol} ${parseFloat(invoice.extra_discount_1_amount  || 0).toFixed(2)}`, show: enableExtraDiscount1 && parseFloat(invoice.extra_discount_1_amount  || 0) > 0 },
-                { id: 'extraDiscount2Percent', label: 'Extra Discount 2 (%)', value: `${parseFloat(invoice.extra_discount_2_percent || 0).toFixed(2)}%`, show: enableExtraDiscount2 && parseFloat(invoice.extra_discount_2_percent || 0) > 0 },
-                { id: 'extraDiscount2Amount',  label: 'Extra Discount 2 Amt', value: `${currencySymbol} ${parseFloat(invoice.extra_discount_2_amount  || 0).toFixed(2)}`, show: enableExtraDiscount2 && parseFloat(invoice.extra_discount_2_amount  || 0) > 0 },
+                { id: 'extraDiscount1Percent', label: 'Extra Discount 1 (%)', value: `${parseFloat(invoice.extra_discount_1_percent || 0).toFixed(2)}%`, show: parseFloat(invoice.extra_discount_1_percent || 0) > 0 },
+                { id: 'extraDiscount1Amount',  label: 'Extra Discount 1 Amt', value: `${currencySymbol} ${parseFloat(invoice.extra_discount_1_amount  || 0).toFixed(2)}`, show: parseFloat(invoice.extra_discount_1_amount  || 0) > 0 },
+                { id: 'extraDiscount2Percent', label: 'Extra Discount 2 (%)', value: `${parseFloat(invoice.extra_discount_2_percent || 0).toFixed(2)}%`, show: parseFloat(invoice.extra_discount_2_percent || 0) > 0 },
+                { id: 'extraDiscount2Amount',  label: 'Extra Discount 2 Amt', value: `${currencySymbol} ${parseFloat(invoice.extra_discount_2_amount  || 0).toFixed(2)}`, show: parseFloat(invoice.extra_discount_2_amount  || 0) > 0 },
                 { id: 'shippingFees', label: localStorage.getItem('labelShippingFees') || 'Shipping Fees', value: `${currencySymbol} ${parseFloat(invoice.shipping_fees || 0).toFixed(2)}`, show: enableShippingFees && invoice.shipping_fees },
                 { id: 'netAmount', label: localStorage.getItem('labelNetAmount') || 'Net Amount', value: `${currencySymbol} ${parseFloat(invoice.net_amount).toFixed(2)}`, show: localStorage.getItem('hidePrintNetAmount') !== 'true', isTotal: true },
                 { id: 'amountPaid', label: localStorage.getItem('labelAmountPaid') || 'Amount Paid', value: `${currencySymbol} ${amountPaid.toFixed(2)}`, show: localStorage.getItem('hidePrintAmountPaid') !== 'true' },
@@ -1257,19 +1257,19 @@
                     document.getElementById('discountAmount').textContent = `${currencySymbol} ${parseFloat(invoice.total_discount_amount).toFixed(2)}`;
                 }
 
-                if (enableExtraDiscount1 && parseFloat(invoice.extra_discount_1_percent || 0) > 0) {
+                if (parseFloat(invoice.extra_discount_1_percent || 0) > 0) {
                     document.getElementById('extraDiscount1PercentRow').style.display = '';
                     document.getElementById('extraDiscount1Percent').textContent = parseFloat(invoice.extra_discount_1_percent).toFixed(2) + '%';
                 }
-                if (enableExtraDiscount1 && parseFloat(invoice.extra_discount_1_amount || 0) > 0) {
+                if (parseFloat(invoice.extra_discount_1_amount || 0) > 0) {
                     document.getElementById('extraDiscount1AmountRow').style.display = '';
                     document.getElementById('extraDiscount1Amount').textContent = `${currencySymbol} ${parseFloat(invoice.extra_discount_1_amount).toFixed(2)}`;
                 }
-                if (enableExtraDiscount2 && parseFloat(invoice.extra_discount_2_percent || 0) > 0) {
+                if (parseFloat(invoice.extra_discount_2_percent || 0) > 0) {
                     document.getElementById('extraDiscount2PercentRow').style.display = '';
                     document.getElementById('extraDiscount2Percent').textContent = parseFloat(invoice.extra_discount_2_percent).toFixed(2) + '%';
                 }
-                if (enableExtraDiscount2 && parseFloat(invoice.extra_discount_2_amount || 0) > 0) {
+                if (parseFloat(invoice.extra_discount_2_amount || 0) > 0) {
                     document.getElementById('extraDiscount2AmountRow').style.display = '';
                     document.getElementById('extraDiscount2Amount').textContent = `${currencySymbol} ${parseFloat(invoice.extra_discount_2_amount).toFixed(2)}`;
                 }
