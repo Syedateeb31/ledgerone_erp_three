@@ -611,17 +611,21 @@ function initializePage(permissions) {
             } else if (currentIndex < focusableElements.length - 1) {
                 const nextElement = focusableElements[currentIndex + 1];
                 const currentRow = document.activeElement.closest('tr');
-                const currentCell = document.activeElement.closest('td');
                 const isNetAmountCell = currentRow && currentRow.parentElement.tagName === 'TBODY' &&
-                    currentCell && currentCell.classList.contains('net-cell');
+                    document.activeElement === currentRow.cells[16]?.querySelector('input');
                 if (isNetAmountCell) {
                     if (currentRow.nextElementSibling) {
                         const firstInput = currentRow.nextElementSibling.cells[1]?.querySelector('.search-input');
                         if (firstInput) firstInput.focus();
                     } else {
-                        // Focus on Add Item button when on last row's Net Amount cell
-                        const addRowBtn = document.getElementById('addRowBtn');
-                        if (addRowBtn) addRowBtn.focus();
+                        addRowDynamic();
+                        setTimeout(() => {
+                            const newRow = currentRow.nextElementSibling;
+                            if (newRow) {
+                                const firstInput = newRow.cells[1]?.querySelector('.search-input');
+                                if (firstInput) firstInput.focus();
+                            }
+                        }, 50);
                     }
                 } else {
                     nextElement.focus();
@@ -1245,7 +1249,7 @@ function initializePage(permissions) {
     // Load invoice data for editing
     async function loadInvoiceData(invoiceId) {
         try {
-            const response = await fetch(`../../../../server/api/sale/pos_invoice/pos-edit.php?id=${invoiceId}`);
+            const response = await fetch(`../../../../server/api/sale/delivery_chalan/pos-edit.php?id=${invoiceId}`);
             const data = await response.json();
 
             if (data.success) {
@@ -1253,6 +1257,13 @@ function initializePage(permissions) {
 
                 // Populate form fields
                 document.getElementById('saleDate').value = invoice.sale_date;
+                // Delivery Chalan specific fields
+                const deliveryDateEl = document.getElementById('deliveryDate');
+                if (deliveryDateEl) deliveryDateEl.value = invoice.delivery_date || invoice.sale_date;
+                const saleInvoiceSearchEl = document.getElementById('saleInvoiceSearch');
+                const saleInvoiceIdEl = document.getElementById('saleInvoiceId');
+                if (saleInvoiceSearchEl && invoice.sale_invoice_no) saleInvoiceSearchEl.value = invoice.sale_invoice_no;
+                if (saleInvoiceIdEl && invoice.sale_invoice_id) saleInvoiceIdEl.value = invoice.sale_invoice_id;
                 document.getElementById('customerCodeSearch').value = invoice.customer_name;
                 document.getElementById('customerCode').value = invoice.customer_id;
                 document.getElementById('branchSearch').value = invoice.branch_name;
@@ -3756,7 +3767,7 @@ function saveInvoice(status = 'Posted') {
     }
 
     const apiUrl = isEditMode ?
-        '../../../../server/api/sale/pos_invoice/pos-edit.php' :
+        '../../../../server/api/sale/delivery_chalan/pos-edit.php' :
         '../../../../server/api/sale/pos_invoice/pos-add.php';
     const method = isEditMode ? 'PUT' : 'POST';
 
@@ -5583,7 +5594,7 @@ function saveInvoice(status = 'Posted') {
         });
     }
     
-    const apiUrl = isEditMode ? '../../../../server/api/sale/pos_invoice/pos-edit.php' : '../../../../server/api/sale/pos_invoice/pos-add.php';
+    const apiUrl = isEditMode ? '../../../../server/api/sale/delivery_chalan/pos-edit.php' : '../../../../server/api/sale/delivery_chalan/pos-add.php';
     const method = isEditMode ? 'PUT' : 'POST';
     
     fetch(apiUrl, {

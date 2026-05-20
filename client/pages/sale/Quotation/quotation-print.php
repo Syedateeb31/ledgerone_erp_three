@@ -31,10 +31,11 @@ if (!$q) { echo 'Quotation not found'; exit; }
 // Load items
 $stI = $pdo->prepare("
     SELECT qi.*, p.code AS product_code, p.name AS product_name,
-           u.uom_name AS unit_name
+           u.uom_name AS unit_name, s.subcategory_name
     FROM quotation_items qi
-    LEFT JOIN products p ON p.id  = qi.product_id AND p.tenant_id = qi.tenant_id
-    LEFT JOIN uom      u ON u.id  = qi.unit_id
+    LEFT JOIN products     p ON p.id  = qi.product_id AND p.tenant_id = qi.tenant_id
+    LEFT JOIN uom          u ON u.id  = qi.unit_id
+    LEFT JOIN subcategories s ON s.id = p.subcategory_id AND s.tenant_id = p.tenant_id
     WHERE qi.quotation_id = ? AND qi.tenant_id = ?
     ORDER BY qi.sort_order
 ");
@@ -265,6 +266,7 @@ body { font-family: "Segoe UI", Arial, sans-serif; font-size: 11.5px; color: #1a
         <th style="width:28px" class="c">#</th>
         <th style="width:90px">Code</th>
         <th>Item / Description</th>
+        <th style="width:80px">Sub-Category</th>
         <th style="width:50px" class="r">Qty</th>
         <th style="width:60px">Unit</th>
         <th style="width:72px" class="r">Rate</th>
@@ -278,18 +280,20 @@ body { font-family: "Segoe UI", Arial, sans-serif; font-size: 11.5px; color: #1a
     </thead>
     <tbody>
     <?php if (empty($items)): ?>
-      <tr><td colspan="12" style="text-align:center;padding:16px;color:#9aa1ae">No items</td></tr>
+      <tr><td colspan="13" style="text-align:center;padding:16px;color:#9aa1ae">No items</td></tr>
     <?php else: ?>
       <?php foreach ($items as $i => $it): ?>
       <tr>
         <td class="c" style="color:#9aa1ae"><?= $i + 1 ?></td>
         <td class="item-code"><?= htmlspecialchars($it['item_code'] ?: ($it['product_code'] ?? '—')) ?></td>
         <td>
-          <div class="item-name"><?= htmlspecialchars($it['item_name'] ?: ($it['product_name'] ?? '—')) ?></div>
-          <?php if (!empty($it['description'])): ?>
+          <?php $displayName = trim($it['item_name'] ?? '') ?: trim($it['product_name'] ?? ''); ?>
+          <div class="item-name"><?= htmlspecialchars($displayName ?: '—') ?></div>
+          <?php if (!empty(trim($it['description'] ?? ''))): ?>
           <div class="item-desc"><?= htmlspecialchars($it['description']) ?></div>
           <?php endif; ?>
         </td>
+        <td><?= htmlspecialchars($it['subcategory_name'] ?? '—') ?></td>
         <td class="r"><?= fmtNum($it['quantity']) ?></td>
         <td><?= htmlspecialchars($it['unit_name'] ?? '—') ?></td>
         <td class="r"><?= fmtNum($it['rate']) ?></td>
