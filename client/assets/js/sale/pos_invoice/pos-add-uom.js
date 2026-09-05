@@ -1,4 +1,4 @@
-// Dynamic UOM System for POS Invoice
+﻿// Dynamic UOM System for POS Invoice
 let maxUnitColumns = 0;
 let allUnitHeaders = [];
 
@@ -7,70 +7,36 @@ async function getProductUOMDetails(product) {
     const uomDetails = [];
     
     if (product.uom_type === 'single' || product.uom_type === 'unit') {
-        // Single UOM - just the default unit
         const defaultUom = uomData.find(u => u.id == product.default_unit_id);
         if (defaultUom) {
-            // Check if it's a per-product unit
             if (defaultUom.unit_scope === 'per_product') {
-                // Fetch from product_uom_conversions table
                 const response = await fetch(`../../../../server/api/sale/pos_invoice/get-product-uom-conversions.php?product_id=${product.id}`);
                 const data = await response.json();
                 if (data.success && data.conversions.length > 0) {
                     const conversion = data.conversions.find(c => c.uom_id == defaultUom.id);
                     if (conversion) {
-                        uomDetails.push({
-                            id: defaultUom.id,
-                            name: defaultUom.uom_name,
-                            conversionFactor: parseFloat(conversion.conversion_factor) || 1,
-                            isBase: true
-                        });
+                        uomDetails.push({ id: defaultUom.id, name: defaultUom.uom_name, conversionFactor: parseFloat(conversion.conversion_factor) || 1, isBase: true });
                     }
                 } else {
-                    // Fallback to default
-                    uomDetails.push({
-                        id: defaultUom.id,
-                        name: defaultUom.uom_name,
-                        conversionFactor: 1,
-                        isBase: true
-                    });
+                    uomDetails.push({ id: defaultUom.id, name: defaultUom.uom_name, conversionFactor: 1, isBase: true });
                 }
             } else {
-                uomDetails.push({
-                    id: defaultUom.id,
-                    name: defaultUom.uom_name,
-                    conversionFactor: parseFloat(defaultUom.conversion_factor) || 1,
-                    isBase: defaultUom.is_base_unit == 1
-                });
+                uomDetails.push({ id: defaultUom.id, name: defaultUom.uom_name, conversionFactor: parseFloat(defaultUom.conversion_factor) || 1, isBase: defaultUom.is_base_unit == 1 });
             }
         }
     } else if (product.uom_type === 'group' && product.uom_group_id) {
-        // Group UOM - get all units from group
         const groupUnits = window.uomGroupUnits?.filter(gu => gu.uom_group_id == product.uom_group_id) || [];
-        
-        // Fetch product-specific conversions
         const response = await fetch(`../../../../server/api/sale/pos_invoice/get-product-uom-conversions.php?product_id=${product.id}`);
         const data = await response.json();
         const productConversions = data.success ? data.conversions : [];
-        
         groupUnits.forEach(gu => {
             const uom = uomData.find(u => u.id == gu.uom_id);
             if (uom) {
-                // Check if per-product conversion exists
                 const productConversion = productConversions.find(pc => pc.uom_id == uom.id);
                 if (uom.unit_scope === 'per_product' && productConversion) {
-                    uomDetails.push({
-                        id: uom.id,
-                        name: uom.uom_name,
-                        conversionFactor: parseFloat(productConversion.conversion_factor) || 1,
-                        isBase: uom.is_base_unit == 1
-                    });
+                    uomDetails.push({ id: uom.id, name: uom.uom_name, conversionFactor: parseFloat(productConversion.conversion_factor) || 1, isBase: uom.is_base_unit == 1 });
                 } else {
-                    uomDetails.push({
-                        id: uom.id,
-                        name: uom.uom_name,
-                        conversionFactor: parseFloat(uom.conversion_factor) || 1,
-                        isBase: uom.is_base_unit == 1
-                    });
+                    uomDetails.push({ id: uom.id, name: uom.uom_name, conversionFactor: parseFloat(uom.conversion_factor) || 1, isBase: uom.is_base_unit == 1 });
                 }
             }
         });
@@ -81,389 +47,382 @@ async function getProductUOMDetails(product) {
 
 // Recalculate max columns across all rows
 function recalculateMaxColumns() {
-    const itemsTable = document.getElementById('itemsTable');
-    const tbody = itemsTable.getElementsByTagName('tbody')[0];
-    const rows = tbody.rows;
-    
-    // Find the maximum number of units any product has
+    const tbody = document.getElementById('itemsTable').getElementsByTagName('tbody')[0];
     let maxUnits = 0;
-    
-    for (let i = 0; i < rows.length; i++) {
-        const row = rows[i];
-        const uomDataStr = row.dataset.productUomData;
+    for (let i = 0; i < tbody.rows.length; i++) {
+        const uomDataStr = tbody.rows[i].dataset.productUomData;
         if (uomDataStr) {
-            const uomDetails = JSON.parse(uomDataStr);
-            maxUnits = Math.max(maxUnits, uomDetails.length);
+            maxUnits = Math.max(maxUnits, JSON.parse(uomDataStr).length);
         }
     }
-    
     maxUnitColumns = maxUnits;
-    
     updateTableHeaders();
-    
-    for (let i = 0; i < rows.length; i++) {
-        updateRowUnitCells(rows[i]);
-    }
-    
+    updateAllRowUnitCells();
     updateFooterTotals();
 }
 
-// Update table headers
+// Update table headers — unit cols inserted after product col, before Bag cell
 function updateTableHeaders() {
-    const itemsTable = document.getElementById('itemsTable');
-    const thead = itemsTable.getElementsByTagName('thead')[0];
-    const headerRow = thead.rows[0];
-    
-    let safetyCounter = 0;
-    while (headerRow.cells.length > 3 && safetyCounter < 20) {
-        const cell = headerRow.cells[3];
-        const cellText = cell.textContent.trim();
-        // Stop if we reach Price or any of the fixed columns
-        if (cellText.includes('Sale Price') || cellText.includes('Gross Amount') || 
-            cellText.includes('Disc') || cellText.includes('T.O') || 
-            cellText.includes('GST') || cellText.includes('FOC') || 
-            cellText.includes('Net Amount') || cellText.includes('Actions')) {
-            break;
-        }
-        headerRow.deleteCell(3);
-        safetyCounter++;
-    }
-    
-    // Insert generic unit headers (Unit 1, Unit 2, Unit 3, etc.) starting at index 3
-    for (let i = 0; i < maxUnitColumns; i++) {
-        const th = headerRow.insertCell(3 + i);
+    const headerRow = document.querySelector('#itemsTable thead tr');
+    const chassisEnabled = localStorage.getItem('enableChassisMotorColour') === 'true';
+
+    // Remove existing dynamic headers (unit + chassis)
+    headerRow.querySelectorAll('.unit-dyn-header, .chassis-dyn-header').forEach(el => el.remove());
+
+    // Find bag-cell header — unit and chassis headers go before it
+    const bagHeader = headerRow.querySelector('.bag-cell');
+    if (!bagHeader) return;
+
+    // Insert chassis headers right before bag-cell (in reverse for correct order)
+    ['Colour', 'Motor No', 'Chassis No'].forEach(label => {
+        const th = document.createElement('th');
+        th.className = 'chassis-dyn-header';
+        th.width = '9%';
+        th.style.display = chassisEnabled ? '' : 'none';
+        th.textContent = label;
+        bagHeader.insertAdjacentElement('beforebegin', th);
+    });
+
+    // Insert unit headers before chassis headers (i.e., before bag-cell still)
+    // We insert in reverse so they end up in correct left-to-right order
+    for (let i = maxUnitColumns - 1; i >= 0; i--) {
+        const th = document.createElement('th');
+        th.className = 'unit-dyn-header';
         th.width = '8%';
         th.style.fontWeight = '600';
         th.style.fontSize = '12px';
-        th.style.color = 'var(--heading, #212529)';
-        th.innerHTML = `<span class="unit-header">Unit ${i + 1}</span>`;
+        th.innerHTML = `<span>Unit ${i + 1}</span>`;
+        bagHeader.insertAdjacentElement('beforebegin', th);
+    }
+
+    // Now reorder: unit headers should come before chassis headers
+    // Since we inserted chassis first (before bag), then units (also before bag),
+    // units end up between chassis and bag. Fix: move chassis after units.
+    const chassisHeaders = Array.from(headerRow.querySelectorAll('.chassis-dyn-header'));
+    const lastUnitHeader = headerRow.querySelectorAll('.unit-dyn-header')[maxUnitColumns - 1];
+    if (lastUnitHeader && chassisHeaders.length) {
+        chassisHeaders.forEach(ch => lastUnitHeader.insertAdjacentElement('afterend', ch));
     }
 }
 
-// Update row unit cells
-function updateRowUnitCells(row) {
-    const uomDataStr = row.dataset.productUomData;
-    const productUomDetails = uomDataStr ? JSON.parse(uomDataStr) : [];
-    
-    // PRESERVE existing values before removing cells
-    const existingValues = {};
-    const existingUnitInputs = row.querySelectorAll('.unit-input');
-    existingUnitInputs.forEach(input => {
-        const unitId = input.dataset.unitId;
-        if (unitId) {
-            existingValues[unitId] = input.value;
+// Update unit cells for all rows
+function updateAllRowUnitCells() {
+    const tbody = document.getElementById('itemsTable').getElementsByTagName('tbody')[0];
+    for (let i = 0; i < tbody.rows.length; i++) {
+        if (tbody.rows[i].dataset.productUomData) {
+            updateRowUnitCells(tbody.rows[i]);
         }
-    });
-    
-    // Remove old unit cells (between Scheme and Price)
-    // Keep removing cells at index 3 until we find a cell with price-cell or scheme-cell class
-    while (row.cells.length > 3 && !row.cells[3].classList.contains('price-cell')) {
-        row.deleteCell(3);
     }
-    
-    // Insert unit cells starting at index 3 (after Scheme cell at index 2)
+}
+
+// Update unit cells for a specific row — original logic preserved
+function updateRowUnitCells(row) {
+    if (!row.dataset.productUomData) return;
+
+    const uomDetails = JSON.parse(row.dataset.productUomData);
+    const chassisEnabled = localStorage.getItem('enableChassisMotorColour') === 'true';
+
+    // Save existing unit values
+    const existingValues = {};
+    row.querySelectorAll('.unit-input').forEach(input => {
+        if (input.dataset.unitId) existingValues[input.dataset.unitId] = input.value;
+    });
+
+    // Save existing kg/cut values
+    const existingTotalKg   = row.querySelector('.total-kg-cell input')?.value     || '0';
+    const existingCutKgPct  = row.querySelector('.cut-kg-percent-cell input')?.value || '0';
+    const existingCutKg     = row.querySelector('.cut-kg-cell input')?.value       || '0';
+    const existingAlKgPct   = row.querySelector('.al-kg-percent-cell input')?.value || '0';
+    const existingAlKg      = row.querySelector('.al-kg-cell input')?.value        || '0';
+
+    // Save existing chassis values before removing cells
+    const existingChassis = row.querySelector('.row-chassis-cell [data-vehicle-field]')?.value || '';
+    const existingMotor   = row.querySelector('.row-motor-cell [data-vehicle-field]')?.value   || '';
+    const existingColour  = row.querySelector('.row-colour-cell [data-vehicle-field]')?.value  || '';
+
+    // Remove existing dynamic cells (unit + chassis)
+    row.querySelectorAll('.unit-dyn-cell, .chassis-dyn-cell').forEach(el => el.remove());
+
+    // Find insertion point: before Bag cell
+    const bagCell = row.querySelector('.bag-cell');
+    if (!bagCell) return;
+
+    // Insert chassis cells right before bag-cell (in reverse for correct order)
+    const chassisClasses = ['row-chassis-cell', 'row-motor-cell', 'row-colour-cell'];
+    for (let c = chassisClasses.length - 1; c >= 0; c--) {
+        const td = document.createElement('td');
+        td.className = `chassis-dyn-cell ${chassisClasses[c]}`;
+        td.style.display = chassisEnabled ? '' : 'none';
+        row.insertBefore(td, bagCell);
+    }
+
+    // Insert unit cells before chassis cells (i.e., before bag-cell)
     for (let i = 0; i < maxUnitColumns; i++) {
-        const cell = row.insertCell(3 + i);
-        
-        // Check if this product has a unit at this position
-        if (i < productUomDetails.length) {
-            const uomDetail = productUomDetails[i];
-            
-            // Create a container for label + input
+        const insertBeforeIndex = Array.from(row.cells).indexOf(bagCell);
+        const cell = row.insertCell(insertBeforeIndex);
+        cell.className = 'unit-dyn-cell';
+
+        if (i < uomDetails.length) {
+            const uomDetail = uomDetails[i];
             const container = document.createElement('div');
-            container.style.display = 'flex';
-            container.style.flexDirection = 'column';
-            container.style.gap = '2px';
-            container.style.padding = '4px';
-            
-            // Add unit label
+            container.style.cssText = 'display:flex;flex-direction:column;gap:2px;padding:4px;';
+
             const label = document.createElement('div');
             label.className = 'unit-label';
             label.textContent = uomDetail.name;
-            label.style.fontSize = '10px';
-            label.style.fontWeight = '500';
-            label.style.color = 'var(--text-secondary, #6c757d)';
-            label.style.textAlign = 'left';
-            label.style.marginBottom = '2px';
-            label.style.opacity = '0.8';
-            container.appendChild(label);
-            
-            // Add input
+            label.style.cssText = 'font-size:10px;font-weight:500;color:var(--text-secondary,#6c757d);opacity:0.8;';
+
             const input = document.createElement('input');
             input.type = 'number';
             input.className = 'table-input unit-input';
             input.min = '0';
             input.step = '0.01';
-            // RESTORE the existing value if it exists, otherwise default to '0'
             input.value = existingValues[uomDetail.id] || '0';
             input.dataset.unitId = uomDetail.id;
             input.dataset.conversionFactor = uomDetail.conversionFactor;
             input.dataset.isBase = uomDetail.isBase;
             input.title = `${uomDetail.name} (×${uomDetail.conversionFactor})`;
-            
+
             input.addEventListener('input', function() {
-                const unitInputs = row.querySelectorAll('.unit-input');
-                let totalQty = Number(0);
-                unitInputs.forEach(inp => {
-                    const qty = Number(inp.value) || 0;
-                    const cf = Number(inp.dataset.conversionFactor) || 1;
-                    totalQty = Number(totalQty) + Number(qty * cf);
+                let totalQty = 0;
+                row.querySelectorAll('.unit-input').forEach(inp => {
+                    totalQty += (parseFloat(inp.value) || 0) * (parseFloat(inp.dataset.conversionFactor) || 1);
                 });
-                
-                const priceInput = row.querySelector('.price-cell input');
-                const price = priceInput ? (Number(priceInput.value) || 0) : 0;
-                
-                if (typeof validateStockForRow === 'function') {
-                    validateStockForRow(row);
-                }
-                
+                const price = parseFloat(row.querySelector('.price-cell input')?.value) || 0;
+                if (typeof validateStockForRow === 'function') validateStockForRow(row);
                 if (typeof SCHEME_TYPES !== 'undefined') {
-                    const schemeSelect = row.querySelector('.scheme-select');
-                    const activeScheme = schemeSelect ? schemeSelect.value : SCHEME_TYPES.SALE_ON_TP;
-                    
-                    if ((activeScheme === SCHEME_TYPES.LESS || activeScheme === SCHEME_TYPES.LESS_SPECIAL) && typeof calculateLessSchemeAmounts === 'function') {
-                        if (activeScheme === SCHEME_TYPES.LESS) {
-                            calculateLessSchemeAmounts(row, {});
-                        } else {
-                            calculateLessSpecialSchemeAmounts(row, {});
-                        }
-                        return;
-                    } else if (activeScheme === SCHEME_TYPES.GIVEN && typeof calculateGivenSchemeAmounts === 'function') {
-                        calculateGivenSchemeAmounts(row, {});
-                        return;
-                    }
+                    const scheme = row.querySelector('.scheme-select')?.value;
+                    if (scheme === SCHEME_TYPES.LESS && typeof calculateLessSchemeAmounts === 'function') { calculateLessSchemeAmounts(row, {}); return; }
+                    if (scheme === SCHEME_TYPES.LESS_SPECIAL && typeof calculateLessSpecialSchemeAmounts === 'function') { calculateLessSpecialSchemeAmounts(row, {}); return; }
+                    if (scheme === SCHEME_TYPES.GIVEN && typeof calculateGivenSchemeAmounts === 'function') { calculateGivenSchemeAmounts(row, {}); return; }
                 }
-                
-                calculateRowAmounts(row, Number(totalQty), Number(price));
+                calculateRowAmounts(row, totalQty, price);
             });
-            
+
+            container.appendChild(label);
             container.appendChild(input);
             cell.appendChild(container);
         } else {
-            // Product doesn't have a unit at this position - show disabled indicator
-            cell.style.textAlign = 'center';
-            cell.style.color = '#dee2e6';
-            cell.style.background = '#f8f9fa';
-            cell.style.fontSize = '11px';
-            cell.innerHTML = '<span style="opacity: 0.3;">-</span>';
-            cell.title = 'Not applicable for this product';
+            cell.style.cssText = 'text-align:center;color:#dee2e6;background:#f8f9fa;font-size:11px;';
+            cell.innerHTML = '<span style="opacity:0.3;">-</span>';
         }
     }
+
+    // Reorder: move chassis cells after unit cells (they were inserted before bag, units also before bag)
+    const chassisDynCells = Array.from(row.querySelectorAll('.chassis-dyn-cell'));
+    const unitDynCells = row.querySelectorAll('.unit-dyn-cell');
+    const lastUnitCell = unitDynCells[unitDynCells.length - 1];
+    if (lastUnitCell && chassisDynCells.length) {
+        chassisDynCells.forEach(ch => lastUnitCell.insertAdjacentElement('afterend', ch));
+    }
+
+    // Restore Total KG / Cut KG % / Cut KG / AL KG values
+    const totalKgInput    = row.querySelector('.total-kg-cell input');
+    const cutKgPctInput   = row.querySelector('.cut-kg-percent-cell input');
+    const cutKgInput      = row.querySelector('.cut-kg-cell input');
+    const alKgInput       = row.querySelector('.al-kg-cell input');
+    if (totalKgInput)   totalKgInput.value  = existingTotalKg;
+    if (cutKgPctInput)  cutKgPctInput.value = existingCutKgPct;
+    if (cutKgInput)     cutKgInput.value    = existingCutKg;
+    const alKgPctInput = row.querySelector('.al-kg-percent-cell input');
+    if (alKgPctInput)   alKgPctInput.value  = existingAlKgPct;
+    if (alKgInput)      alKgInput.value     = existingAlKg;
+
+    // Load vehicle dropdowns (always, so inputs exist for saving)
+    if (row.dataset.productId && typeof loadVehicleDetailsForRow === 'function') {
+        // Collect values to restore: prefer pending (from DB load) over existing (from prior DOM)
+        const restoreChassis = row.dataset.pendingChassis || existingChassis;
+        const restoreMotor   = row.dataset.pendingMotor   || existingMotor;
+        const restoreColour  = row.dataset.pendingColour  || existingColour;
+        const restoreInvoiceId = row.dataset.pendingInvoiceId || null;
+
+        loadVehicleDetailsForRow(row, row.dataset.productId, restoreInvoiceId).then(() => {
+            if (restoreChassis) { const el = row.querySelector('.row-chassis-cell [data-vehicle-field]'); if (el) el.value = restoreChassis; }
+            if (restoreMotor)   { const el = row.querySelector('.row-motor-cell [data-vehicle-field]');   if (el) el.value = restoreMotor; }
+            if (restoreColour)  { const el = row.querySelector('.row-colour-cell [data-vehicle-field]');  if (el) el.value = restoreColour; }
+            // Clear pending flags after applying
+            delete row.dataset.pendingChassis;
+            delete row.dataset.pendingMotor;
+            delete row.dataset.pendingColour;
+            delete row.dataset.pendingInvoiceId;
+        });
+    } else if (typeof populateVehicleDropdowns === 'function') {
+        populateVehicleDropdowns(row, []);
+    }
+    
+    // Load stock info for this product
+    if (row.dataset.productId && typeof loadProductStock === 'function') {
+        loadProductStock(row.dataset.productId);
+    }
 }
+
+// Apply chassis column visibility
+function applyChassisColumnVisibility() {
+    const enabled = localStorage.getItem('enableChassisMotorColour') === 'true';
+    document.querySelectorAll('#itemsTable .chassis-dyn-header').forEach(el => el.style.display = enabled ? '' : 'none');
+    document.querySelectorAll('#itemsTable .chassis-dyn-cell').forEach(el => el.style.display = enabled ? '' : 'none');
+    if (enabled && typeof loadVehicleDetailsForRow === 'function') {
+        document.querySelectorAll('#itemsTable tbody tr').forEach(row => {
+            if (row.dataset.productId) loadVehicleDetailsForRow(row, row.dataset.productId);
+        });
+    }
+}
+window.applyChassisColumnVisibility = applyChassisColumnVisibility;
 
 // Calculate row amounts
 function calculateRowAmounts(row, totalQty, price) {
     totalQty = Number(totalQty) || 0;
-    price = Number(price) || 0;
-    
+    price    = Number(price)    || 0;
+
     const discountPercent = parseFloat(row.querySelector('.disc-percent-cell input')?.value) || 0;
     const taxPercent = parseFloat(row.querySelector('.tax-percent-cell input')?.value) || 0;
-    
-    const gross = Number(totalQty) * Number(price);
+    const enableTaxation = localStorage.getItem('enableTaxation') === 'true';
+
+    // Rate Type based gross calculation
+    const rateType = document.getElementById('rateType')?.value || '';
+    const netKg = parseFloat(row.querySelector('.net-kg-cell input')?.value) || 0;
+    const alRateCut = parseFloat(row.querySelector('.al-rate-cut-cell input')?.value) || 0;
+    const effectiveRate = price - alRateCut;
+    let gross = 0;
+    if (rateType === '100_kg') {
+        gross = netKg / 100 * effectiveRate;
+    } else if (rateType === 'mon') {
+        gross = netKg / 40 * effectiveRate;
+    } else if (rateType === 'ton') {
+        gross = netKg / 1000 * effectiveRate;
+    } else if (rateType === 'per_kg') {
+        gross = netKg * effectiveRate;
+    } else if (rateType === 'per_bag') {
+        const bagQty = parseFloat(row.querySelector('.bag-cell input')?.value) || 0;
+        gross = bagQty * effectiveRate;
+    } else {
+        gross = totalQty * effectiveRate;
+    }
     const grossInput = row.querySelector('.gross-cell input');
-    if (grossInput) {
-        grossInput.value = gross.toFixed(2);
-    }
-    
-    // Discount amount
+    if (grossInput) grossInput.value = gross.toFixed(2);
+
     const discountAmt = gross * (discountPercent / 100);
-    row.querySelector('.disc-amount-cell input').value = discountAmt.toFixed(2);
-    
-    // After discount
+    const discAmtInput = row.querySelector('.disc-amount-cell input');
+    if (discAmtInput) discAmtInput.value = discountAmt.toFixed(2);
+
     const afterDiscount = gross - discountAmt;
-    
-    // Trade offer amount - read from input (NOT percentage-based)
-    const toAmountInput = row.querySelector('.to-amount-cell input');
-    let tradeOfferAmt = 0;
-    if (toAmountInput) {
-        tradeOfferAmt = parseFloat(toAmountInput.value) || 0;
-    }
-    
-    // After trade offer
-    const afterTradeOffer = afterDiscount - tradeOfferAmt;
-    
-    // Check application level - only apply tax at item level if application_level is 'item'
-    const applicationLevel = row.dataset.applicationLevel || 'item';
-    let taxAmt = 0;
-    
-    if (applicationLevel === 'item') {
-        // Tax amount - use formula from backend if available, otherwise use simple percentage
-        const formulaTemplate = row.dataset.formulaTemplate;
-        const basePrice = parseFloat(row.dataset.basePrice);
-        const taxBase = row.dataset.taxBase;
-        
-        if (formulaTemplate && !isNaN(basePrice) && basePrice > 0) {
-            // For MRP-based formulas (Third Schedule), formula calculates base price
-            // Tax = MRP - base_price
-            if (taxBase === 'mrp') {
-                const totalMrp = basePrice * totalQty;
-                const basePriceTotal = evaluateFormula(formulaTemplate, basePrice, taxPercent) * totalQty;
-                taxAmt = totalMrp - basePriceTotal;
-            } else {
-                // For trade_price formulas (Standard GST), formula calculates tax directly
-                const taxPerUnit = evaluateFormula(formulaTemplate, basePrice, taxPercent);
-                taxAmt = taxPerUnit * totalQty;
-            }
-        } else {
-            taxAmt = afterTradeOffer * (taxPercent / 100);
-        }
-    }
-    // If application_level is 'invoice', tax is NOT applied here (will be applied at invoice level)
-    
-    row.querySelector('.tax-amount-cell input').value = taxAmt.toFixed(2);
-    
-    // Net amount
-    const net = afterTradeOffer + taxAmt;
-    row.querySelector('.net-cell input').value = net.toFixed(2);
-    
-    // Update summary
+
+    const taxAmt = enableTaxation ? afterDiscount * (taxPercent / 100) : 0;
+    const taxAmtInput = row.querySelector('.tax-amount-cell input');
+    if (taxAmtInput) taxAmtInput.value = taxAmt.toFixed(2);
+
+    const net = afterDiscount + taxAmt;
+    const netInput = row.querySelector('.net-cell input');
+    if (netInput) netInput.value = net.toFixed(2);
+
     updateInvoiceSummaryDynamic();
 }
 
 // Update footer totals
 function updateFooterTotals() {
-    const itemsTable = document.getElementById('itemsTable');
-    const tfoot = itemsTable.getElementsByTagName('tfoot')[0];
-    if (!tfoot || !tfoot.rows[0]) return;
-    
-    const footerRow = tfoot.rows[0];
-    
-    // Remove old unit total cells that were dynamically inserted
-    // Keep removing cells at index 3 until we reach the known fixed column IDs
-    let safetyCounter = 0;
-    const knownIds = ['totalSalePrice', 'totalGrossAmount', 'totalDiscountAmountItems', 
-                      'totalTradeOfferAmount', 'totalGstAmount', 'totalFocQty', 'totalNetAmountItems'];
-    
-    while (footerRow.cells.length > 3 && safetyCounter < 20) {
-        const cell = footerRow.cells[3];
-        // Stop if we reach a cell with a known fixed id
-        if (cell && cell.id && knownIds.includes(cell.id)) {
-            break;
-        }
-        footerRow.deleteCell(3);
-        safetyCounter++;
+    const footerRow = document.querySelector('#itemsTable tfoot tr');
+    if (!footerRow) return;
+
+    // Remove old dynamic footer cells
+    footerRow.querySelectorAll('.unit-dyn-footer, .chassis-dyn-footer').forEach(el => el.remove());
+
+    const chassisEnabled = localStorage.getItem('enableChassisMotorColour') === 'true';
+    const bagFooter = footerRow.querySelector('.bag-cell');
+    if (!bagFooter) return;
+
+    // Insert chassis footer cells before bag-cell
+    for (let c = 0; c < 3; c++) {
+        const th = document.createElement('th');
+        th.className = 'chassis-dyn-footer';
+        th.style.display = chassisEnabled ? '' : 'none';
+        bagFooter.insertAdjacentElement('beforebegin', th);
     }
-    
-    // Insert empty cells for dynamic unit columns at index 3
-    for (let i = 0; i < maxUnitColumns; i++) {
-        const cell = footerRow.insertCell(3 + i);
-        cell.textContent = '';
-        cell.style.textAlign = 'center';
-        cell.style.padding = '8px 4px';
-        cell.style.borderTop = '2px solid var(--border-strong, #c9cfda)';
+
+    // Insert unit footer cells before chassis cells (i.e., before bag-cell)
+    for (let i = maxUnitColumns - 1; i >= 0; i--) {
+        const th = document.createElement('th');
+        th.className = 'unit-dyn-footer';
+        th.style.cssText = 'text-align:center;padding:8px 4px;';
+        bagFooter.insertAdjacentElement('beforebegin', th);
+    }
+
+    // Reorder: move chassis footers after unit footers
+    const chassisFooters = Array.from(footerRow.querySelectorAll('.chassis-dyn-footer'));
+    const unitFooters = footerRow.querySelectorAll('.unit-dyn-footer');
+    const lastUnitFooter = unitFooters[unitFooters.length - 1];
+    if (lastUnitFooter && chassisFooters.length) {
+        chassisFooters.forEach(ch => lastUnitFooter.insertAdjacentElement('afterend', ch));
+    }
+
+    // Update tax amount footer total
+    const taxAmountFooter = footerRow.querySelector('.tax-amount-cell');
+    if (taxAmountFooter) {
+        const enableTaxation = localStorage.getItem('enableTaxation') === 'true';
+        taxAmountFooter.style.display = enableTaxation ? '' : 'none';
+    }
+    const taxPercentFooter = footerRow.querySelector('.tax-percent-cell');
+    if (taxPercentFooter) {
+        const enableTaxation = localStorage.getItem('enableTaxation') === 'true';
+        taxPercentFooter.style.display = enableTaxation ? '' : 'none';
     }
 }
 
 // Update invoice summary
 function updateInvoiceSummaryDynamic() {
-    const itemsTable = document.getElementById('itemsTable');
-    const tbody = itemsTable.getElementsByTagName('tbody')[0];
-    const rows = tbody.rows;
-    
-    let totalBill = 0;
-    let totalPurchasePrice = 0;
-    let totalGrossAmount = 0;
-    let totalDiscountAmountItems = 0;
-    let totalTradeOfferAmountItems = 0;
-    let totalTaxAmountItems = 0;
-    let totalFOCQty = 0;
-    let totalNetAmountItems = 0;
-    
-    for (let i = 0; i < rows.length; i++) {
-        const row = rows[i];
-        
-        const priceInput = row.querySelector('.price-cell input');
-        const grossInput = row.querySelector('.gross-cell input');
-        const discAmtInput = row.querySelector('.disc-amount-cell input');
-        const toAmtInput = row.querySelector('.to-amount-cell input');
-        const taxAmtInput = row.querySelector('.tax-amount-cell input');
-        const focInput = row.querySelector('.foc-cell input');
-        const netInput = row.querySelector('.net-cell input');
-        
-        if (netInput) {
-            totalPurchasePrice += parseFloat(priceInput?.value) || 0;
-            totalGrossAmount += parseFloat(grossInput?.value) || 0;
-            totalDiscountAmountItems += parseFloat(discAmtInput?.value) || 0;
-            totalTradeOfferAmountItems += parseFloat(toAmtInput?.value) || 0;
-            totalTaxAmountItems += parseFloat(taxAmtInput?.value) || 0;
-            totalFOCQty += parseFloat(focInput?.value) || 0;
-            totalNetAmountItems += parseFloat(netInput?.value) || 0;
-            totalBill += parseFloat(netInput?.value) || 0;
-        }
+    const tbody = document.getElementById('itemsTable').getElementsByTagName('tbody')[0];
+    let totalBill = 0, totalPrice = 0, totalGross = 0, totalDisc = 0, totalTax = 0, totalNet = 0, totalNetKG = 0;
+
+    for (let i = 0; i < tbody.rows.length; i++) {
+        const row = tbody.rows[i];
+        totalPrice  += parseFloat(row.querySelector('.price-cell input')?.value)       || 0;
+        totalGross  += parseFloat(row.querySelector('.gross-cell input')?.value)       || 0;
+        totalDisc   += parseFloat(row.querySelector('.disc-amount-cell input')?.value) || 0;
+        totalTax    += parseFloat(row.querySelector('.tax-amount-cell input')?.value)  || 0;
+        const net    = parseFloat(row.querySelector('.net-cell input')?.value)         || 0;
+        totalNet    += net;
+        totalBill   += net;
+        totalNetKG  += parseFloat(row.querySelector('.net-kg-cell input')?.value)      || 0;
     }
-    
-    // Update totals
-    const totalSalePriceEl = document.getElementById('totalSalePrice');
-    const totalGrossAmountEl = document.getElementById('totalGrossAmount');
-    const totalDiscountAmountItemsEl = document.getElementById('totalDiscountAmountItems');
-    const totalTradeOfferAmountEl = document.getElementById('totalTradeOfferAmount');
-    const totalTaxAmountEl = document.getElementById('totalTaxAmount');
-    const totalFocQtyEl = document.getElementById('totalFocQty');
-    const totalNetAmountItemsEl = document.getElementById('totalNetAmountItems');
-    
-    if (totalSalePriceEl) totalSalePriceEl.textContent = totalPurchasePrice.toFixed(2);
-    if (totalGrossAmountEl) totalGrossAmountEl.textContent = totalGrossAmount.toFixed(2);
-    if (totalDiscountAmountItemsEl) totalDiscountAmountItemsEl.textContent = totalDiscountAmountItems.toFixed(2);
-    if (totalTradeOfferAmountEl) totalTradeOfferAmountEl.textContent = totalTradeOfferAmountItems.toFixed(2);
-    if (totalTaxAmountEl) totalTaxAmountEl.textContent = totalTaxAmountItems.toFixed(2);
-    if (totalFocQtyEl) totalFocQtyEl.textContent = totalFOCQty.toFixed(2);
-    if (totalNetAmountItemsEl) totalNetAmountItemsEl.textContent = totalNetAmountItems.toFixed(2);
-    
-    const totalBillEl = document.getElementById('totalBill');
-    if (totalBillEl) totalBillEl.textContent = totalBill.toFixed(2);
-    
-    // Calculate invoice-level discount
-    const discountPercentEl = document.getElementById('totalDiscountPercent');
-    const discountPercent = parseFloat(discountPercentEl?.value) || 0;
-    const discountAmount = totalBill * (discountPercent / 100);
-    const afterDiscount = totalBill - discountAmount;
-    
-    const shippingFeesEl = document.getElementById('shippingFees');
-    const shippingFees = parseFloat(shippingFeesEl?.value) || 0;
-    const netAmount = afterDiscount + shippingFees;
-    
-    const totalDiscountAmountEl = document.getElementById('totalDiscountAmount');
-    const netAmountEl = document.getElementById('netAmount');
-    
-    if (totalDiscountAmountEl) totalDiscountAmountEl.value = discountAmount.toFixed(2);
-    if (netAmountEl) netAmountEl.textContent = netAmount.toFixed(2);
-    
-    // Calculate withholding tax
-    const withholdingTaxPercentEl = document.getElementById('withholdingTaxPercent');
-    const withholdingTaxPercent = parseFloat(withholdingTaxPercentEl?.value) || 0;
-    const withholdingTaxAmount = netAmount * (withholdingTaxPercent / 100);
-    const netReceivable = netAmount - withholdingTaxAmount;
-    
-    const withholdingTaxAmountEl = document.getElementById('withholdingTaxAmount');
-    const netReceivableEl = document.getElementById('netReceivable');
-    
-    if (withholdingTaxAmountEl) {
-        withholdingTaxAmountEl.textContent = withholdingTaxAmount.toFixed(2);
-    }
-    if (netReceivableEl) {
-        netReceivableEl.textContent = netReceivable.toFixed(2);
-    }
-    
-    // Auto-fill Amount Paid when Invoice Type is Cash
-    const amountPaidEl = document.getElementById('amountPaid');
+
+    const set  = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val.toFixed(2); };
+    const setV = (id, val) => { const el = document.getElementById(id); if (el) el.value       = val.toFixed(2); };
+
+    set('totalSalePrice', totalPrice);
+    set('totalGrossAmount', totalGross);
+    set('totalDiscountAmountItems', totalDisc);
+    set('totalTaxAmountItems', totalTax);
+    set('totalNetAmountItems', totalNet);
+    set('totalBill', totalBill);
+    set('totalNetKG', totalNetKG);
+
+    const discPct  = parseFloat(document.getElementById('totalDiscountPercent')?.value) || 0;
+    const discAmt  = totalBill * (discPct / 100);
+    const shipping = parseFloat(document.getElementById('shippingFees')?.value) || 0;
+    const totalChargesVal = parseFloat(document.getElementById('totalCharges')?.textContent) || 0;
+    const netAmount = totalBill - discAmt + shipping + totalChargesVal;
+
+    setV('totalDiscountAmount', discAmt);
+    set('netAmount', netAmount);
+
+    const withholdingPct = parseFloat(document.getElementById('withholdingTaxPercent')?.value) || 0;
+    const withholdingAmt = netAmount * (withholdingPct / 100);
+    const netReceivable  = netAmount - withholdingAmt;
+
+    const wtEl = document.getElementById('withholdingTaxAmount');
+    if (wtEl) wtEl.textContent = withholdingAmt.toFixed(2);
+    const nrEl = document.getElementById('netReceivable');
+    if (nrEl) nrEl.textContent = netReceivable.toFixed(2);
+
+    const amountPaidEl  = document.getElementById('amountPaid');
     const invoiceTypeEl = document.getElementById('invoiceType');
-    if (amountPaidEl && invoiceTypeEl && invoiceTypeEl.value === 'Cash') {
-        amountPaidEl.value = netReceivable.toFixed(2);
-    }
+    if (amountPaidEl && invoiceTypeEl?.value === 'Cash') amountPaidEl.value = netReceivable.toFixed(2);
 
-    // Update remaining balance
-    const amountPaid = parseFloat(amountPaidEl?.value) || 0;
-    const remainingBalance = netReceivable - amountPaid;
+    const amountPaid  = parseFloat(amountPaidEl?.value) || 0;
+    const remainingEl = document.getElementById('remainingBalance');
+    if (remainingEl) remainingEl.value = (netReceivable - amountPaid).toFixed(2);
 
-    const remainingBalanceEl = document.getElementById('remainingBalance');
-    if (remainingBalanceEl) {
-        remainingBalanceEl.value = remainingBalance.toFixed(2);
-    }
-
-    // Calculate invoice-level taxes
-    if (typeof calculateInvoiceLevelTaxes === 'function') {
-        calculateInvoiceLevelTaxes();
-    }
+    if (typeof calculateBrokeryAmount === 'function') calculateBrokeryAmount();
+    if (typeof updateTotalCharges === 'function') updateTotalCharges();
 }
 
 // Load UOM group units
@@ -471,9 +430,7 @@ async function loadUOMGroupUnits() {
     try {
         const response = await fetch('../../../../server/api/sale/pos_invoice/get-uom-group-units.php');
         const data = await response.json();
-        if (data.success) {
-            window.uomGroupUnits = data.groupUnits;
-        }
+        if (data.success) window.uomGroupUnits = data.groupUnits;
     } catch (error) {
         console.error('Error loading UOM group units:', error);
     }

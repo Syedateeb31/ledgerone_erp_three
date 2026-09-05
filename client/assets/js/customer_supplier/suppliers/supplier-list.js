@@ -7,8 +7,17 @@ document.addEventListener('DOMContentLoaded', function () {
     const searchInput = document.getElementById('searchInput');
     const statusFilter = document.getElementById('statusFilter');
     const companyFilter = document.getElementById('companyFilter');
+    const cityFilter = document.getElementById('cityFilter');
+
+    // Link this Supplier to a Customer (same real-world party trading both ways)
+    const editPartyLink = initPartyLink({
+        partyType: 'supplier',
+        container: document.getElementById('editPartyLinkContainer'),
+        dropdownParent: '#editModal'
+    });
 
     loadCompanyFilter();
+    loadCityFilter();
     loadSuppliers();
 
     function loadSuppliers() {
@@ -16,6 +25,7 @@ document.addEventListener('DOMContentLoaded', function () {
             search: searchInput.value,
             status: statusFilter.value,
             company: companyFilter.value,
+            city: cityFilter.value,
             page: currentPage,
             limit: 10
         });
@@ -152,6 +162,7 @@ document.addEventListener('DOMContentLoaded', function () {
     function populateViewModal(supplier) {
         document.getElementById('viewSupplierCode').textContent = supplier.supplier_code;
         document.getElementById('viewSupplierName').textContent = supplier.supplier_name;
+        document.getElementById('viewBrandName').textContent = supplier.brand_name || '-';
         document.getElementById('viewAddress').textContent = supplier.address || '-';
         document.getElementById('viewPrimaryPhone').textContent = supplier.primary_phone || '-';
         document.getElementById('viewSecondaryPhone').textContent = supplier.secondary_phone || '-';
@@ -167,7 +178,26 @@ document.addEventListener('DOMContentLoaded', function () {
         document.getElementById('viewCreatedAt').textContent = new Date(supplier.created_at).toLocaleDateString();
         document.getElementById('viewUpdatedAt').textContent = new Date(supplier.updated_at).toLocaleDateString();
 
-        // Load salesman name
+        // Territory names via lookup
+        const base = '../../../../server/api/customer_supplier/customers/';
+        const setField = (id, val) => { document.getElementById(id).textContent = val || '-'; };
+
+        Promise.all([
+            fetch(base + 'get-countries.php').then(r => r.json()),
+            fetch(base + 'get-all-regions.php').then(r => r.json()),
+            fetch(base + 'get-all-cities.php').then(r => r.json()),
+            fetch(base + 'get-all-city-zones.php').then(r => r.json()),
+            fetch(base + 'get-all-areas.php').then(r => r.json())
+        ]).then(([countries, regions, cities, zones, areas]) => {
+            const find = (list, key, id) => (list[key] || []).find(i => i.id == id);
+            setField('viewCountry', find(countries, 'countries', supplier.country_id)?.country_name);
+            setField('viewRegion', find(regions, 'regions', supplier.region_id)?.region_name);
+            setField('viewCity', find(cities, 'cities', supplier.city_id)?.city_name);
+            setField('viewCityZone', find(zones, 'city_zones', supplier.city_zone_id)?.city_zone_name);
+            setField('viewArea', find(areas, 'areas', supplier.area_id)?.area_name);
+        });
+
+        // Salesman name
         if (supplier.salesman_id) {
             fetch('../../../../server/api/customer_supplier/suppliers/get-employees.php')
                 .then(response => response.json())
@@ -214,6 +244,7 @@ document.addEventListener('DOMContentLoaded', function () {
             .then(data => {
                 if (data.success) {
                     populateEditForm(data.supplier);
+                    editPartyLink.loadExisting(id);
                     editModal.classList.add('show');
                 } else {
                     showNotification('Error', data.message, 'error');
@@ -226,6 +257,7 @@ document.addEventListener('DOMContentLoaded', function () {
         function populateEditForm(supplier) {
             document.getElementById('editSupplierCode').value = supplier.supplier_code;
             document.getElementById('editSupplierName').value = supplier.supplier_name;
+            document.getElementById('editBrandName').value = supplier.brand_name || '';
             document.getElementById('editAddress').value = supplier.address || '';
             document.getElementById('editPrimaryPhone').value = supplier.primary_phone || '';
             document.getElementById('editSecondaryPhone').value = supplier.secondary_phone || '';
@@ -245,9 +277,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         editCompany.innerHTML = '<option value="">Select Company</option>';
                         data.companies.forEach(company => {
                             const option = new Option(company.company_name, company.id);
-                            if (company.id == supplier.company_id) {
-                                option.selected = true;
-                            }
+                            if (company.id == supplier.company_id) option.selected = true;
                             editCompany.appendChild(option);
                         });
                     }
@@ -262,13 +292,14 @@ document.addEventListener('DOMContentLoaded', function () {
                         editSalesman.innerHTML = '<option value="">Select Salesman</option>';
                         data.employees.forEach(employee => {
                             const option = new Option(employee.full_name, employee.id);
-                            if (employee.id == supplier.salesman_id) {
-                                option.selected = true;
-                            }
+                            if (employee.id == supplier.salesman_id) option.selected = true;
                             editSalesman.appendChild(option);
                         });
                     }
                 });
+
+            // Load territory dropdowns
+            loadEditTerritoryDropdowns(supplier);
 
             // Load sub accounts
             fetch(`../../../../server/api/customer_supplier/suppliers/supplier-sub-accounts.php?supplier_id=${supplier.id}`)
@@ -310,6 +341,45 @@ document.addEventListener('DOMContentLoaded', function () {
                         attachSubAccountRowListeners(row);
                     }
                 });
+        }
+
+        async function loadEditTerritoryDropdowns(supplier) {
+            const base = '../../../../server/api/customer_supplier/customers/';
+
+            // Countries
+            const cRes = await fetch(base + 'get-countries.php').then(r => r.json());
+            const editCountry = document.getElementById('editCountry');
+            editCountry.innerHTML = '<option value="">Select Country</option>';
+            if (cRes.success) cRes.countries.forEach(c => editCountry.appendChild(new Option(c.country_name, c.id)));
+            editCountry.value = supplier.country_id || '';
+
+            // Regions
+            const rRes = await fetch(base + 'get-all-regions.php').then(r => r.json());
+            const editRegion = document.getElementById('editRegion');
+            editRegion.innerHTML = '<option value="">Select Region</option>';
+            if (rRes.success) rRes.regions.forEach(r => editRegion.appendChild(new Option(r.region_name, r.id)));
+            editRegion.value = supplier.region_id || '';
+
+            // Cities
+            const ciRes = await fetch(base + 'get-all-cities.php').then(r => r.json());
+            const editCity = document.getElementById('editCity');
+            editCity.innerHTML = '<option value="">Select City</option>';
+            if (ciRes.success) ciRes.cities.forEach(c => editCity.appendChild(new Option(c.city_name, c.id)));
+            editCity.value = supplier.city_id || '';
+
+            // City Zones
+            const czRes = await fetch(base + 'get-all-city-zones.php').then(r => r.json());
+            const editCityZone = document.getElementById('editCityZone');
+            editCityZone.innerHTML = '<option value="">Select City Zone</option>';
+            if (czRes.success) czRes.city_zones.forEach(z => editCityZone.appendChild(new Option(z.city_zone_name, z.id)));
+            editCityZone.value = supplier.city_zone_id || '';
+
+            // Areas
+            const aRes = await fetch(base + 'get-all-areas.php').then(r => r.json());
+            const editArea = document.getElementById('editArea');
+            editArea.innerHTML = '<option value="">Select Area</option>';
+            if (aRes.success) aRes.areas.forEach(a => editArea.appendChild(new Option(a.area_name, a.id)));
+            editArea.value = supplier.area_id || '';
         }
 
         function updateSubAccountRowNumbers() {
@@ -362,6 +432,7 @@ document.addEventListener('DOMContentLoaded', function () {
         function closeEditModal() {
             editModal.classList.remove('show');
             editSupplierForm.reset();
+            editPartyLink.reset();
         }
 
         editModalClose.addEventListener('click', closeEditModal);
@@ -401,11 +472,17 @@ document.addEventListener('DOMContentLoaded', function () {
                 companyId: document.getElementById('editCompany').value,
                 salesmanId: document.getElementById('editSalesman').value || null,
                 supplierName: document.getElementById('editSupplierName').value.trim(),
+                brandName: document.getElementById('editBrandName').value.trim(),
                 address: document.getElementById('editAddress').value.trim(),
                 primaryPhone: document.getElementById('editPrimaryPhone').value.trim(),
                 secondaryPhone: document.getElementById('editSecondaryPhone').value.trim(),
                 identityCard: document.getElementById('editIdentityCard').value.trim(),
                 email: document.getElementById('editEmail').value.trim(),
+                countryId: document.getElementById('editCountry').value || null,
+                regionId: document.getElementById('editRegion').value || null,
+                cityId: document.getElementById('editCity').value || null,
+                cityZoneId: document.getElementById('editCityZone').value || null,
+                areaId: document.getElementById('editArea').value || null,
                 openingDebit: document.getElementById('editOpeningDebit').value || 0,
                 openingCredit: document.getElementById('editOpeningCredit').value || 0,
                 aitPercent: document.getElementById('editAitPercent').value || 0,
@@ -425,6 +502,22 @@ document.addEventListener('DOMContentLoaded', function () {
             .then(data => {
                 if (data.success) {
                     showNotification('Success', data.message, 'success');
+
+                    // If the user opted to link this supplier to a customer, do that now
+                    editPartyLink.applyLink(currentEditingId, () => ({
+                        name: formData.supplierName,
+                        address: formData.address,
+                        primaryPhone: formData.primaryPhone,
+                        secondaryPhone: formData.secondaryPhone,
+                        email: formData.email,
+                        identityCard: formData.identityCard,
+                        companyId: formData.companyId
+                    })).then(linkResult => {
+                        if (linkResult && linkResult.success === false) {
+                            showNotification('Linking Failed', linkResult.message || 'Supplier was updated but could not be linked to a customer', 'error');
+                        }
+                    });
+
                     closeEditModal();
                     loadSuppliers();
                 } else {
@@ -465,6 +558,21 @@ document.addEventListener('DOMContentLoaded', function () {
         }, 500);
     });
 
+    function loadCityFilter() {
+        fetch('../../../../server/api/customer_supplier/customers/get-all-cities.php')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    data.cities.forEach(city => {
+                        const option = document.createElement('option');
+                        option.value = city.id;
+                        option.textContent = city.city_name;
+                        cityFilter.appendChild(option);
+                    });
+                }
+            });
+    }
+
     function loadCompanyFilter() {
         fetch('../../../../server/api/customer_supplier/suppliers/get-companies.php')
             .then(response => response.json())
@@ -486,6 +594,11 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     companyFilter.addEventListener('change', function() {
+        currentPage = 1;
+        loadSuppliers();
+    });
+
+    cityFilter.addEventListener('change', function() {
         currentPage = 1;
         loadSuppliers();
     });

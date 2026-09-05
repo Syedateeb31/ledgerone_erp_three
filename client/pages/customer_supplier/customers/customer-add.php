@@ -108,10 +108,10 @@ if (!$user_id) {
                         <div class="form-group col-3">
                             <label for="brandName">
                                 <i class="fas fa-tag"></i>
-                                Brand Name
+                                Company Name
                             </label>
                             <select id="brandName">
-                                <option value="">Select Brand</option>
+                                <option value="">Select Company Name</option>
                             </select>
                         </div>
 
@@ -525,6 +525,9 @@ if (!$user_id) {
                             </div>
                         </div>
                     </div>
+
+                    <!-- Linked Supplier Section -->
+                    <div id="partyLinkContainer"></div>
                 </div>
 
                 <div class="form-actions">
@@ -705,6 +708,7 @@ if (!$user_id) {
 
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    <script src="../../../assets/js/customer_supplier/party-link.js"></script>
     <script src="../../../assets/js/customer_supplier/customers/customer-add.js"></script>
 </body>
 

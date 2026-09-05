@@ -16,7 +16,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const resetBtn = document.getElementById('resetBtn');
     const form = document.getElementById('invoiceForm');
 
-    Promise.all([loadCustomers(), loadBranches(), loadProducts(), loadUOM(), loadCurrencies(), loadCompanies()]).then(() => {
+    Promise.all([loadCustomers(), loadBranches(), loadProducts(), loadUOM(), loadCurrencies(), loadCompanies(), loadPaymentTerms()]).then(() => {
         initSearchableDropdown('customerCodeSearch', 'customerCodeOptions', 'customerCode');
         initSearchableDropdown('branchSearch', 'branchOptions', 'branch');
         applyInvoiceSettings();
@@ -111,14 +111,16 @@ document.addEventListener('DOMContentLoaded', function () {
             if (window.lastInvoiceId) {
                 window.open(`invoice-print.php?id=${window.lastInvoiceId}`, '_blank');
             }
-            window.location.href = 'order-list.php';
+            const base = window.top.location.origin + window.top.location.pathname.replace(/\/client\/.*$/, '');
+            window.top.location.href = base + '/client/pages/soda_book/soda-book-list.php';
         });
     }
 
     const printLaterBtn = document.getElementById('printLaterBtn');
     if (printLaterBtn) {
         printLaterBtn.addEventListener('click', function () {
-            window.location.href = 'order-list.php';
+            const base = window.top.location.origin + window.top.location.pathname.replace(/\/client\/.*$/, '');
+            window.top.location.href = base + '/client/pages/soda_book/soda-book-list.php';
         });
     }
 
@@ -128,16 +130,29 @@ document.addEventListener('DOMContentLoaded', function () {
     const totalDiscountAmount = document.getElementById('totalDiscountAmount');
     if (totalDiscountAmount) totalDiscountAmount.addEventListener('input', updateInvoiceSummaryDynamic);
 
-    const totalGstPercent = document.getElementById('totalGstPercent');
-    if (totalGstPercent) totalGstPercent.addEventListener('input', updateInvoiceSummaryDynamic);
-
-    const totalGstAmountSummary = document.getElementById('totalGstAmountSummary');
-    if (totalGstAmountSummary) totalGstAmountSummary.addEventListener('input', updateInvoiceSummaryDynamic);
-
     const shippingFees = document.getElementById('shippingFees');
     if (shippingFees) shippingFees.addEventListener('input', updateInvoiceSummaryDynamic);
 
     document.getElementById('currency').addEventListener('change', updateCurrencySymbols);
+
+    async function loadPaymentTerms() {
+        try {
+            const response = await fetch('../../../../server/api/sale/sale_order/get-payment-terms.php');
+            const data = await response.json();
+            if (data.success) {
+                const select = document.getElementById('paymentTerm');
+                select.innerHTML = '<option value="">Select Payment Term</option>';
+                data.payment_terms.forEach(term => {
+                    const option = document.createElement('option');
+                    option.value = term.id;
+                    option.textContent = `${term.term_name} (${term.days} days)`;
+                    select.appendChild(option);
+                });
+            }
+        } catch (error) {
+            console.error('Error loading payment terms:', error);
+        }
+    }
 
     async function loadCustomers() {
         try {
@@ -167,6 +182,8 @@ document.addEventListener('DOMContentLoaded', function () {
             if (data.success) {
                 const branchOptions = document.getElementById('branchOptions');
                 branchOptions.innerHTML = '';
+                let defaultBranch = null;
+                
                 data.branches.forEach(branch => {
                     const option = document.createElement('div');
                     option.className = 'dropdown-option';
@@ -176,7 +193,17 @@ document.addEventListener('DOMContentLoaded', function () {
                         : `${branch.branch_code} - ${branch.branch_name} (${branch.branch_type})`;
                     option.textContent = displayText;
                     branchOptions.appendChild(option);
+                    
+                    if (branch.is_default == 1) {
+                        defaultBranch = { id: branch.id, text: displayText };
+                    }
                 });
+                
+                // Auto-select default branch
+                if (defaultBranch) {
+                    document.getElementById('branchSearch').value = defaultBranch.text;
+                    document.getElementById('branch').value = defaultBranch.id;
+                }
             }
         } catch (error) {
             console.error('Error loading branches:', error);
@@ -351,65 +378,7 @@ document.addEventListener('DOMContentLoaded', function () {
         discAmountInput.value = '0.00';
         discAmountCell.appendChild(discAmountInput);
 
-        const toPercentCell = row.insertCell(6);
-        toPercentCell.className = 'to-percent-cell';
-        const toPercentInput = document.createElement('input');
-        toPercentInput.type = 'number';
-        toPercentInput.className = 'table-input';
-        toPercentInput.min = '0';
-        toPercentInput.max = '100';
-        toPercentInput.step = '0.01';
-        toPercentInput.value = '0';
-        toPercentInput.addEventListener('input', function () {
-            calculateTotalQuantity(row);
-        });
-        toPercentCell.appendChild(toPercentInput);
-
-        const toAmountCell = row.insertCell(7);
-        toAmountCell.className = 'to-amount-cell';
-        const toAmountInput = document.createElement('input');
-        toAmountInput.type = 'number';
-        toAmountInput.className = 'table-input';
-        toAmountInput.min = '0';
-        toAmountInput.step = '0.01';
-        toAmountInput.value = '0.00';
-        toAmountCell.appendChild(toAmountInput);
-
-        const gstPercentCell = row.insertCell(8);
-        gstPercentCell.className = 'gst-percent-cell';
-        const gstPercentInput = document.createElement('input');
-        gstPercentInput.type = 'number';
-        gstPercentInput.className = 'table-input';
-        gstPercentInput.min = '0';
-        gstPercentInput.max = '100';
-        gstPercentInput.step = '0.01';
-        gstPercentInput.value = '0';
-        gstPercentInput.addEventListener('input', function () {
-            calculateTotalQuantity(row);
-        });
-        gstPercentCell.appendChild(gstPercentInput);
-
-        const gstAmountCell = row.insertCell(9);
-        gstAmountCell.className = 'gst-amount-cell';
-        const gstAmountInput = document.createElement('input');
-        gstAmountInput.type = 'number';
-        gstAmountInput.className = 'table-input';
-        gstAmountInput.min = '0';
-        gstAmountInput.step = '0.01';
-        gstAmountInput.value = '0.00';
-        gstAmountCell.appendChild(gstAmountInput);
-
-        const focCell = row.insertCell(10);
-        focCell.className = 'foc-cell';
-        const focInput = document.createElement('input');
-        focInput.type = 'number';
-        focInput.className = 'table-input';
-        focInput.min = '0';
-        focInput.step = '0.01';
-        focInput.value = '0';
-        focCell.appendChild(focInput);
-
-        const netCell = row.insertCell(11);
+        const netCell = row.insertCell(6);
         netCell.className = 'net-cell';
         const netInput = document.createElement('input');
         netInput.type = 'text';
@@ -419,7 +388,7 @@ document.addEventListener('DOMContentLoaded', function () {
         netInput.tabIndex = -1;
         netCell.appendChild(netInput);
 
-        const actionsCell = row.insertCell(12);
+        const actionsCell = row.insertCell(7);
         const deleteBtn = document.createElement('button');
         deleteBtn.type = 'button';
         deleteBtn.className = 'btn btn-danger btn-sm';
@@ -471,9 +440,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
                 row.querySelector('.price-cell input').value = product.sale_price || 0;
                 row.querySelector('.disc-percent-cell input').value = product.default_discount || 0;
-                row.querySelector('.to-percent-cell input').value = product.trade_offer_discount || 0;
-                row.querySelector('.gst-percent-cell input').value = product.sales_tax || 0;
-                row.querySelector('.foc-cell input').value = product.default_foc || 0;
 
                 optionsContainer.style.display = 'none';
                 recalculateMaxColumns();
@@ -593,11 +559,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 grossAmount: parseFloat(row.querySelector('.gross-cell input').value) || 0,
                 discountPercent: parseFloat(row.querySelector('.disc-percent-cell input').value) || 0,
                 discountAmount: parseFloat(row.querySelector('.disc-amount-cell input').value) || 0,
-                tradeOfferPercent: parseFloat(row.querySelector('.to-percent-cell input').value) || 0,
-                tradeOfferAmount: parseFloat(row.querySelector('.to-amount-cell input').value) || 0,
-                gstPercent: parseFloat(row.querySelector('.gst-percent-cell input').value) || 0,
-                gstAmount: parseFloat(row.querySelector('.gst-amount-cell input').value) || 0,
-                focQty: parseFloat(row.querySelector('.foc-cell input').value) || 0,
                 netAmount: parseFloat(row.querySelector('.net-cell input').value) || 0
             });
         }
@@ -609,12 +570,23 @@ document.addEventListener('DOMContentLoaded', function () {
             branchId: document.getElementById('branch').value,
             currencyId: document.getElementById('currency').value,
             previousBalance: document.getElementById('previousBalance').value,
+            paymentTermId: document.getElementById('paymentTerm').value || null,
             totalBill: parseFloat(document.getElementById('totalBill').textContent),
             totalDiscountPercent: parseFloat(document.getElementById('totalDiscountPercent').value) || 0,
             totalDiscountAmount: parseFloat(document.getElementById('totalDiscountAmount').value) || 0,
-            totalGSTPercent: parseFloat(document.getElementById('totalGstPercent').value) || 0,
-            totalGSTAmount: parseFloat(document.getElementById('totalGstAmountSummary').value) || 0,
+            totalGSTPercent: 0,
+            totalGSTAmount: 0,
             shippingFees: parseFloat(document.getElementById('shippingFees').value) || 0,
+            freight: parseFloat(document.getElementById('freight').value) || 0,
+            biltyNo: document.getElementById('biltyNo').value || null,
+            transportName: document.getElementById('transportName').value || null,
+            rpoNo: document.getElementById('rpoNo').value || null,
+            broker: document.getElementById('broker').value,
+            deliveredDate: document.getElementById('deliveredDate').value || null,
+            millName: document.getElementById('millName').value,
+            truckNo: document.getElementById('truckNo').value,
+            goods: document.getElementById('goods').value,
+            mobileNo: document.getElementById('mobileNo').value,
             netAmount: parseFloat(document.getElementById('netAmount').textContent),
             remarks: document.getElementById('remarks').value,
             items: items
@@ -688,6 +660,17 @@ document.addEventListener('DOMContentLoaded', function () {
                 
                 document.getElementById('currency').value = invoiceData.currency_id;
                 document.getElementById('remarks').value = invoiceData.remarks || '';
+                document.getElementById('biltyNo').value = invoiceData.bilty_no || '';
+                document.getElementById('transportName').value = invoiceData.transport_name || '';
+                document.getElementById('rpoNo').value = invoiceData.rpo_no || '';
+                document.getElementById('broker').value = invoiceData.broker || '';
+                document.getElementById('deliveredDate').value = invoiceData.delivered_date || '';
+                document.getElementById('millName').value = invoiceData.mill_name || '';
+                document.getElementById('truckNo').value = invoiceData.truck_no || '';
+                document.getElementById('goods').value = invoiceData.goods || '';
+                document.getElementById('mobileNo').value = invoiceData.mobile_no || '';
+                document.getElementById('freight').value = invoiceData.freight || 0;
+                document.getElementById('paymentTerm').value = invoiceData.payment_term_id || '';
 
                 updateCurrencySymbols();
 
@@ -713,11 +696,6 @@ document.addEventListener('DOMContentLoaded', function () {
                         lastRow.querySelector('.price-cell input').value = item.sale_price;
                         lastRow.querySelector('.disc-percent-cell input').value = item.discount_percent;
                         lastRow.querySelector('.disc-amount-cell input').value = item.discount_amount;
-                        lastRow.querySelector('.to-percent-cell input').value = item.trade_offer_percent || 0;
-                        lastRow.querySelector('.to-amount-cell input').value = item.trade_offer_amount || 0;
-                        lastRow.querySelector('.gst-percent-cell input').value = item.gst_percent || 0;
-                        lastRow.querySelector('.gst-amount-cell input').value = item.gst_amount || 0;
-                        lastRow.querySelector('.foc-cell input').value = item.foc_quantity || 0;
                         lastRow.querySelector('.gross-cell input').value = item.gross_amount;
                         lastRow.querySelector('.net-cell input').value = item.net_amount;
                     }
@@ -773,3 +751,124 @@ function closeOverlay() {
         iframe.src = '';
     }
 }
+
+
+// ── Payment Terms Modal ──
+(function () {
+    const API = '../../../../server/api/sale/sale_order/payment-terms-crud.php';
+
+    function openModal() {
+        document.getElementById('paymentTermsModal').style.display = 'flex';
+        loadPtList();
+    }
+
+    function closeModal() {
+        document.getElementById('paymentTermsModal').style.display = 'none';
+        resetForm();
+    }
+
+    function resetForm() {
+        document.getElementById('ptEditId').value = '';
+        document.getElementById('ptTermName').value = '';
+        document.getElementById('ptDays').value = '';
+        document.getElementById('ptCancelEditBtn').style.display = 'none';
+        document.getElementById('ptSaveBtn').innerHTML = '<i class="fas fa-save"></i> Save';
+    }
+
+    async function loadPtList() {
+        const tbody = document.getElementById('ptTableBody');
+        tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;padding:16px;color:var(--subtext);">Loading...</td></tr>';
+        try {
+            const res = await fetch(API);
+            const data = await res.json();
+            tbody.innerHTML = '';
+            if (!data.success || data.payment_terms.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;padding:16px;color:var(--subtext);">No records found</td></tr>';
+                return;
+            }
+            data.payment_terms.forEach(pt => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td style="padding:8px 6px;border-bottom:1px solid var(--border-default);">${pt.term_name}</td>
+                    <td style="padding:8px 6px;border-bottom:1px solid var(--border-default);text-align:center;">${pt.days}</td>
+                    <td style="padding:8px 6px;border-bottom:1px solid var(--border-default);text-align:center;">
+                        <div style="display:flex;gap:4px;justify-content:center;">
+                            <button class="btn btn-primary btn-sm pt-edit-btn" data-id="${pt.id}" data-name="${pt.term_name}" data-days="${pt.days}"><i class="fas fa-edit"></i></button>
+                            <button class="btn btn-danger btn-sm pt-delete-btn" data-id="${pt.id}"><i class="fas fa-trash"></i></button>
+                        </div>
+                    </td>`;
+                tbody.appendChild(tr);
+            });
+
+            tbody.querySelectorAll('.pt-edit-btn').forEach(btn => {
+                btn.addEventListener('click', function () {
+                    document.getElementById('ptEditId').value = this.dataset.id;
+                    document.getElementById('ptTermName').value = this.dataset.name;
+                    document.getElementById('ptDays').value = this.dataset.days;
+                    document.getElementById('ptCancelEditBtn').style.display = '';
+                    document.getElementById('ptSaveBtn').innerHTML = '<i class="fas fa-save"></i> Update';
+                    document.getElementById('ptTermName').focus();
+                });
+            });
+
+            tbody.querySelectorAll('.pt-delete-btn').forEach(btn => {
+                btn.addEventListener('click', async function () {
+                    if (!confirm('Delete this payment term?')) return;
+                    await fetch(`${API}?id=${this.dataset.id}`, { method: 'DELETE' });
+                    loadPtList();
+                    reloadPaymentTermsDropdown();
+                });
+            });
+        } catch (e) {
+            tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;padding:16px;color:var(--error);">Error loading</td></tr>';
+        }
+    }
+
+    async function reloadPaymentTermsDropdown() {
+        try {
+            const res = await fetch('../../../../server/api/sale/sale_order/get-payment-terms.php');
+            const data = await res.json();
+            if (data.success) {
+                const select = document.getElementById('paymentTerm');
+                const current = select.value;
+                select.innerHTML = '<option value="">Select Payment Term</option>';
+                data.payment_terms.forEach(term => {
+                    const opt = document.createElement('option');
+                    opt.value = term.id;
+                    opt.textContent = `${term.term_name} (${term.days} days)`;
+                    select.appendChild(opt);
+                });
+                select.value = current;
+            }
+        } catch (e) {}
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        document.getElementById('addPaymentTermBtn').addEventListener('click', openModal);
+        document.getElementById('closePaymentTermsBtn').addEventListener('click', closeModal);
+        document.getElementById('paymentTermsModal').addEventListener('click', function (e) {
+            if (e.target === this) closeModal();
+        });
+        document.getElementById('ptCancelEditBtn').addEventListener('click', resetForm);
+
+        document.getElementById('ptSaveBtn').addEventListener('click', async function () {
+            const id = document.getElementById('ptEditId').value;
+            const term_name = document.getElementById('ptTermName').value.trim();
+            const days = document.getElementById('ptDays').value;
+            if (!term_name) { alert('Term name is required'); return; }
+
+            const method = id ? 'PUT' : 'POST';
+            const body = id ? { id: parseInt(id), term_name, days: parseInt(days) } : { term_name, days: parseInt(days) };
+
+            const res = await fetch(API, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+            const data = await res.json();
+            if (data.success) {
+                resetForm();
+                loadPtList();
+                reloadPaymentTermsDropdown();
+            } else {
+                alert('Error: ' + data.message);
+            }
+        });
+    });
+})();

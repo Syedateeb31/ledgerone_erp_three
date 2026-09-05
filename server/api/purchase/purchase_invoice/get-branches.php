@@ -22,6 +22,7 @@ try {
             b.branch_code, 
             b.branch_name, 
             b.branch_type,
+            b.is_default,
             pb.branch_name as parent_branch_name
         FROM branches b
         LEFT JOIN branches pb ON b.parent_branch_id = pb.id

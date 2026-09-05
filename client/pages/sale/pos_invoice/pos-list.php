@@ -27,6 +27,14 @@ if (!$user_id) {
     <div class="container">
         <div class="header">
             <h1 class="page-title">Sale Invoices</h1>
+            <div class="view-toggle">
+                <button class="toggle-btn active" id="defaultViewBtn" onclick="switchView('default')">
+                    <i class="fas fa-list"></i> Default
+                </button>
+                <button class="toggle-btn" id="aiqViewBtn" onclick="switchView('aiq')">
+                    <i class="fas fa-car"></i> AIQ
+                </button>
+            </div>
         </div>
 
         <div class="card">
@@ -70,16 +78,26 @@ if (!$user_id) {
                         <input type="hidden" id="saleOfficerFilter">
                     </div>
                 </div>
-                <div class="form-group">
-                    <label for="supplierManFilter">Supplier Man</label>
-                    <div class="searchable-dropdown">
-                        <input type="text" class="search-input" placeholder="Search supplier man..." id="supplierManFilterSearch" autocomplete="off">
-                        <div class="dropdown-options" id="supplierManFilterOptions">
-                            <!-- Options loaded dynamically -->
+                <div class="form-group" id="supplierManGroup">
+                        <label for="supplierMan">Supplier Man</label>
+                        <div class="searchable-dropdown">
+                            <input type="text" class="search-input" placeholder="Search supplier man..." id="supplierManFilterSearch" autocomplete="off">
+                            <div class="dropdown-options" id="supplierManFilterOptions">
+                                <!-- Options loaded dynamically -->
+                            </div>
+                            <input type="hidden" id="supplierManFilter">
                         </div>
-                        <input type="hidden" id="supplierManFilter">
                     </div>
-                </div>
+                    <div class="form-group" id="statusFilterGroup">
+                        <label for="statusFilter">Status</label>
+                        <select id="statusFilter">
+                            <option value="">All Status</option>
+                            <option value="pending">Pending</option>
+                            <option value="confirmed">Confirmed</option>
+                            <option value="Delivered">Delivered</option>
+                            <option value="Booking">Booking</option>
+                        </select>
+                    </div>
             </div>
             
             <div class="actions">
@@ -110,6 +128,14 @@ if (!$user_id) {
                         <span class="summary-label">Total Amount</span>
                         <span class="summary-value" id="totalAmountSum">₹ 0.00</span>
                     </div>
+                    <div class="summary-item" id="aiqExtraSummary1" style="display:none;">
+                        <span class="summary-label">Amount Paid (₨)</span>
+                        <span class="summary-value" id="totalAmountPaidSum">₨ 0.00</span>
+                    </div>
+                    <div class="summary-item" id="aiqExtraSummary2" style="display:none;">
+                        <span class="summary-label">Remaining Balance (₨)</span>
+                        <span class="summary-value" id="totalRemainingSum">₨ 0.00</span>
+                    </div>
                 </div>
             </div>
             
@@ -119,11 +145,12 @@ if (!$user_id) {
                         <tr>
                             <th width="3%"><input type="checkbox" id="selectAllCheckbox" title="Select All"></th>
                             <th width="12%">Invoice No</th>
-                            <th width="15%">Date</th>
-                            <th width="25%">Customer</th>
-                            <th width="12%">Items</th>
-                            <th width="15%">Total Amount</th>
-                            <th width="21%">Actions</th>
+                            <th width="13%">Date</th>
+                            <th width="22%">Customer</th>
+                            <th width="10%">Items</th>
+                            <th width="13%">Total Amount</th>
+                            <th width="10%">Status</th>
+                            <th width="17%">Actions</th>
                         </tr>
                     </thead>
                     <tbody>

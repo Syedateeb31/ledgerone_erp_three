@@ -31,9 +31,10 @@ function initializeListPage(permissions) {
     async function loadInvoices(page = 1) {
         try {
             const companyFilter = document.getElementById('companyFilter').value;
-            let url = `../../../../server/api/sale/sale_order/order-list.php?page=${page}&limit=10`;
+            const statusValue = document.getElementById('statusFilter')?.value || 'pending';
+            let url = `../../../../server/api/sale/sale_order/order-list.php?page=${page}&limit=10&status=${encodeURIComponent(statusValue)}`;
             if (companyFilter) url += `&company_id=${companyFilter}`;
-            
+
             const response = await fetch(url);
             const data = await response.json();
             
@@ -86,7 +87,12 @@ function initializeListPage(permissions) {
             // Status cell
             const statusCell = row.insertCell(5);
             const statusBadge = document.createElement('span');
-            statusBadge.className = 'status ' + (invoice.status === 'Partially Fulfilled' ? 'status-pending' : 'status-overdue');
+            const statusClassMap = {
+                'Pending': 'status-pending',
+                'Confirmed': 'status-paid',
+                'Partially Fulfilled': 'status-warning'
+            };
+            statusBadge.className = 'status ' + (statusClassMap[invoice.status] || 'status-pending');
             statusBadge.textContent = invoice.status || 'Pending';
             statusCell.appendChild(statusBadge);
 
@@ -224,8 +230,22 @@ function initializeListPage(permissions) {
     dateTo.addEventListener('change', applyFilters);
     companyFilterEl.addEventListener('change', () => loadInvoices(1));
     customerFilter.addEventListener('change', applyFilters);
-    statusFilter.addEventListener('change', applyFilters);
     searchInput.addEventListener('input', applyFilters);
+
+    // Status is filtered server-side (so pagination/counts stay correct),
+    // so changing it re-fetches from page 1 instead of just re-filtering
+    // the already-loaded page.
+    statusFilter.addEventListener('change', () => loadInvoices(1));
+
+    // Explicit "Filter" button: re-fetches with the current Status (server-side),
+    // then re-applies the other (client-side) filters on top of the fresh result.
+    const applyFilterBtn = document.getElementById('applyFilterBtn');
+    if (applyFilterBtn) {
+        applyFilterBtn.addEventListener('click', async function () {
+            await loadInvoices(1);
+            applyFilters();
+        });
+    }
 
     // Update pagination
     function updatePagination(pagination) {
@@ -282,7 +302,8 @@ function initializeListPage(permissions) {
             alert('You do not have permission to add orders.');
             return;
         }
-        window.location.href = 'order-add.php';
+        const base = window.top.location.origin + window.top.location.pathname.replace(/\/client\/.*$/, '');
+        window.top.location.href = base + '/client/pages/soda_book/soda-book.php';
     });
 
     // Action functions

@@ -61,6 +61,11 @@ try {
         'secondary_phone' => !empty($input['secondaryPhone']) ? trim($input['secondaryPhone']) : null,
         'identity_card_no' => !empty($input['identityCard']) ? trim($input['identityCard']) : null,
         'email' => !empty($input['email']) ? trim($input['email']) : null,
+        'country_id' => !empty($input['countryId']) ? (int)$input['countryId'] : null,
+        'region_id' => !empty($input['regionId']) ? (int)$input['regionId'] : null,
+        'city_id' => !empty($input['cityId']) ? (int)$input['cityId'] : null,
+        'city_zone_id' => !empty($input['cityZoneId']) ? (int)$input['cityZoneId'] : null,
+        'area_id' => !empty($input['areaId']) ? (int)$input['areaId'] : null,
         'opening_debit_amount' => floatval($input['openingDebit'] ?? 0),
         'opening_credit_amount' => floatval($input['openingCredit'] ?? 0),
         'ait_percent' => floatval($input['aitPercent'] ?? 0),
@@ -76,7 +81,7 @@ try {
     $data['id'] = $new_id;
     
     // Insert supplier
-    $sql = "INSERT INTO suppliers (id, tenant_id, company_id, salesman_id, supplier_code, supplier_name, brand_name, address, primary_phone, secondary_phone, identity_card_no, email, opening_debit_amount, opening_credit_amount, ait_percent, is_blacklisted, created_by, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+    $sql = "INSERT INTO suppliers (id, tenant_id, company_id, salesman_id, supplier_code, supplier_name, brand_name, address, primary_phone, secondary_phone, identity_card_no, email, country_id, region_id, city_id, city_zone_id, area_id, opening_debit_amount, opening_credit_amount, ait_percent, is_blacklisted, created_by, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
     
     $stmt = $pdo->prepare($sql);
     $stmt->execute([
@@ -92,6 +97,11 @@ try {
         $data['secondary_phone'],
         $data['identity_card_no'],
         $data['email'],
+        $data['country_id'],
+        $data['region_id'],
+        $data['city_id'],
+        $data['city_zone_id'],
+        $data['area_id'],
         $data['opening_debit_amount'],
         $data['opening_credit_amount'],
         $data['ait_percent'],

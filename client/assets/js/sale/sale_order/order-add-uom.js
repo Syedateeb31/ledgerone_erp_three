@@ -91,32 +91,24 @@ function updateFooterTotals() {
     }
     
     // Update other totals
-    let totalPrice = 0, totalGross = 0, totalDisc = 0, totalTO = 0, totalGST = 0, totalFOC = 0, totalNet = 0;
+    let totalPrice = 0, totalGross = 0, totalDisc = 0, totalNet = 0;
     
     for (let row of rows) {
         const priceCell = row.querySelector('.price-cell');
         const grossCell = row.querySelector('.gross-cell');
         const discAmountCell = row.querySelector('.disc-amount-cell');
         const toAmountCell = row.querySelector('.to-amount-cell');
-        const gstAmountCell = row.querySelector('.gst-amount-cell');
-        const focCell = row.querySelector('.foc-cell');
         const netCell = row.querySelector('.net-cell');
         
         if (priceCell) totalPrice += parseFloat(priceCell.querySelector('input').value) || 0;
         if (grossCell) totalGross += parseFloat(grossCell.querySelector('input').value) || 0;
         if (discAmountCell) totalDisc += parseFloat(discAmountCell.querySelector('input').value) || 0;
-        if (toAmountCell) totalTO += parseFloat(toAmountCell.querySelector('input').value) || 0;
-        if (gstAmountCell) totalGST += parseFloat(gstAmountCell.querySelector('input').value) || 0;
-        if (focCell) totalFOC += parseFloat(focCell.querySelector('input').value) || 0;
         if (netCell) totalNet += parseFloat(netCell.querySelector('input').value) || 0;
     }
     
     document.getElementById('totalSalePrice').textContent = totalPrice.toFixed(2);
     document.getElementById('totalGrossAmount').textContent = totalGross.toFixed(2);
     document.getElementById('totalDiscountAmountItems').textContent = totalDisc.toFixed(2);
-    document.getElementById('totalTradeOfferAmount').textContent = totalTO.toFixed(2);
-    document.getElementById('totalGstAmount').textContent = totalGST.toFixed(2);
-    document.getElementById('totalFocQty').textContent = totalFOC.toFixed(2);
     document.getElementById('totalNetAmountItems').textContent = totalNet.toFixed(2);
 }
 
@@ -267,10 +259,6 @@ function calculateRowAmounts(row, qty, price) {
     const grossCell = row.querySelector('.gross-cell');
     const discPercentCell = row.querySelector('.disc-percent-cell');
     const discAmountCell = row.querySelector('.disc-amount-cell');
-    const toPercentCell = row.querySelector('.to-percent-cell');
-    const toAmountCell = row.querySelector('.to-amount-cell');
-    const gstPercentCell = row.querySelector('.gst-percent-cell');
-    const gstAmountCell = row.querySelector('.gst-amount-cell');
     const netCell = row.querySelector('.net-cell');
     
     const gross = qty * price;
@@ -282,17 +270,7 @@ function calculateRowAmounts(row, qty, price) {
     
     const afterDiscount = gross - discAmount;
     
-    const toPercent = parseFloat(toPercentCell.querySelector('input').value) || 0;
-    const toAmount = afterDiscount * (toPercent / 100);
-    toAmountCell.querySelector('input').value = toAmount.toFixed(2);
-    
-    const afterTO = afterDiscount - toAmount;
-    
-    const gstPercent = parseFloat(gstPercentCell.querySelector('input').value) || 0;
-    const gstAmount = afterTO * (gstPercent / 100);
-    gstAmountCell.querySelector('input').value = gstAmount.toFixed(2);
-    
-    const net = afterTO + gstAmount;
+    const net = afterDiscount;
     netCell.querySelector('input').value = net.toFixed(2);
     
     updateInvoiceSummaryDynamic();
@@ -316,15 +294,10 @@ function updateInvoiceSummaryDynamic() {
     const discountAmount = totalBill * (discountPercent / 100);
     const afterDiscount = totalBill - discountAmount;
     
-    const gstPercent = parseFloat(document.getElementById('totalGstPercent')?.value) || 0;
-    const gstAmount = afterDiscount * (gstPercent / 100);
     const shippingFees = parseFloat(document.getElementById('shippingFees')?.value) || 0;
-    const netAmount = afterDiscount + gstAmount + shippingFees;
+    const netAmount = afterDiscount + shippingFees;
     
     document.getElementById('totalDiscountAmount').value = discountAmount.toFixed(2);
-    if (document.getElementById('totalGstAmountSummary')) {
-        document.getElementById('totalGstAmountSummary').value = gstAmount.toFixed(2);
-    }
     document.getElementById('netAmount').textContent = netAmount.toFixed(2);
     
     updateFooterTotals();

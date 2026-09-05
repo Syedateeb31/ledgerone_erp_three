@@ -8,7 +8,7 @@ document.addEventListener('DOMContentLoaded', function () {
         { id: 'customerCode', label: 'Customer Code', visible: true },
         { id: 'customerGroup', label: 'Customer Group', visible: true },
         { id: 'customerCategory', label: 'Customer Category', visible: true },
-        { id: 'brandName', label: 'Brand Name', visible: true },
+        { id: 'brandName', label: 'Company Name', visible: true },
         { id: 'customerName', label: 'Customer Name', visible: true },
         { id: 'outStation', label: 'Out Station', visible: true },
         { id: 'shopkeeperName', label: 'Shopkeeper Name', visible: false },
@@ -355,6 +355,12 @@ document.addEventListener('DOMContentLoaded', function () {
     const submitBtn = document.getElementById('submitBtn');
     const resetBtn = document.getElementById('resetBtn');
 
+    // Link this Customer to a Supplier (same real-world party trading both ways)
+    const partyLink = initPartyLink({
+        partyType: 'customer',
+        container: document.getElementById('partyLinkContainer')
+    });
+
     // Territory dropdowns
     const countrySelect = document.getElementById('country');
     const regionSelect = document.getElementById('region');
@@ -508,7 +514,7 @@ document.addEventListener('DOMContentLoaded', function () {
         $('#company').select2({ placeholder: 'Select Company', allowClear: false });
         $('#customerGroup').select2({ placeholder: 'Select Customer Group', allowClear: true });
         $('#customerCategory').select2({ placeholder: 'Select Customer Category', allowClear: true });
-        $('#brandName').select2({ placeholder: 'Select Brand', allowClear: true });
+        $('#brandName').select2({ placeholder: 'Select Company', allowClear: true });
         $('#country').select2({ placeholder: 'Select Country', allowClear: true });
         $('#region').select2({ placeholder: 'Select Region', allowClear: true });
         $('#city').select2({ placeholder: 'Select City', allowClear: true });
@@ -1133,7 +1139,22 @@ document.addEventListener('DOMContentLoaded', function () {
         .then(data => {
             if (data.success) {
                 showNotification('Success', data.message, 'success');
-                
+
+                // If the user opted to link this customer to a supplier, do that now
+                partyLink.applyLink(data.customer_id, () => ({
+                    name: customerName.value.trim(),
+                    address: document.getElementById('address').value.trim(),
+                    primaryPhone: primaryPhone.value.trim(),
+                    secondaryPhone: secondaryPhone.value.trim(),
+                    email: email.value.trim(),
+                    identityCard: identityCard.value.trim(),
+                    companyId: companySelect.value
+                })).then(linkResult => {
+                    if (linkResult && linkResult.success === false) {
+                        showNotification('Linking Failed', linkResult.message || 'Customer was saved but could not be linked to a supplier', 'error');
+                    }
+                });
+
                 // Reset form after successful submission
                 setTimeout(function () {
                     form.reset();
@@ -1162,6 +1183,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     invoicesTableBody.innerHTML = '';
                     subAccountCounter = 0;
                     subAccountsTableBody.innerHTML = '';
+                    partyLink.reset();
                     isSubmitting = false;
                     submitBtn.disabled = false;
                     submitBtn.innerHTML = '<i class="fas fa-save"></i> Save Customer';
@@ -1211,6 +1233,7 @@ document.addEventListener('DOMContentLoaded', function () {
             invoicesTableBody.innerHTML = '';
             subAccountCounter = 0;
             subAccountsTableBody.innerHTML = '';
+            partyLink.reset();
             // Clear error states
             document.querySelectorAll('.error').forEach(el => el.classList.remove('error'));
             document.querySelectorAll('.error-text').forEach(el => {

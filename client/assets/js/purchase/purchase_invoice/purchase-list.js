@@ -64,6 +64,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     companyId: invoice.company_id,
                     items: invoice.item_count,
                     totalAmount: parseFloat(invoice.net_amount),
+                    status: invoice.status || 'pending',
                     currencySymbol: invoice.currency_symbol || ''
                 }));
                 currentPage = data.pagination.page;
@@ -138,8 +139,15 @@ document.addEventListener('DOMContentLoaded', function () {
             row.insertCell(2).textContent = invoice.supplier || 'N/A';
             row.insertCell(3).textContent = invoice.items;
             row.insertCell(4).textContent = formattedAmount;
+            
+            // Status cell with badge styling
+            const statusCell = row.insertCell(5);
+            const statusBadge = document.createElement('span');
+            statusBadge.className = `status-badge status-${invoice.status}`;
+            statusBadge.textContent = invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1);
+            statusCell.appendChild(statusBadge);
 
-            const actionsCell = row.insertCell(5);
+            const actionsCell = row.insertCell(6);
             const actionButtons = document.createElement('div');
             actionButtons.className = 'action-buttons';
 
@@ -215,7 +223,12 @@ document.addEventListener('DOMContentLoaded', function () {
             );
         }
 
-
+        // Status filter
+        if (statusFilter.value) {
+            filteredInvoices = filteredInvoices.filter(invoice =>
+                invoice.status === statusFilter.value
+            );
+        }
 
         // Search filter
         if (searchInput.value) {

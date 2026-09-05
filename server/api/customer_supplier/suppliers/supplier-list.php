@@ -27,6 +27,7 @@ try {
     $search = $_GET['search'] ?? '';
     $status = $_GET['status'] ?? '';
     $company = $_GET['company'] ?? '';
+    $city = $_GET['city'] ?? '';
     $balance = $_GET['balance'] ?? '';
     $page = max(1, (int) ($_GET['page'] ?? 1));
     $limit = min(100, max(10, (int) ($_GET['limit'] ?? 10)));
@@ -51,6 +52,11 @@ try {
     if ($company) {
         $where[] = 'company_id = ?';
         $params[] = (int)$company;
+    }
+
+    if ($city) {
+        $where[] = 'city_id = ?';
+        $params[] = (int)$city;
     }
 
     if ($balance === 'positive') {

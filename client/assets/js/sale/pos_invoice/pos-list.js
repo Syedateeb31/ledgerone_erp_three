@@ -27,6 +27,7 @@ function initializeListPage(permissions) {
     let totalPages = 1;
     const invoicesTable = document.getElementById('invoicesTable').getElementsByTagName('tbody')[0];
     let selectedIds = new Set();
+    let currentView = 'default'; // 'default' or 'aiq'
 
     function updateSelectionUI() {
         const count = selectedIds.size;
@@ -81,6 +82,7 @@ function initializeListPage(permissions) {
     const saleOfficerFilter = document.getElementById('saleOfficerFilter');
     const supplierManFilter = document.getElementById('supplierManFilter');
     const searchInput = document.getElementById('searchInput');
+    const statusFilter = document.getElementById('statusFilter');
 
     // Load invoices from API
     async function loadInvoices(page = 1) {
@@ -99,6 +101,7 @@ function initializeListPage(permissions) {
             if (saleOfficerFilter.value) params.append('saleOfficer', saleOfficerFilter.value);
             if (supplierManFilter.value) params.append('supplierMan', supplierManFilter.value);
             if (searchInput.value) params.append('search', searchInput.value);
+            if (statusFilter && statusFilter.value) params.append('invoiceType', statusFilter.value);
             
             const response = await fetch(`../../../../server/api/sale/pos_invoice/pos-list.php?${params.toString()}`);
             const data = await response.json();
@@ -112,12 +115,20 @@ function initializeListPage(permissions) {
                     company: invoice.company_name,
                     items: invoice.item_count,
                     totalAmount: parseFloat(invoice.net_amount),
+                    amountPaid: parseFloat(invoice.amount_paid || 0),
+                    invoiceType: invoice.invoice_type || '',
+                    invoiceStatus: invoice.invoice_status || 'pending',
+                    itemsDetail: invoice.items_detail || [],
                     currencySymbol: invoice.currency_symbol || ''
                 }));
                 currentPage = data.pagination.page;
                 totalPages = data.pagination.pages;
                 clearSelections();
-                populateTable(invoices);
+                if (currentView === 'aiq') {
+                    populateAiqTable(invoices);
+                } else {
+                    populateTable(invoices);
+                }
                 updatePagination(data.pagination);
             } else {
                 console.error('Error loading invoices:', data.message);
@@ -166,7 +177,13 @@ function initializeListPage(permissions) {
             row.insertCell(4).textContent = invoice.items;
             row.insertCell(5).textContent = formattedAmount;
 
-            const actionsCell = row.insertCell(6);
+            const statusCell6 = row.insertCell(6);
+            const statusBadge6 = document.createElement('span');
+            statusBadge6.className = 'status-badge status-' + (invoice.invoiceStatus || 'pending');
+            statusBadge6.textContent = invoice.invoiceStatus === 'confirmed' ? 'Confirmed' : 'Pending';
+            statusCell6.appendChild(statusBadge6);
+
+            const actionsCell = row.insertCell(7);
             const actionButtons = document.createElement('div');
             actionButtons.className = 'action-buttons';
 
@@ -210,13 +227,178 @@ function initializeListPage(permissions) {
             actionsCell.appendChild(actionButtons);
         });
         
-        updateSummary(invoiceCount, totalAmount, data[0]?.currencySymbol || '');
+        updateSummary(invoiceCount, totalAmount, data[0]?.currencySymbol || '', 0, 0);
     }
     
-    function updateSummary(count, total, currencySymbol) {
+    function updateSummary(count, total, currencySymbol, amountPaid, remaining) {
         document.getElementById('totalInvoiceCount').textContent = count;
         document.getElementById('totalAmountSum').textContent = `${currencySymbol} ${total.toFixed(2)}`;
+        const paidEl = document.getElementById('totalAmountPaidSum');
+        const remEl = document.getElementById('totalRemainingSum');
+        if (paidEl) paidEl.textContent = `₨ ${(amountPaid || 0).toFixed(2)}`;
+        if (remEl) remEl.textContent = `₨ ${(remaining || 0).toFixed(2)}`;
+        ['aiqExtraSummary1', 'aiqExtraSummary2'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.style.display = (currentView === 'aiq') ? '' : 'none';
+        });
     }
+
+    // AIQ view table
+    function populateAiqTable(data) {
+        const thead = document.getElementById('invoicesTable').getElementsByTagName('thead')[0];
+        thead.innerHTML = `<tr>
+            <th width="3%"><input type="checkbox" id="selectAllCheckbox" title="Select All"></th>
+            <th>Invoice No</th>
+            <th>Date</th>
+            <th>Customer</th>
+            <th>Product</th>
+            <th>Chassis No</th>
+            <th>Motor No</th>
+            <th>Colour</th>
+            <th>Items</th>
+            <th>Total Amount</th>
+            <th>Amount Paid (₨)</th>
+            <th>Remaining Balance (₨)</th>
+            <th>Status</th>
+            <th>Actions</th>
+        </tr>`;
+
+        // Re-bind selectAll after thead rebuild
+        document.getElementById('selectAllCheckbox').addEventListener('change', function () {
+            const checkboxes = invoicesTable.querySelectorAll('.row-checkbox');
+            checkboxes.forEach(cb => {
+                cb.checked = this.checked;
+                const id = parseInt(cb.dataset.id);
+                this.checked ? selectedIds.add(id) : selectedIds.delete(id);
+            });
+            updateSelectionUI();
+        });
+
+        invoicesTable.innerHTML = '';
+        let totalAmount = 0;
+
+        data.forEach(invoice => {
+            totalAmount += invoice.totalAmount;
+            const firstItem = invoice.itemsDetail[0] || {};
+            const remaining = invoice.totalAmount - invoice.amountPaid;
+            const formattedDate = new Date(invoice.date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+
+            const row = invoicesTable.insertRow();
+
+            const checkboxCell = row.insertCell(0);
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.className = 'row-checkbox';
+            checkbox.dataset.id = invoice.id;
+            checkbox.checked = selectedIds.has(invoice.id);
+            checkbox.addEventListener('change', function () {
+                this.checked ? selectedIds.add(invoice.id) : selectedIds.delete(invoice.id);
+                updateSelectionUI();
+            });
+            checkboxCell.appendChild(checkbox);
+
+            row.insertCell(1).textContent = invoice.invoiceNo;
+            row.insertCell(2).textContent = formattedDate;
+            row.insertCell(3).textContent = invoice.customer || 'N/A';
+            row.insertCell(4).textContent = firstItem.product_name || '-';
+            row.insertCell(5).textContent = firstItem.chassis_no || '-';
+            row.insertCell(6).textContent = firstItem.motor_no || '-';
+            row.insertCell(7).textContent = firstItem.colour || '-';
+            row.insertCell(8).textContent = invoice.items;
+            row.insertCell(9).textContent = `${invoice.currencySymbol} ${invoice.totalAmount.toFixed(2)}`;
+            row.insertCell(10).textContent = `₨ ${invoice.amountPaid.toFixed(2)}`;
+            row.insertCell(11).textContent = `₨ ${remaining.toFixed(2)}`;
+
+            const statusCell = row.insertCell(12);
+            const statusBadge = document.createElement('span');
+            const statusText = (invoice.invoiceType === 'Cash' || invoice.invoiceType === 'Credit') ? 'Delivered' : (invoice.invoiceType || '-');
+            statusBadge.className = 'status-badge status-' + statusText.toLowerCase().replace(/\s+/g, '-');
+            statusBadge.textContent = statusText;
+            statusCell.appendChild(statusBadge);
+
+            const actionsCell = row.insertCell(13);
+            const actionButtons = document.createElement('div');
+            actionButtons.className = 'action-buttons';
+
+            const editBtn = document.createElement('button');
+            editBtn.className = 'btn btn-primary btn-sm';
+            editBtn.innerHTML = '<i class="fas fa-edit"></i>';
+            editBtn.title = 'Edit Invoice';
+            if (permissions.includes('Edit')) {
+                editBtn.addEventListener('click', () => editInvoice(invoice.id));
+            } else {
+                editBtn.disabled = true;
+                editBtn.style.opacity = '0.5';
+                editBtn.style.cursor = 'not-allowed';
+            }
+
+            const printBtn = document.createElement('button');
+            printBtn.className = 'btn btn-success btn-sm';
+            printBtn.innerHTML = '<i class="fas fa-print"></i>';
+            printBtn.title = 'Print Invoice';
+            printBtn.addEventListener('click', () => printInvoice(invoice.id));
+
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'btn btn-danger btn-sm';
+            deleteBtn.innerHTML = '<i class="fas fa-trash"></i>';
+            deleteBtn.title = 'Delete Invoice';
+            if (permissions.includes('Delete')) {
+                deleteBtn.addEventListener('click', () => deleteInvoice(invoice.id));
+            } else {
+                deleteBtn.disabled = true;
+                deleteBtn.style.opacity = '0.5';
+                deleteBtn.style.cursor = 'not-allowed';
+            }
+
+            actionButtons.appendChild(editBtn);
+            actionButtons.appendChild(printBtn);
+            actionButtons.appendChild(deleteBtn);
+            actionsCell.appendChild(actionButtons);
+        });
+
+        const totalPaid = data.reduce((s, inv) => s + inv.amountPaid, 0);
+        const totalRemaining = data.reduce((s, inv) => s + (inv.totalAmount - inv.amountPaid), 0);
+        updateSummary(data.length, totalAmount, data[0]?.currencySymbol || '', totalPaid, totalRemaining);
+    }
+
+    // Restore default thead
+    function restoreDefaultThead() {
+        const thead = document.getElementById('invoicesTable').getElementsByTagName('thead')[0];
+        thead.innerHTML = `<tr>
+            <th width="3%"><input type="checkbox" id="selectAllCheckbox" title="Select All"></th>
+            <th width="12%">Invoice No</th>
+            <th width="13%">Date</th>
+            <th width="22%">Customer</th>
+            <th width="10%">Items</th>
+            <th width="13%">Total Amount</th>
+            <th width="10%">Status</th>
+            <th width="17%">Actions</th>
+        </tr>`;
+        document.getElementById('selectAllCheckbox').addEventListener('change', function () {
+            const checkboxes = invoicesTable.querySelectorAll('.row-checkbox');
+            checkboxes.forEach(cb => {
+                cb.checked = this.checked;
+                const id = parseInt(cb.dataset.id);
+                this.checked ? selectedIds.add(id) : selectedIds.delete(id);
+            });
+            updateSelectionUI();
+        });
+    }
+
+    // Global toggle function
+    window.switchView = function(view) {
+        currentView = view;
+        document.getElementById('defaultViewBtn').classList.toggle('active', view === 'default');
+        document.getElementById('aiqViewBtn').classList.toggle('active', view === 'aiq');
+        const statusFilterGroup = document.getElementById('statusFilterGroup');
+        if (statusFilterGroup) statusFilterGroup.style.display = '';
+        if (view === 'default') {
+            restoreDefaultThead();
+            populateTable(invoices);
+        } else {
+            populateAiqTable(invoices);
+        }
+    };
 
     // Initial load
     loadInvoices();
@@ -377,6 +559,7 @@ function initializeListPage(permissions) {
     saleOfficerFilter.addEventListener('change', applyFilters);
     supplierManFilter.addEventListener('change', applyFilters);
     searchInput.addEventListener('input', applyFilters);
+    if (statusFilter) statusFilter.addEventListener('change', applyFilters);
 
     // Update pagination
     function updatePagination(pagination) {
@@ -484,6 +667,7 @@ function initializeListPage(permissions) {
             document.getElementById(searchId).value = '';
             document.getElementById(searchId).placeholder = placeholder;
         });
+        if (statusFilter) statusFilter.value = '';
 
         loadInvoices(1);
     });

@@ -135,9 +135,14 @@ try {
                     $prev_invoices += $amount;
                 }
                 
-                $stmt = $pdo->prepare("SELECT amount, currency_id FROM receive_voucher WHERE tenant_id = ? AND customer_id = ? AND voucher_date < ?{$company_filter}");
+                $stmt = $pdo->prepare("SELECT rv.amount, rv.currency_id FROM receive_voucher rv WHERE rv.tenant_id = ? AND rv.customer_id = ? AND rv.voucher_date < ?{$company_filter}
+                    AND rv.id NOT IN (
+                        SELECT pdc.reference_id FROM post_dated_cheques pdc
+                        WHERE pdc.tenant_id = ? AND pdc.reference_table = 'receive_voucher' AND pdc.status = 'Pending'
+                    )");
                 $params_prev = [$tenant_id, $customer['id'], $from_date];
                 if ($company_id) $params_prev[] = $company_id;
+                $params_prev[] = $tenant_id;
                 $stmt->execute($params_prev);
                 $prev_payments_data = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 $prev_payments = 0;
@@ -194,7 +199,30 @@ try {
                     $prev_rent += $amount;
                 }
                 
-                $opening_balance = $base_opening + $prev_invoices + $prev_returns_data['refunded'] - $prev_payment_vouchers - $prev_payments - $prev_returns_data['credit'] - $prev_rent;
+                // Transfer voucher soft opening — FROM customer (credit), TO customer (debit)
+                $stmt = $pdo->prepare("SELECT COALESCE(SUM(amount), 0) as total, currency_id FROM transfer_voucher WHERE tenant_id = ? AND from_type = 'customer' AND from_customer_id = ? AND voucher_date < ?{$company_filter} GROUP BY currency_id");
+                $params_prev = [$tenant_id, $customer['id'], $from_date];
+                if ($company_id) $params_prev[] = $company_id;
+                $stmt->execute($params_prev);
+                $prev_tv_from = 0;
+                foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+                    $amt = $row['total'];
+                    if ($row['currency_id'] && $row['currency_id'] != $target_currency_id) $amt = $converter->convert($amt, $row['currency_id'], $target_currency_id);
+                    $prev_tv_from += $amt;
+                }
+
+                $stmt = $pdo->prepare("SELECT COALESCE(SUM(amount), 0) as total, currency_id FROM transfer_voucher WHERE tenant_id = ? AND to_type = 'customer' AND to_customer_id = ? AND voucher_date < ?{$company_filter} GROUP BY currency_id");
+                $params_prev = [$tenant_id, $customer['id'], $from_date];
+                if ($company_id) $params_prev[] = $company_id;
+                $stmt->execute($params_prev);
+                $prev_tv_to = 0;
+                foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+                    $amt = $row['total'];
+                    if ($row['currency_id'] && $row['currency_id'] != $target_currency_id) $amt = $converter->convert($amt, $row['currency_id'], $target_currency_id);
+                    $prev_tv_to += $amt;
+                }
+
+                $opening_balance = $base_opening + $prev_invoices + $prev_returns_data['refunded'] + $prev_tv_to + $prev_payment_vouchers - $prev_payments - $prev_returns_data['credit'] - $prev_rent - $prev_tv_from;
             }
             
             // Get transactions in date range
@@ -229,9 +257,14 @@ try {
                 if ($company_id) $return_params[] = $company_id;
             }
             
-            $payment_sql = "SELECT amount, currency_id FROM receive_voucher WHERE tenant_id = ? AND customer_id = ?{$company_filter}";
+            $payment_sql = "SELECT rv.amount, rv.currency_id FROM receive_voucher rv WHERE rv.tenant_id = ? AND rv.customer_id = ?{$company_filter}
+                AND rv.id NOT IN (
+                    SELECT pdc.reference_id FROM post_dated_cheques pdc
+                    WHERE pdc.tenant_id = ? AND pdc.reference_table = 'receive_voucher' AND pdc.status = 'Pending'
+                )";
             $payment_params = [$tenant_id, $customer['id']];
             if ($company_id) $payment_params[] = $company_id;
+            $payment_params[] = $tenant_id;
             
             $payment_voucher_sql = "SELECT amount, currency_id FROM payment_voucher WHERE tenant_id = ? AND customer_id IS NOT NULL AND supplier_id IS NULL AND customer_id = ?{$company_filter}";
             $payment_voucher_params = [$tenant_id, $customer['id']];
@@ -316,9 +349,66 @@ try {
                 $total_credit += $amount;
             }
             
-            $closing_balance = $opening_balance + $total_debit - $total_credit;
+            // Transfer voucher amounts in date range
+            $tv_from_sql = "SELECT amount, currency_id FROM transfer_voucher WHERE tenant_id = ? AND from_type = 'customer' AND from_customer_id = ?{$company_filter}";
+            $tv_from_params = [$tenant_id, $customer['id']];
+            if ($company_id) $tv_from_params[] = $company_id;
+            $tv_to_sql = "SELECT amount, currency_id FROM transfer_voucher WHERE tenant_id = ? AND to_type = 'customer' AND to_customer_id = ?{$company_filter}";
+            $tv_to_params = [$tenant_id, $customer['id']];
+            if ($company_id) $tv_to_params[] = $company_id;
+            if ($from_date && $to_date) {
+                $tv_from_sql .= " AND voucher_date BETWEEN ? AND ?";
+                $tv_from_params[] = $from_date; $tv_from_params[] = $to_date;
+                $tv_to_sql .= " AND voucher_date BETWEEN ? AND ?";
+                $tv_to_params[] = $from_date; $tv_to_params[] = $to_date;
+            }
+            $stmt = $pdo->prepare($tv_from_sql); $stmt->execute($tv_from_params);
+            foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+                $amt = $row['amount'];
+                if ($row['currency_id'] && $row['currency_id'] != $target_currency_id) $amt = $converter->convert($amt, $row['currency_id'], $target_currency_id);
+                $total_credit += $amt;
+            }
+            $stmt = $pdo->prepare($tv_to_sql); $stmt->execute($tv_to_params);
+            foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+                $amt = $row['amount'];
+                if ($row['currency_id'] && $row['currency_id'] != $target_currency_id) $amt = $converter->convert($amt, $row['currency_id'], $target_currency_id);
+                $total_debit += $amt;
+            }
+
+            // Journal voucher adjustments for this customer (single + cross-party)
+            $adj_stmt = $pdo->prepare(
+                "SELECT
+                    COALESCE(SUM(CASE WHEN jv.adj_mode='single' OR (jv.adj_mode='cross' AND jv.party_type='customer' AND jv.party_id=?
+                        AND jvl.id=(SELECT MIN(id) FROM journal_voucher_line WHERE voucher_id=jv.id AND account_id=2))
+                        OR (jv.adj_mode='cross' AND jv.party_type2='customer' AND jv.party_id2=?
+                        AND jvl.id=(SELECT MAX(id) FROM journal_voucher_line WHERE voucher_id=jv.id AND account_id=2))
+                        THEN jvl.debit ELSE 0 END), 0) as adj_debit,
+                    COALESCE(SUM(CASE WHEN jv.adj_mode='single' OR (jv.adj_mode='cross' AND jv.party_type='customer' AND jv.party_id=?
+                        AND jvl.id=(SELECT MIN(id) FROM journal_voucher_line WHERE voucher_id=jv.id AND account_id=2))
+                        OR (jv.adj_mode='cross' AND jv.party_type2='customer' AND jv.party_id2=?
+                        AND jvl.id=(SELECT MAX(id) FROM journal_voucher_line WHERE voucher_id=jv.id AND account_id=2))
+                        THEN jvl.credit ELSE 0 END), 0) as adj_credit
+                 FROM journal_voucher jv
+                 JOIN journal_voucher_line jvl ON jvl.voucher_id = jv.id AND jvl.account_id = 2
+                 WHERE jv.tenant_id = ? AND jv.status = 'posted'
+                   AND (
+                       (jv.adj_mode = 'single' AND jv.party_type = 'customer' AND jv.party_id = ?)
+                       OR (jv.adj_mode = 'cross' AND jv.party_type = 'customer' AND jv.party_id = ?)
+                       OR (jv.adj_mode = 'cross' AND jv.party_type2 = 'customer' AND jv.party_id2 = ?)
+                   )"
+            );
+            $adj_stmt->execute([
+                $customer['id'], $customer['id'], // debit CASE
+                $customer['id'], $customer['id'], // credit CASE
+                $tenant_id,
+                $customer['id'], $customer['id'], $customer['id'] // WHERE
+            ]);
+            $adj_row = $adj_stmt->fetch(PDO::FETCH_ASSOC);
+            $adj_net = floatval($adj_row['adj_debit']) - floatval($adj_row['adj_credit']);
+
+            $closing_balance = $opening_balance + $total_debit - $total_credit + $adj_net;
             
-            if ($closing_balance != 0 || $total_debit != 0 || $total_credit != 0) {
+            if ($closing_balance != 0 || $total_debit != 0 || $total_credit != 0 || $adj_net != 0) {
                 $data[] = [
                     'customer_name' => $customer['customer_name'],
                     'opening_balance' => $opening_balance,
@@ -436,7 +526,26 @@ try {
             $stmt->execute([$tenant_id, $customer_id, $from_date]);
             $prev_returns_main = $stmt->fetch();
             
-            $main_account_opening = $main_account_opening + $prev_invoices_main + $prev_returns_main['refunded'] - $prev_payment_vouchers_main - $prev_payments_main - $prev_returns_main['credit'];
+            // Transfer vouchers for main account (no sub_account_id)
+            $stmt = $pdo->prepare("SELECT COALESCE(SUM(amount), 0) as total, currency_id FROM transfer_voucher WHERE tenant_id = ? AND from_type = 'customer' AND from_customer_id = ? AND voucher_date < ? AND (from_sub_account_id IS NULL OR from_sub_account_id = 0) GROUP BY currency_id");
+            $stmt->execute([$tenant_id, $customer_id, $from_date]);
+            $prev_tv_from_main = 0;
+            foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+                $amt = $row['total'];
+                if ($row['currency_id'] && $row['currency_id'] != $target_currency_id) $amt = $converter->convert($amt, $row['currency_id'], $target_currency_id);
+                $prev_tv_from_main += $amt;
+            }
+
+            $stmt = $pdo->prepare("SELECT COALESCE(SUM(amount), 0) as total, currency_id FROM transfer_voucher WHERE tenant_id = ? AND to_type = 'customer' AND to_customer_id = ? AND voucher_date < ? AND (to_sub_account_id IS NULL OR to_sub_account_id = 0) GROUP BY currency_id");
+            $stmt->execute([$tenant_id, $customer_id, $from_date]);
+            $prev_tv_to_main = 0;
+            foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+                $amt = $row['total'];
+                if ($row['currency_id'] && $row['currency_id'] != $target_currency_id) $amt = $converter->convert($amt, $row['currency_id'], $target_currency_id);
+                $prev_tv_to_main += $amt;
+            }
+
+            $main_account_opening = $main_account_opening + $prev_invoices_main + $prev_returns_main['refunded'] + $prev_tv_to_main + $prev_payment_vouchers_main - $prev_payments_main - $prev_returns_main['credit'] - $prev_tv_from_main;
             
             // Sub account transactions
             foreach ($sub_opening_map as $sub_id => $sub_balance) {
@@ -654,8 +763,88 @@ try {
         $stmt->execute($params);
         $rent_transactions = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
+        // Get transfer vouchers — FROM this customer (credit), TO this customer (debit)
+        $tv_company_filter = ($company_id ? " AND company_id = ?" : "");
+        $sql = "SELECT voucher_date as date,
+                CONCAT('Transfer Out - ', voucher_number) as description,
+                voucher_number as reference,
+                0 as debit, amount as credit, 'transfer_out' as type, null as sub_account_id, currency_id
+                FROM transfer_voucher
+                WHERE tenant_id = ? AND from_type = 'customer' AND from_customer_id = ?{$tv_company_filter}";
+        $params = [$tenant_id, $customer_id];
+        if ($company_id) $params[] = $company_id;
+        if ($from_date && $to_date) { $sql .= " AND voucher_date BETWEEN ? AND ?"; $params[] = $from_date; $params[] = $to_date; }
+        $stmt = $pdo->prepare($sql); $stmt->execute($params);
+        $tv_out = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $sql = "SELECT voucher_date as date,
+                CONCAT('Transfer In - ', voucher_number) as description,
+                voucher_number as reference,
+                amount as debit, 0 as credit, 'transfer_in' as type, null as sub_account_id, currency_id
+                FROM transfer_voucher
+                WHERE tenant_id = ? AND to_type = 'customer' AND to_customer_id = ?{$tv_company_filter}";
+        $params = [$tenant_id, $customer_id];
+        if ($company_id) $params[] = $company_id;
+        if ($from_date && $to_date) { $sql .= " AND voucher_date BETWEEN ? AND ?"; $params[] = $from_date; $params[] = $to_date; }
+        $stmt = $pdo->prepare($sql); $stmt->execute($params);
+        $tv_in = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Get journal voucher adjustments for this customer (single + cross-party)
+        // Join journal_voucher_line directly — for cross-party, each line belongs to one party
+        // party_type/party_id = party1 (first line), party_type2/party_id2 = party2 (second line)
+        // We pick the line that belongs to THIS customer only
+        $adj_sql = "SELECT jv.voucher_date as date,
+                CONCAT('Adjustment - ', jv.voucher_number) as description,
+                jv.voucher_number as reference,
+                jvl.debit, jvl.credit,
+                'adjustment' as type, null as sub_account_id, null as currency_id,
+                jv.description as adj_note,
+                CASE
+                    WHEN jv.adj_mode = 'cross' AND jv.party_type = 'customer' AND jv.party_id = ? THEN
+                        CONCAT(UPPER(jv.party_type2), ': ', COALESCE(
+                            (SELECT customer_name FROM customers WHERE id = jv.party_id2 LIMIT 1),
+                            (SELECT supplier_name FROM suppliers WHERE id = jv.party_id2 LIMIT 1)
+                        ))
+                    WHEN jv.adj_mode = 'cross' AND jv.party_type2 = 'customer' AND jv.party_id2 = ? THEN
+                        CONCAT(UPPER(jv.party_type), ': ', COALESCE(
+                            (SELECT customer_name FROM customers WHERE id = jv.party_id LIMIT 1),
+                            (SELECT supplier_name FROM suppliers WHERE id = jv.party_id LIMIT 1)
+                        ))
+                    ELSE (
+                        SELECT a.name FROM journal_voucher_line jvl2
+                        JOIN accounts a ON a.id = jvl2.account_id
+                        WHERE jvl2.voucher_id = jv.id AND jvl2.account_id != 2
+                        LIMIT 1
+                    )
+                END as contra_account_name
+                FROM journal_voucher jv
+                JOIN journal_voucher_line jvl ON jvl.voucher_id = jv.id AND jvl.account_id = 2
+                WHERE jv.tenant_id = ? AND jv.status = 'posted'
+                  AND (
+                      -- single mode: party1 is this customer, take the one line with account_id=2
+                      (jv.adj_mode = 'single' AND jv.party_type = 'customer' AND jv.party_id = ?)
+                      OR
+                      -- cross mode party1: this customer is party1, pick the line matching party1 side
+                      -- party1 is always the FIRST line inserted (lower id)
+                      (jv.adj_mode = 'cross' AND jv.party_type = 'customer' AND jv.party_id = ?
+                       AND jvl.id = (SELECT MIN(id) FROM journal_voucher_line WHERE voucher_id = jv.id AND account_id = 2))
+                      OR
+                      -- cross mode party2: this customer is party2, pick the line matching party2 side
+                      (jv.adj_mode = 'cross' AND jv.party_type2 = 'customer' AND jv.party_id2 = ?
+                       AND jvl.id = (SELECT MAX(id) FROM journal_voucher_line WHERE voucher_id = jv.id AND account_id = 2))
+                  )";
+        $adj_params = [$customer_id, $customer_id, $tenant_id, $customer_id, $customer_id, $customer_id];
+        if ($from_date && $to_date) {
+            $adj_sql .= " AND jv.voucher_date BETWEEN ? AND ?";
+            $adj_params[] = $from_date;
+            $adj_params[] = $to_date;
+        }
+        $stmt = $pdo->prepare($adj_sql);
+        $stmt->execute($adj_params);
+        $adjustments = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
         // Combine and sort transactions
-        $transactions = array_merge($invoices, $payments, $returns, $pdcs, $rent_cash_transactions);
+        $transactions = array_merge($invoices, $payments, $returns, $pdcs, $rent_cash_transactions, $tv_out, $tv_in, $adjustments);
         
         // Get sub accounts
         $stmt = $pdo->prepare("SELECT id, sub_account_name FROM customer_sub_accounts WHERE tenant_id = ? AND customer_id = ?");
@@ -684,18 +873,59 @@ try {
         $running_balance = $opening_balance;
         
         // Add main account opening balance (only if not filtering by sub account)
-        if (!$sub_account_id && $main_account_opening != 0) {
-            $result[] = [
-                'date' => $from_date ?: 'Opening Balance',
-                'description' => $from_date ? 'Soft Opening Balance' : 'Opening Balance',
-                'reference' => 'OB-MAIN',
-                'debit' => 0,
-                'credit' => 0,
-                'running_balance' => $main_account_opening,
-                'type' => 'opening_balance',
-                'sub_account_id' => null
-            ];
-            $running_balance = $main_account_opening;
+        if (!$sub_account_id) {
+            // Fetch individual opening balance invoices
+            $ob_stmt = $pdo->prepare("SELECT invoice_number, debit, invoice_date FROM opening_balance_invoices WHERE tenant_id = ? AND customer_id = ? ORDER BY invoice_date ASC, id ASC");
+            $ob_stmt->execute([$tenant_id, $customer_id]);
+            $ob_invoices = $ob_stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            if ($from_date) {
+                // When date filter is set, show single Soft Opening Balance row
+                if ($main_account_opening != 0) {
+                    $result[] = [
+                        'date' => $from_date,
+                        'description' => 'Soft Opening Balance',
+                        'reference' => 'OB-MAIN',
+                        'debit' => 0,
+                        'credit' => 0,
+                        'running_balance' => $main_account_opening,
+                        'type' => 'opening_balance',
+                        'sub_account_id' => null
+                    ];
+                }
+                $running_balance = $main_account_opening;
+            } elseif (!empty($ob_invoices)) {
+                // No date filter: show individual OB invoice rows
+                $ob_running = 0;
+                foreach ($ob_invoices as $obi) {
+                    $ob_amount = floatval($obi['debit']);
+                    $ob_running += $ob_amount;
+                    $result[] = [
+                        'date' => $obi['invoice_date'] ?: 'Opening Balance',
+                        'description' => 'Opening Balance',
+                        'reference' => $obi['invoice_number'] ?: 'OB-MAIN',
+                        'debit' => $ob_amount,
+                        'credit' => 0,
+                        'running_balance' => $ob_running,
+                        'type' => 'opening_balance',
+                        'sub_account_id' => null
+                    ];
+                }
+                $running_balance = $main_account_opening;
+            } elseif ($main_account_opening != 0) {
+                // Fallback: single OB row
+                $result[] = [
+                    'date' => 'Opening Balance',
+                    'description' => 'Opening Balance',
+                    'reference' => 'OB-MAIN',
+                    'debit' => 0,
+                    'credit' => 0,
+                    'running_balance' => $main_account_opening,
+                    'type' => 'opening_balance',
+                    'sub_account_id' => null
+                ];
+                $running_balance = $main_account_opening;
+            }
         }
         
         // Process main account transactions (sub_account_id = null) - only if not filtering by sub account

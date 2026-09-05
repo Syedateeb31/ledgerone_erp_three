@@ -60,11 +60,18 @@ try {
     $stmt = $pdo->prepare("
         INSERT INTO purchase_invoice (
             tenant_id, company_id, currency_id, bill_no, purchase_date, supplier_id, branch_id,
-            previous_balance, total_bill, total_discount_percent, 
-            total_discount_amount, total_tax_percent, total_tax_amount, 
-            shipping_fees, shipping_fees_type, net_amount, supplier_invoice_no, supplier_invoice_date, 
-            purchase_order_id, bilty_no, transport_name, remarks, sub_account_id, created_by, updated_by
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            previous_balance, total_bill, total_discount_percent,
+            total_discount_amount, total_tax_percent, total_tax_amount,
+            shipping_fees, shipping_fees_type, net_amount, status, supplier_invoice_no, supplier_invoice_date,
+            purchase_order_id, rpo_no, truck_no, payment_term_id, bilty_no, transport_name, remarks, sub_account_id,
+            rate_type, brokery_rate_type, brokery_kg_basis, brokery_pct_mode, brokery_rate, brokery_amount, brokery_amount_sign,
+            brokery_tax_percent, brokery_tax_amount, brokery_tax_amount_sign,
+            wt_charges, wt_charges_sign, freight, freight_sign, m_sukri, m_sukri_sign,
+            broken_percent, broken_amount, broken_amount_sign,
+            bardana, bardana_sign, phone_charges, phone_charges_sign,
+            filling_charges, filling_charges_sign, total_charges,
+            created_by, updated_by
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ");
     
     $stmt->execute([
@@ -84,13 +91,43 @@ try {
         $input['shippingFees'] ?? 0.00,
         $input['shippingFeesType'] ?? 'add',
         $input['netAmount'],
+        $input['status'] ?? 'pending',
         $input['supplierInvoiceNo'],
         $input['supplierInvoiceDate'],
         $input['purchaseOrderId'] ?? null,
+        $input['rpoNo'] ?? null,
+        $input['truckNo'] ?? null,
+        $input['paymentTermId'] ?? null,
         $input['biltyNo'],
         $input['transportName'],
         $input['remarks'] ?? null,
         $input['subAccountId'] ?? null,
+        $input['rateType'] ?? null,
+        $input['brokeryRateType'] ?? null,
+        $input['brokeryKgBasis'] ?? 'net',
+        $input['brokeryPctMode'] ?? 0,
+        $input['brokeryRate'] ?? 0,
+        $input['brokeryAmount'] ?? 0,
+        $input['brokeryAmountSign'] ?? '+',
+        $input['brokeryTaxPercent'] ?? 0,
+        $input['brokeryTaxAmount'] ?? 0,
+        $input['brokeryTaxAmountSign'] ?? '+',
+        $input['wtCharges'] ?? 0,
+        $input['wtChargesSign'] ?? '+',
+        $input['freight'] ?? 0,
+        $input['freightSign'] ?? '+',
+        $input['mSukri'] ?? 0,
+        $input['mSukriSign'] ?? '+',
+        $input['brokenPercent'] ?? 0,
+        $input['brokenAmount'] ?? 0,
+        $input['brokenAmountSign'] ?? '+',
+        $input['bardana'] ?? 0,
+        $input['bardanaSign'] ?? '+',
+        $input['phoneCharges'] ?? 0,
+        $input['phoneChargesSign'] ?? '+',
+        $input['fillingCharges'] ?? 0,
+        $input['fillingChargesSign'] ?? '+',
+        $input['totalCharges'] ?? 0,
         $user_id,
         $user_id
     ]);
@@ -103,9 +140,10 @@ try {
             tenant_id, purchase_invoice_id, product_id, uom_id,
             quantity, purchase_price, gross_amount, discount_percent,
             discount_amount, trade_offer_percent, trade_offer_amount,
-            tax_percent, tax_amount, foc_quantity, net_amount, 
+            tax_percent, tax_amount, foc_quantity, net_amount,
+            bag, total_kg, cut_kg_percent, cut_kg, al_kg_percent, al_kg, net_kg, al_rate_cut, net_rate,
             created_by, updated_by
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ");
     
     foreach ($input['items'] as $item) {
@@ -128,6 +166,15 @@ try {
                 $isFirstEntry ? $item['taxAmount'] : 0,
                 $item['focQty'] ?? 0,
                 $isFirstEntry ? $item['netAmount'] : 0,
+                $isFirstEntry ? ($item['bag'] ?? 0) : 0,
+                $isFirstEntry ? ($item['totalKg'] ?? 0) : 0,
+                $isFirstEntry ? ($item['cutKgPercent'] ?? 0) : 0,
+                $isFirstEntry ? ($item['cutKg'] ?? 0) : 0,
+                $isFirstEntry ? ($item['alKgPercent'] ?? 0) : 0,
+                $isFirstEntry ? ($item['alKg'] ?? 0) : 0,
+                $isFirstEntry ? ($item['netKg'] ?? 0) : 0,
+                $isFirstEntry ? ($item['alRateCut'] ?? 0) : 0,
+                $isFirstEntry ? ($item['netRate'] ?? 0) : 0,
                 $user_id,
                 $user_id
             ]);

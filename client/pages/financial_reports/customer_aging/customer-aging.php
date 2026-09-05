@@ -35,6 +35,59 @@ $currency_symbol = $currency['symbol'];
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="../../../assets/css/financial_reports/customer_aging/customer-aging.css">
 </head>
+<style>
+    /* Append to customer-aging.css — styles for the searchable customer combobox */
+
+.combo-select {
+    position: relative;
+}
+
+.combo-select .form-select {
+    width: 100%;
+}
+
+.combo-dropdown {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    z-index: 50;
+    max-height: 220px;
+    overflow-y: auto;
+    background: var(--surface, #fff);
+    border: 1px solid var(--border, #e2e8f0);
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+    margin-top: 4px;
+}
+
+.combo-dropdown.open {
+    display: block;
+}
+
+.combo-dropdown .combo-option {
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.combo-dropdown .combo-option:hover,
+.combo-dropdown .combo-option.active {
+    background: var(--hover, #f1f5f9);
+}
+
+.combo-dropdown .combo-empty {
+    padding: 8px 12px;
+    font-size: 13px;
+    color: var(--subtext, #94a3b8);
+}
+
+select.form-select:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+</style>
 <body>
     <div class="container">
         <!-- Header -->
@@ -48,23 +101,16 @@ $currency_symbol = $currency['symbol'];
             <div class="card-header">
                 <h3>Report Filters</h3>
                 <div class="filter-actions">
-                    <div class="dropdown">
-                        <button class="btn btn-secondary dropdown-toggle">
-                            <i class="fas fa-download"></i> Export
-                        </button>
-                        <div class="dropdown-menu">
-                            <a href="#" class="dropdown-item" onclick="printReport(); return false;">
-                                <i class="fas fa-print"></i> Print Report
-                            </a>
-                            <a href="#" class="dropdown-item" onclick="exportToExcel(); return false;">
-                                <i class="fas fa-file-excel"></i> Export To Excel
-                            </a>
-                            <a href="#" class="dropdown-item" onclick="exportToJSON(); return false;">
-                                <i class="fas fa-file-code"></i> Export JSON
-                            </a>
-                        </div>
-                    </div>
-                    <button class="btn btn-primary">
+                    <button class="btn btn-secondary" onclick="printReport()">
+                        <i class="fas fa-print"></i> Print
+                    </button>
+                    <button class="btn btn-secondary" onclick="exportToExcel()">
+                        <i class="fas fa-file-excel"></i> Excel
+                    </button>
+                    <button class="btn btn-secondary" onclick="exportToJSON()">
+                        <i class="fas fa-file-code"></i> JSON
+                    </button>
+                    <button class="btn btn-primary" id="applyFiltersBtn">
                         <i class="fas fa-filter"></i> Apply Filters
                     </button>
                 </div>
@@ -75,6 +121,52 @@ $currency_symbol = $currency['symbol'];
                     <label class="form-label">Company</label>
                     <select class="form-select" id="companyFilter">
                         <option value="">All Companies</option>
+                    </select>
+                </div>
+
+                <!-- Customer: dropdown + type-to-search combobox in one control -->
+                <div class="form-group">
+                    <label class="form-label">Customer</label>
+                    <div class="combo-select" id="customerCombo">
+                        <input type="text" class="form-select" id="customerFilterInput"
+                               placeholder="All Customers" autocomplete="off">
+                        <input type="hidden" id="customerFilter" value="">
+                        <div class="combo-dropdown" id="customerDropdown"></div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Country</label>
+                    <select class="form-select" id="countryFilter">
+                        <option value="">All Countries</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Region</label>
+                    <select class="form-select" id="regionFilter" disabled>
+                        <option value="">All Regions</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">City</label>
+                    <select class="form-select" id="cityFilter" disabled>
+                        <option value="">All Cities</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Zone</label>
+                    <select class="form-select" id="zoneFilter" disabled>
+                        <option value="">All Zones</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Area</label>
+                    <select class="form-select" id="areaFilter" disabled>
+                        <option value="">All Areas</option>
                     </select>
                 </div>
                 
@@ -109,7 +201,7 @@ $currency_symbol = $currency['symbol'];
                     </select>
                 </div>
                 
-                <button class="btn btn-ghost">
+                <button class="btn btn-ghost" id="resetFiltersBtn">
                     <i class="fas fa-redo"></i> Reset Filters
                 </button>
             </div>
@@ -119,27 +211,27 @@ $currency_symbol = $currency['symbol'];
         <h2>Overdue Summary</h2>
         <div class="buckets-summary">
             <div class="bucket-card">
-                <div class="bucket-value">$42,850</div>
+                <div class="bucket-value" id="totalOverdueValue">$0</div>
                 <div class="bucket-label">Total Overdue</div>
                 <div class="mt-2" style="font-size: 12px; color: var(--subtext);">Across all customers</div>
             </div>
             
             <div class="bucket-card">
-                <div class="bucket-value">$18,240</div>
+                <div class="bucket-value" id="bucket15Value">$0</div>
                 <div class="bucket-label">15+ Days Overdue</div>
-                <div class="mt-2" style="font-size: 12px; color: var(--subtext);">12 invoices</div>
+                <div class="mt-2" style="font-size: 12px; color: var(--subtext);"><span id="bucket15Count">0</span> invoices</div>
             </div>
             
             <div class="bucket-card warning">
-                <div class="bucket-value">$14,750</div>
+                <div class="bucket-value" id="bucket25Value">$0</div>
                 <div class="bucket-label">25+ Days Overdue</div>
-                <div class="mt-2" style="font-size: 12px; color: var(--subtext);">8 invoices</div>
+                <div class="mt-2" style="font-size: 12px; color: var(--subtext);"><span id="bucket25Count">0</span> invoices</div>
             </div>
             
             <div class="bucket-card error">
-                <div class="bucket-value">$9,860</div>
+                <div class="bucket-value" id="bucket45Value">$0</div>
                 <div class="bucket-label">45+ Days Overdue</div>
-                <div class="mt-2" style="font-size: 12px; color: var(--subtext);">5 invoices</div>
+                <div class="mt-2" style="font-size: 12px; color: var(--subtext);"><span id="bucket45Count">0</span> invoices</div>
             </div>
         </div>
         
@@ -148,7 +240,7 @@ $currency_symbol = $currency['symbol'];
             <div class="card-header">
                 <h3>Aging Report Details</h3>
                 <div class="d-flex align-center">
-                    <div class="pagination-info">Showing 1-10 of 45 entries</div>
+                    <div class="pagination-info" id="paginationInfoTop">Showing 0 entries</div>
                 </div>
             </div>
             
@@ -161,6 +253,7 @@ $currency_symbol = $currency['symbol'];
                             <th>Customer Name</th>
                             <th>Address</th>
                             <th>Invoice No</th>
+                            <th>Invoice Date</th>
                             <th>Type</th>
                             <th>Amount</th>
                             <th>Days Overdue</th>
@@ -175,8 +268,8 @@ $currency_symbol = $currency['symbol'];
             
             <!-- Pagination -->
             <div class="pagination">
-                <div class="pagination-info">Page 1 of 5</div>
-                <div class="pagination-controls">
+                <div class="pagination-info" id="paginationInfoBottom">Page 1 of 1</div>
+                <div class="pagination-controls" id="paginationControls">
                     <!-- Buttons will be generated by JavaScript -->
                 </div>
             </div>

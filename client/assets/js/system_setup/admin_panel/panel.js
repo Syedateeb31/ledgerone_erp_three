@@ -1,7 +1,21 @@
 let users = [];
 let roles = [];
 let employees = [];
+let allBranches = [];   // all branches for the tenant
 let stats = { total: 0, active: 0, blocked: 0 };
+
+// Fetch branches from API
+async function fetchBranches() {
+    try {
+        const response = await fetch('../../../../server/api/system_setup/admin_panel/get-branches.php');
+        const data = await response.json();
+        if (data.success) {
+            allBranches = data.branches;
+        }
+    } catch (error) {
+        console.error('Error fetching branches:', error);
+    }
+}
 
 // Fetch users from API
 async function fetchUsers() {
@@ -119,63 +133,189 @@ function renderUsersTable() {
     });
 }
 
-// Modal functions
+// ─── Branch Multi-Select Helper ────────────────────────────────────────────
+
+/**
+ * Initialise a searchable multi-select branch picker.
+ * @param {string} searchId   - id of the text input used for searching
+ * @param {string} dropdownId - id of the dropdown list container
+ * @param {string} tagsId     - id of the selected-tags container
+ * @param {string} hiddenId   - id of the hidden input that stores selected IDs
+ * @param {number[]} preselected - array of branch IDs to pre-select
+ */
+function initBranchPicker(searchId, dropdownId, tagsId, hiddenId, preselected = []) {
+    const searchInput  = document.getElementById(searchId);
+    const dropdown     = document.getElementById(dropdownId);
+    const tagsContainer = document.getElementById(tagsId);
+    const hiddenInput  = document.getElementById(hiddenId);
+
+    let selectedIds = [...preselected];
+
+    function getDisplayText(b) {
+        return b.parent_branch_name
+            ? `${b.parent_branch_name} > ${b.branch_code} - ${b.branch_name} (${b.branch_type})`
+            : `${b.branch_code} - ${b.branch_name} (${b.branch_type})`;
+    }
+
+    function renderTags() {
+        tagsContainer.innerHTML = '';
+        selectedIds.forEach(id => {
+            const branch = allBranches.find(b => b.id == id);
+            if (!branch) return;
+            const tag = document.createElement('span');
+            tag.style.cssText = 'display:inline-flex;align-items:center;gap:4px;padding:3px 8px;background:rgba(31,123,255,0.1);color:var(--primary);border-radius:12px;font-size:12px;';
+            tag.innerHTML = `${branch.branch_code} - ${branch.branch_name} <button type="button" data-id="${id}" style="background:none;border:none;color:var(--primary);cursor:pointer;font-size:14px;padding:0;line-height:1;">&times;</button>`;
+            tag.querySelector('button').addEventListener('click', () => {
+                selectedIds = selectedIds.filter(x => x != id);
+                updateHidden();
+                renderTags();
+                renderDropdown(searchInput.value);
+            });
+            tagsContainer.appendChild(tag);
+        });
+        // "All branches" hint
+        if (selectedIds.length === 0) {
+            const hint = document.createElement('span');
+            hint.style.cssText = 'font-size:12px;color:var(--subtext);';
+            hint.textContent = 'No branch selected — user will have no branch access.';
+            tagsContainer.appendChild(hint);
+        }
+    }
+
+    function updateHidden() {
+        hiddenInput.value = JSON.stringify(selectedIds);
+    }
+
+    function renderDropdown(term = '') {
+        dropdown.innerHTML = '';
+        const filtered = allBranches.filter(b => {
+            const text = getDisplayText(b).toLowerCase();
+            return text.includes(term.toLowerCase()) && !selectedIds.includes(b.id);
+        });
+        if (filtered.length === 0) {
+            dropdown.innerHTML = '<div style="padding:8px 12px;color:var(--subtext);font-size:13px;">No branches found</div>';
+        } else {
+            filtered.forEach(b => {
+                const item = document.createElement('div');
+                item.style.cssText = 'padding:8px 12px;cursor:pointer;font-size:13px;';
+                item.textContent = getDisplayText(b);
+                item.addEventListener('mouseenter', () => item.style.background = 'var(--surface-1)');
+                item.addEventListener('mouseleave', () => item.style.background = '');
+                item.addEventListener('mousedown', (e) => {
+                    e.preventDefault();
+                    selectedIds.push(b.id);
+                    updateHidden();
+                    renderTags();
+                    searchInput.value = '';
+                    renderDropdown('');
+                });
+                dropdown.appendChild(item);
+            });
+        }
+    }
+
+    searchInput.addEventListener('focus', () => {
+        renderDropdown(searchInput.value);
+        dropdown.style.display = 'block';
+    });
+    searchInput.addEventListener('input', () => {
+        renderDropdown(searchInput.value);
+        dropdown.style.display = 'block';
+    });
+    searchInput.addEventListener('blur', () => {
+        setTimeout(() => { dropdown.style.display = 'none'; }, 150);
+    });
+
+    // Init
+    updateHidden();
+    renderTags();
+}
+
+// ─── Modal functions ─────────────────────────────────────────────────────────
 function openCreateUserModal() {
     document.getElementById('createUserModal').style.display = 'flex';
+    // Init branch picker fresh (no preselected)
+    document.getElementById('createBranchIds').value = '[]';
+    document.getElementById('createSelectedBranches').innerHTML = '';
+    document.getElementById('createBranchSearch').value = '';
+    document.getElementById('createBranchDropdown').style.display = 'none';
+    initBranchPicker('createBranchSearch', 'createBranchDropdown', 'createSelectedBranches', 'createBranchIds', []);
 }
 
 function closeCreateUserModal() {
     document.getElementById('createUserModal').style.display = 'none';
     document.getElementById('createUserForm').reset();
+    document.getElementById('createSelectedBranches').innerHTML = '';
+    document.getElementById('createBranchIds').value = '';
 }
 
-function openEditUserModal(userId) {
+async function openEditUserModal(userId) {
     const user = users.find(u => u.id === userId);
     if (!user) return;
 
+    // Fetch existing branch access for this user
+    let preselectedBranches = [];
+    try {
+        const res = await fetch(`../../../../server/api/system_setup/admin_panel/user-branch.php?user_id=${userId}`);
+        const d = await res.json();
+        if (d.success) preselectedBranches = d.branches.map(b => b.branch_id);
+    } catch (_) {}
+
     const modalBody = document.querySelector('#editUserModal .modal-body');
     modalBody.innerHTML = `
-                <form id="editUserForm">
-                    <div class="form-grid">
-                        <div class="form-group">
-                            <label class="form-label">Full Name</label>
-                            <input type="text" class="form-input" value="${user.name}" required>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Email Address</label>
-                            <input type="email" class="form-input" value="${user.email}" required>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Employee</label>
-                            <select class="form-select" name="employee_id">
-                                <option value="">Select Employee (Optional)</option>
-                                ${employees.map(emp => `<option value="${emp.id}" ${user.employee_id == emp.id ? 'selected' : ''}>${emp.employee_id} - ${emp.full_name}</option>`).join('')}
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Role</label>
-                            <select class="form-select" name="role">
-                                <option value="">Select Role</option>
-                                ${roles.map(role => `<option value="${role.id}" ${user.role === role.name ? 'selected' : ''}>${role.name}</option>`).join('')}
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Status</label>
-                            <select class="form-select">
-                                <option value="active" ${user.status === 'active' ? 'selected' : ''}>Active</option>
-                                <option value="blocked" ${user.status === 'blocked' ? 'selected' : ''}>Blocked</option>
-                            </select>
-                        </div>
+        <form id="editUserForm">
+            <div class="form-grid">
+                <div class="form-group">
+                    <label class="form-label">Full Name</label>
+                    <input type="text" id="editFullName" class="form-input" value="${user.name}" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Email Address</label>
+                    <input type="email" id="editEmail" class="form-input" value="${user.email}" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Employee</label>
+                    <select id="editEmployee" class="form-select" name="employee_id">
+                        <option value="">Select Employee (Optional)</option>
+                        ${employees.map(emp => `<option value="${emp.id}" ${user.employee_id == emp.id ? 'selected' : ''}>${emp.employee_id} - ${emp.full_name}</option>`).join('')}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Role</label>
+                    <select id="editRole" class="form-select" name="role">
+                        <option value="">Select Role</option>
+                        ${roles.map(role => `<option value="${role.id}" ${user.role === role.name ? 'selected' : ''}>${role.name}</option>`).join('')}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Status</label>
+                    <select id="editStatus" class="form-select">
+                        <option value="active" ${user.status === 'active' ? 'selected' : ''}>Active</option>
+                        <option value="blocked" ${user.status === 'blocked' ? 'selected' : ''}>Blocked</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Reset Password</label>
+                    <input type="password" id="editPassword" class="form-input" placeholder="Leave blank to keep current password">
+                </div>
+                <div class="form-group" style="grid-column: 1 / -1;">
+                    <label class="form-label">Branch Access</label>
+                    <div style="position: relative;">
+                        <input type="text" id="editBranchSearch" class="form-input" placeholder="Search branches..." autocomplete="off">
+                        <div id="editBranchDropdown" style="display:none; position:absolute; top:100%; left:0; right:0; background:var(--surface-card); border:1px solid var(--border-default); border-radius:var(--radius); max-height:200px; overflow-y:auto; z-index:1050; box-shadow:0 4px 12px rgba(0,0,0,0.1);"></div>
                     </div>
-                    <div class="form-group">
-                        <label class="form-label">Reset Password</label>
-                        <input type="password" class="form-input" placeholder="Leave blank to keep current password">
-                    </div>
-                </form>
-            `;
+                    <div id="editSelectedBranches" style="display:flex; flex-wrap:wrap; gap:6px; margin-top:8px;"></div>
+                    <input type="hidden" id="editBranchIds" value="">
+                </div>
+            </div>
+        </form>
+    `;
 
     document.getElementById('editUserModal').style.display = 'flex';
     window.currentEditingUserId = userId;
+
+    // Init branch picker with preselected branches
+    initBranchPicker('editBranchSearch', 'editBranchDropdown', 'editSelectedBranches', 'editBranchIds', preselectedBranches);
 }
 
 function closeEditUserModal() {
@@ -217,24 +357,24 @@ function renderPermissionsTree(permissions) {
     
     const permissionsStructure = {
         'Dashboard': [],
-        'Customer / Supplier': ['New Customer', 'New Supplier', 'Leads'],
+        'Customer / Supplier': ['New Customer', 'New Supplier', 'New Customer + Supplier (Both)', 'Leads'],
         'Sale': ['Sale Order', 'Create Quotation', 'Sale Invoice', 'Sale Tax Invoice', 'Meter Invoice', 'POS Invoice', 'Issue Delivery Challan', 'Sale Reports', 'Daily Sale Report', 'Sale Return'],
-        'Purchase': ['Purchase Order', 'New Purchase', 'Purchase Tax Invoice', 'Purchase Reports', 'Purchase Return'],
-        'Inventory': ['New Product', 'Stock Adjustment', 'Stock Transfer', 'Stock Position', 'Inward Gatepass', 'Outward Gatepass'],
+        'Purchase': ['Record Purchase Order', 'New Purchase', 'Purchase Tax Invoice', 'Purchase Reports', 'Purchase Return', 'Project Product Rates'],
+        'Inventory': ['New Product', 'Stock Adjustment', 'Stock Transfer', 'Stock Position', 'Inward Gatepass', 'Outward Gatepass', 'Container Setup'],
         'Manufacturing': ['Bill of Materials (BOM)', 'Unit Measurement', 'Machine Setup', 'Production Order', 'WIP Management', 'Production Completion', 'Production Expenses', 'Production Wastage', 'Production Report'],
-        'Vouchers': ['Receive Voucher', 'Payment Voucher', 'Expense Voucher', 'Journal Entry', 'Cash Opening'],
+        'Vouchers': ['Receive Voucher', 'Payment Voucher', 'Transfer Voucher', 'Expense Voucher', 'Journal Entry', 'Cash Opening'],
         'Banking': ['New Bank', 'Post Dated Cheques (PDCs)'],
         'Rent Management': ['Issue Rent', 'Rent List'],
         'Chart of Accounts': [],
-        'Financial Reports': ['General Ledger', 'Customer Ledger', 'Supplier Ledger', 'Customer Aging', 'Supplier Aging', 'Recovery Sheet', 'Sales Officer-wise Recovery', 'Trial Balance', 'Balance Sheet', 'Profit & Loss Statement', 'Cash Flow', 'Financial Summary', 'Pending DSR Sheet'],
+        'Financial Reports': ['General Ledger', 'Customer Ledger', 'Supplier Ledger', 'Both (Customer + Supplier) Ledger', 'Customer Aging', 'Supplier Aging', 'Recovery Sheet', 'Sales Officer-wise Recovery', 'Trial Balance', 'Balance Sheet', 'Profit & Loss Statement', 'Cash Flow', 'Financial Summary', 'Pending DSR Sheet', 'Project Tracking', 'Container Tracking', 'Customer MarkUp Ledger', 'Brokery Tax Report', 'Brokery Income Report'],
         'HRM': ['New Employee', 'Record Attendance', 'New Payroll', 'Employees Ledger'],
-        'Master Setup': ['Branch Setup', 'Territory Setup', 'Rate List Setup', 'Tax Rates Setup', 'Tax Regimes Setup'],
+        'Master Setup': ['Branch Setup', 'Territory Setup', 'Rate List Setup', 'Tax Rates Setup', 'Tax Regimes Setup', 'Project Setup'],
         'System Setup': ['Company Profile', 'Admin Panel', 'Currency Setup', 'Software Info']
     };
 
     const subPermissions = ['Add', 'Edit', 'Delete'];
     const noSubPermCategories = ['Dashboard', 'Financial Reports'];
-    const noSubPermForms = ['Sale Reports', 'Purchase Reports', 'Stock Position', 'Software Info', 'Company Profile', 'Employees Ledger', 'Post Dated Cheques (PDCs)', 'Daily Sale Report', 'Bill of Materials (BOM)', 'Production Wastage', 'Production Report', 'Tax Rates Setup', 'Tax Regimes Setup'];
+    const noSubPermForms = ['Sale Reports', 'Purchase Reports', 'Stock Position', 'Software Info', 'Company Profile', 'Employees Ledger', 'Post Dated Cheques (PDCs)', 'Daily Sale Report', 'Bill of Materials (BOM)', 'Production Wastage', 'Production Report', 'Tax Rates Setup', 'Tax Regimes Setup', 'Project Product Rates', 'Container Tracking'];
 
     // Create permission lookup map
     const permMap = {};
@@ -448,42 +588,66 @@ function closeLoginLocationsModal() {
 
 // User actions
 async function createUser() {
-    const form = document.getElementById('createUserForm');
+    const form     = document.getElementById('createUserForm');
     const formData = new FormData(form);
-    const roleId = formData.get('role');
-    
+    const roleId   = formData.get('role');
+
+    // Parse selected branch IDs
+    let branchIds = [];
     try {
+        branchIds = JSON.parse(document.getElementById('createBranchIds').value || '[]');
+    } catch (_) { branchIds = []; }
+
+    try {
+        // Step 1 — create user
         const response = await fetch('../../../../server/api/system_setup/admin_panel/user-add.php', {
             method: 'POST',
             body: formData
         });
-        
         const data = await response.json();
-        if (data.success) {
-            // Assign role if selected
-            if (roleId && data.user_id) {
-                const roleResponse = await fetch('../../../../server/api/system_setup/admin_panel/user-role.php', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        user_id: data.user_id,
-                        role_id: parseInt(roleId)
-                    })
-                });
-                const roleData = await roleResponse.json();
-                if (!roleData.success) {
-                    alert('User created but role assignment failed: ' + roleData.message);
-                    closeCreateUserModal();
-                    fetchUsers();
-                    return;
-                }
-            }
-            alert('User created successfully!');
-            closeCreateUserModal();
-            fetchUsers();
-        } else {
+
+        if (!data.success) {
             alert('Error: ' + data.message);
+            return;
         }
+
+        const newUserId = data.user_id;
+
+        // Step 2 — assign role (if selected)
+        if (roleId && newUserId) {
+            const roleResponse = await fetch('../../../../server/api/system_setup/admin_panel/user-role.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_id: newUserId, role_id: parseInt(roleId) })
+            });
+            const roleData = await roleResponse.json();
+            if (!roleData.success) {
+                alert('User created but role assignment failed: ' + roleData.message);
+                closeCreateUserModal();
+                fetchUsers();
+                return;
+            }
+        }
+
+        // Step 3 — save branch access (if any selected)
+        if (branchIds.length > 0 && newUserId) {
+            const branchResponse = await fetch('../../../../server/api/system_setup/admin_panel/user-branch.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_id: newUserId, branch_ids: branchIds })
+            });
+            const branchData = await branchResponse.json();
+            if (!branchData.success) {
+                alert('User created but branch access assignment failed: ' + branchData.message);
+                closeCreateUserModal();
+                fetchUsers();
+                return;
+            }
+        }
+
+        alert('User created successfully!');
+        closeCreateUserModal();
+        fetchUsers();
     } catch (error) {
         alert('Error creating user');
     }
@@ -494,61 +658,77 @@ function editUser(userId) {
 }
 
 async function saveUser() {
-    if (window.currentEditingUserId) {
-        const form = document.getElementById('editUserForm');
-        const inputs = form.querySelectorAll('input, select');
-        const employeeId = inputs[2].value;
-        const roleId = inputs[3].value;
-        
-        try {
-            // Update user first
-            const response = await fetch('../../../../server/api/system_setup/admin_panel/user-edit.php', {
-                method: 'PUT',
+    if (!window.currentEditingUserId) return;
+
+    const userId     = window.currentEditingUserId;
+    const fullName   = document.getElementById('editFullName').value;
+    const email      = document.getElementById('editEmail').value;
+    const employeeId = document.getElementById('editEmployee').value;
+    const roleId     = document.getElementById('editRole').value;
+    const status     = document.getElementById('editStatus').value;
+    const password   = document.getElementById('editPassword').value;
+
+    let branchIds = [];
+    try {
+        branchIds = JSON.parse(document.getElementById('editBranchIds').value || '[]');
+    } catch (_) { branchIds = []; }
+
+    try {
+        // Step 1 — update user details
+        const response = await fetch('../../../../server/api/system_setup/admin_panel/user-edit.php', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                id: userId,
+                full_name: fullName,
+                email: email,
+                employee_id: employeeId || null,
+                is_active: status === 'active' ? 1 : 0,
+                password: password
+            })
+        });
+        const data = await response.json();
+        if (!data.success) {
+            alert('Error: ' + data.message);
+            return;
+        }
+
+        // Step 2 — assign role (if selected)
+        if (roleId) {
+            const roleResponse = await fetch('../../../../server/api/system_setup/admin_panel/user-role.php', {
+                method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    id: window.currentEditingUserId,
-                    full_name: inputs[0].value,
-                    email: inputs[1].value,
-                    employee_id: employeeId || null,
-                    is_active: inputs[4].value === 'active' ? 1 : 0,
-                    password: inputs[5].value
-                })
+                body: JSON.stringify({ user_id: parseInt(userId), role_id: parseInt(roleId) })
             });
-            
-            const data = await response.json();
-            
-            if (!data.success) {
-                alert('Error: ' + data.message);
+            const roleData = await roleResponse.json();
+            if (!roleData.success) {
+                alert('User updated but role assignment failed: ' + roleData.message + (roleData.debug ? '\n' + roleData.debug : ''));
+                closeEditUserModal();
+                fetchUsers();
                 return;
             }
-            
-            // Assign role if provided
-            if (roleId) {
-                const roleResponse = await fetch('../../../../server/api/system_setup/admin_panel/user-role.php', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        user_id: parseInt(window.currentEditingUserId),
-                        role_id: parseInt(roleId)
-                    })
-                });
-                const roleData = await roleResponse.json();
-                
-                if (!roleData.success) {
-                    alert('User updated but role assignment failed: ' + roleData.message + (roleData.debug ? '\n' + roleData.debug : ''));
-                    closeEditUserModal();
-                    fetchUsers();
-                    return;
-                }
-            }
-            
-            alert('User updated successfully!');
-            closeEditUserModal();
-            location.reload();
-        } catch (error) {
-            console.error('Error:', error);
-            alert('Error updating user');
         }
+
+        // Step 3 — save branch access (replace existing)
+        const branchResponse = await fetch('../../../../server/api/system_setup/admin_panel/user-branch.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: parseInt(userId), branch_ids: branchIds })
+        });
+        const branchData = await branchResponse.json();
+        if (!branchData.success) {
+            alert('User updated but branch access save failed: ' + branchData.message);
+            closeEditUserModal();
+            fetchUsers();
+            return;
+        }
+
+        alert('User updated successfully!');
+        closeEditUserModal();
+        fetchUsers();
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Error updating user');
     }
 }
 
@@ -671,18 +851,18 @@ function openAddPermissionModal() {
     
     const permissionsStructure = {
         'Dashboard': [],
-        'Customer / Supplier': ['New Customer', 'New Supplier', 'Leads'],
+        'Customer / Supplier': ['New Customer', 'New Supplier', 'New Customer + Supplier (Both)', 'Leads'],
         'Sale': ['Sale Order', 'Create Quotation', 'Sale Invoice', 'Sale Tax Invoice', 'Meter Invoice', 'POS Invoice', 'Issue Delivery Challan', 'Sale Reports', 'Daily Sale Report', 'Sale Return'],
-        'Purchase': ['Purchase Order', 'New Purchase', 'Purchase Tax Invoice', 'Purchase Reports', 'Purchase Return'],
-        'Inventory': ['New Product', 'Stock Adjustment', 'Stock Transfer', 'Stock Position', 'Inward Gatepass', 'Outward Gatepass'],
+        'Purchase': ['Record Purchase Order', 'New Purchase', 'Purchase Tax Invoice', 'Purchase Reports', 'Purchase Return', 'Project Product Rates'],
+        'Inventory': ['New Product', 'Stock Adjustment', 'Stock Transfer', 'Stock Position', 'Inward Gatepass', 'Outward Gatepass', 'Container Setup'],
         'Manufacturing': ['Bill of Materials (BOM)', 'Unit Measurement', 'Machine Setup', 'Production Order', 'WIP Management', 'Production Completion', 'Production Expenses', 'Production Wastage', 'Production Report'],
-        'Vouchers': ['Receive Voucher', 'Payment Voucher', 'Expense Voucher', 'Journal Entry', 'Cash Opening'],
+        'Vouchers': ['Receive Voucher', 'Payment Voucher', 'Transfer Voucher', 'Expense Voucher', 'Journal Entry', 'Cash Opening'],
         'Banking': ['New Bank', 'Post Dated Cheques (PDCs)'],
         'Rent Management': ['Issue Rent', 'Rent List'],
         'Chart of Accounts': [],
-        'Financial Reports': ['General Ledger', 'Customer Ledger', 'Supplier Ledger', 'Customer Aging', 'Supplier Aging', 'Recovery Sheet', 'Sales Officer-wise Recovery', 'Trial Balance', 'Balance Sheet', 'Profit & Loss Statement', 'Cash Flow', 'Pending DSR Sheet'],
+        'Financial Reports': ['General Ledger', 'Customer Ledger', 'Supplier Ledger', 'Both (Customer + Supplier) Ledger', 'Customer Aging', 'Supplier Aging', 'Recovery Sheet', 'Sales Officer-wise Recovery', 'Trial Balance', 'Balance Sheet', 'Profit & Loss Statement', 'Cash Flow', 'Financial Summary', 'Pending DSR Sheet', 'Project Tracking', 'Container Tracking', 'Customer Mark Up Ledger', 'Brokery Tax Report', 'Brokery Income Report'],
         'HRM': ['New Employee', 'Record Attendance', 'New Payroll', 'Employees Ledger'],
-        'Master Setup': ['Branch Setup', 'Territory Setup', 'Rate List Setup', 'Tax Rates Setup', 'Tax Regimes Setup'],
+        'Master Setup': ['Branch Setup', 'Territory Setup', 'Rate List Setup', 'Tax Rates Setup', 'Tax Regimes Setup', 'Project Setup'],
         'System Setup': ['Company Profile', 'Admin Panel', 'Currency Setup', 'Software Info']
     };
 
@@ -1020,6 +1200,7 @@ async function deleteRole(roleId) {
 document.addEventListener('DOMContentLoaded', function () {
     fetchUsers();
     fetchRoles();
+    fetchBranches();
 
     // Close modals when clicking outside
     const modals = document.querySelectorAll('.modal-overlay');

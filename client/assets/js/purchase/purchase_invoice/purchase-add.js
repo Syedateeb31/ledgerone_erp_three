@@ -20,7 +20,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const form = document.getElementById('invoiceForm');
 
     // Load all data, then initialize dropdowns and add first row
-    Promise.all([loadSuppliers(), loadBranches(), loadProducts(), loadUOM(), loadCurrencies(), loadCompanies(), loadPurchaseOrders()]).then(() => {
+    Promise.all([loadSuppliers(), loadBranches(), loadProducts(), loadUOM(), loadCurrencies(), loadCompanies(), loadPurchaseOrders(), loadPaymentTerms()]).then(() => {
         initSearchableDropdown('supplierCodeSearch', 'supplierCodeOptions', 'supplierCode');
         initSearchableDropdown('branchSearch', 'branchOptions', 'branch');
         initSearchableDropdown('purchaseOrderSearch', 'purchaseOrderOptions', 'purchaseOrder');
@@ -142,6 +142,11 @@ document.addEventListener('DOMContentLoaded', function () {
                         : `${branch.branch_code} - ${branch.branch_name} (${branch.branch_type})`;
                     option.textContent = displayText;
                     branchOptions.appendChild(option);
+
+                    if (branch.is_default == 1) {
+                        document.getElementById('branchSearch').value = displayText;
+                        document.getElementById('branch').value = branch.id;
+                    }
                 });
             }
         } catch (error) {
@@ -239,6 +244,24 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
+    // Load payment terms from API
+    async function loadPaymentTerms() {
+        try {
+            const response = await fetch('../../../../server/api/purchase/purchase_order/get-payment-terms.php');
+            const data = await response.json();
+            if (data.success) {
+                const sel = document.getElementById('paymentTerm');
+                sel.innerHTML = '<option value="">Select Payment Term</option>';
+                (data.payment_terms || []).forEach(t => {
+                    const opt = document.createElement('option');
+                    opt.value = t.id;
+                    opt.textContent = t.term_name + (t.days ? ` (${t.days} days)` : '');
+                    sel.appendChild(opt);
+                });
+            }
+        } catch (e) { console.error('Error loading payment terms:', e); }
+    }
+
     // Load purchase orders from API
     async function loadPurchaseOrders() {
         try {
@@ -253,7 +276,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     const option = document.createElement('div');
                     option.className = 'dropdown-option';
                     option.setAttribute('data-value', order.id);
-                    option.textContent = `${order.bill_no} - ${order.supplier_name} (${order.purchase_date})`;
+                    option.textContent = `${order.bill_no} - ${order.purchase_date} - ${order.supplier_name}`;
                     poOptions.appendChild(option);
                 });
             }
@@ -316,6 +339,9 @@ document.addEventListener('DOMContentLoaded', function () {
                 document.getElementById('biltyNo').value = order.bilty_no || '';
                 document.getElementById('transportName').value = order.transport_name || '';
                 document.getElementById('remarks').value = order.remarks || '';
+                document.getElementById('rpoNo').value = order.rpo_no || '';
+                document.getElementById('truckNo').value = order.truck_no || '';
+                if (order.payment_term_id) document.getElementById('paymentTerm').value = order.payment_term_id;
 
                 // Load sub accounts for supplier
                 await loadSubAccounts(order.supplier_id);
@@ -349,6 +375,15 @@ document.addEventListener('DOMContentLoaded', function () {
                         
                         // Set price and other fields
                         lastRow.querySelector('.price-cell input').value = item.purchase_price;
+                        const bI=lastRow.querySelector('.bag-cell input'); if(bI) bI.value=item.bag||0;
+                        const tkI=lastRow.querySelector('.total-kg-cell input'); if(tkI) tkI.value=item.total_kg||0;
+                        const ckpI=lastRow.querySelector('.cut-kg-percent-cell input'); if(ckpI) ckpI.value=item.cut_kg_percent||0;
+                        const ckI=lastRow.querySelector('.cut-kg-cell input'); if(ckI) ckI.value=item.cut_kg||0;
+                        const akpI=lastRow.querySelector('.al-kg-percent-cell input'); if(akpI) akpI.value=item.al_kg_percent||0;
+                        const akI=lastRow.querySelector('.al-kg-cell input'); if(akI) akI.value=item.al_kg||0;
+                        const nkI=lastRow.querySelector('.net-kg-cell input'); if(nkI) nkI.value=item.net_kg||0;
+                        const arcI=lastRow.querySelector('.al-rate-cut-cell input'); if(arcI) arcI.value=item.al_rate_cut||0;
+                        const nrI=lastRow.querySelector('.net-rate-cell input'); if(nrI) nrI.value=item.net_rate||0;
                         lastRow.querySelector('.disc-percent-cell input').value = item.discount_percent;
                         lastRow.querySelector('.disc-amount-cell input').value = item.discount_amount;
                         lastRow.querySelector('.to-percent-cell input').value = item.trade_offer_percent || 0;
@@ -415,11 +450,15 @@ document.addEventListener('DOMContentLoaded', function () {
                 const invoice = data.invoice;
                 const items = data.items || [];
 
+                document.getElementById('invoiceStatus').value = invoice.status || 'pending';
                 document.getElementById('purchaseDate').value = invoice.purchase_date || '';
                 document.getElementById('supplierInvoiceNo').value = invoice.supplier_invoice_no || '';
                 document.getElementById('supplierInvoiceDate').value = invoice.supplier_invoice_date || '';
                 document.getElementById('biltyNo').value = invoice.bilty_no || '';
                 document.getElementById('transportName').value = invoice.transport_name || '';
+                document.getElementById('rpoNo').value = invoice.rpo_no || '';
+                document.getElementById('truckNo').value = invoice.truck_no || '';
+                if (invoice.payment_term_id) document.getElementById('paymentTerm').value = invoice.payment_term_id;
                 document.getElementById('company').value = invoice.company_id || '';
                 document.getElementById('supplierCodeSearch').value = `${invoice.supplier_code || ''} - ${invoice.supplier_name || ''}`;
                 document.getElementById('supplierCode').value = invoice.supplier_id || '';
@@ -510,6 +549,16 @@ document.addEventListener('DOMContentLoaded', function () {
 
                         const netCell = row.querySelector('.net-cell input');
                         if (netCell) netCell.value = item.net_amount || 0;
+                        // KG fields
+                        const bagI = row.querySelector('.bag-cell input'); if (bagI) bagI.value = item.bag || 0;
+                        const tkI = row.querySelector('.total-kg-cell input'); if (tkI) tkI.value = item.total_kg || 0;
+                        const ckpI = row.querySelector('.cut-kg-percent-cell input'); if (ckpI) ckpI.value = item.cut_kg_percent || 0;
+                        const ckI = row.querySelector('.cut-kg-cell input'); if (ckI) ckI.value = item.cut_kg || 0;
+                        const akpI = row.querySelector('.al-kg-percent-cell input'); if (akpI) akpI.value = item.al_kg_percent || 0;
+                        const akI = row.querySelector('.al-kg-cell input'); if (akI) akI.value = item.al_kg || 0;
+                        const nkI = row.querySelector('.net-kg-cell input'); if (nkI) nkI.value = item.net_kg || 0;
+                        const arcI = row.querySelector('.al-rate-cut-cell input'); if (arcI) arcI.value = item.al_rate_cut || 0;
+                        const nrI = row.querySelector('.net-rate-cell input'); if (nrI) nrI.value = item.net_rate || 0;
 
                         // Set unit quantities
                         if (item.unit_entries && item.unit_entries.length > 0) {
@@ -531,6 +580,42 @@ document.addEventListener('DOMContentLoaded', function () {
                 const totalTaxAmountEl = document.getElementById('totalTaxAmount');
                 if (totalTaxAmountEl) totalTaxAmountEl.value = invoice.total_tax_amount || 0;
                 document.getElementById('shippingFees').value = invoice.shipping_fees || 0;
+                
+                // Rate type & brokery
+                const rateTypeEl = document.getElementById('rateType');
+                if (rateTypeEl) { rateTypeEl.value = invoice.rate_type || ''; rateTypeEl.dispatchEvent(new Event('change')); }
+                const brokeryRateTypeEl = document.getElementById('brokeryRateType');
+                if (brokeryRateTypeEl) brokeryRateTypeEl.value = invoice.brokery_rate_type || '';
+                const brokeryKgBasisRadio = document.querySelector('input[name="brokeryKgBasis"][value="' + (invoice.brokery_kg_basis || 'net') + '"]');
+                if (brokeryKgBasisRadio) brokeryKgBasisRadio.checked = true;
+                const brokeryRateEl = document.getElementById('brokeryRate');
+                if (brokeryRateEl) brokeryRateEl.value = invoice.brokery_rate || 0;
+                const brokeryTaxPctEl = document.getElementById('brokeryTaxPercent');
+                if (brokeryTaxPctEl) brokeryTaxPctEl.value = invoice.brokery_tax_percent || 0;
+                const brokeryAmtEl = document.getElementById('brokeryAmount');
+                if (brokeryAmtEl) brokeryAmtEl.textContent = parseFloat(invoice.brokery_amount || 0).toFixed(2);
+                const brokeryTaxAmtEl = document.getElementById('brokeryTaxAmount');
+                if (brokeryTaxAmtEl) brokeryTaxAmtEl.textContent = parseFloat(invoice.brokery_tax_amount || 0).toFixed(2);
+                const pctToggle = document.getElementById('brokeryPctToggle');
+                if (pctToggle && invoice.brokery_pct_mode == 1) {
+                    pctToggle.dataset.mode = 'pct'; pctToggle.textContent = '% Mode';
+                    pctToggle.style.background = 'var(--primary)'; pctToggle.style.color = 'white';
+                    if (brokeryRateTypeEl) brokeryRateTypeEl.disabled = true;
+                }
+                const chargeInputs = ['wtCharges','freight','mSukri','bardana','phoneCharges','fillingCharges'];
+                const chargeMap2 = { wtCharges: invoice.wt_charges, wtChargesSign: invoice.wt_charges_sign, freight: invoice.freight, freightSign: invoice.freight_sign, mSukri: invoice.m_sukri, mSukriSign: invoice.m_sukri_sign, bardana: invoice.bardana, bardanaSign: invoice.bardana_sign, phoneCharges: invoice.phone_charges, phoneChargesSign: invoice.phone_charges_sign, fillingCharges: invoice.filling_charges, fillingChargesSign: invoice.filling_charges_sign, brokenAmountSign: invoice.broken_amount_sign, brokeryAmountSign: invoice.brokery_amount_sign, brokeryTaxAmountSign: invoice.brokery_tax_amount_sign };
+                chargeInputs.forEach(function(id) {
+                    const el = document.getElementById(id); if (el) el.value = chargeMap2[id] || 0;
+                    const s = chargeMap2[id+'Sign'] || '+';
+                    const r = document.querySelector('input[name="' + id + 'Sign"][value="' + s + '"]'); if (r) r.checked = true;
+                });
+                ['brokenAmount','brokeryAmount','brokeryTaxAmount'].forEach(function(id) {
+                    const s = chargeMap2[id+'Sign'] || '+';
+                    const r = document.querySelector('input[name="' + id + 'Sign"][value="' + s + '"]'); if (r) r.checked = true;
+                });
+                const bpEl = document.getElementById('brokenPercent'); if (bpEl) bpEl.value = invoice.broken_percent || 0;
+                const baEl = document.getElementById('brokenAmount'); if (baEl) baEl.textContent = parseFloat(invoice.broken_amount || 0).toFixed(2);
+                if (typeof updateTotalCharges === 'function') setTimeout(updateTotalCharges, 100);
                 updateInvoiceSummaryDynamic();
 
                 document.querySelector('.page-title').textContent = `Edit Purchase Order - ${invoice.bill_no || ''}`;
@@ -1170,8 +1255,44 @@ document.addEventListener('DOMContentLoaded', function () {
         initTableDropdownDynamic(codeContainer, row);
         
         // Unit cells will be added dynamically
+
+        // Bag
+        const bagCell = row.insertCell(2); bagCell.className = 'bag-cell';
+        const bagInp = document.createElement('input'); bagInp.type='number'; bagInp.className='table-input'; bagInp.min='0'; bagInp.step='1'; bagInp.value='0'; bagInp.tabIndex=-1;
+        bagCell.appendChild(bagInp);
+        // Total KG
+        const totalKgCell = row.insertCell(3); totalKgCell.className = 'total-kg-cell';
+        const totalKgInp = document.createElement('input'); totalKgInp.type='number'; totalKgInp.className='table-input'; totalKgInp.min='0'; totalKgInp.step='0.01'; totalKgInp.value='0'; totalKgInp.tabIndex=-1;
+        totalKgCell.appendChild(totalKgInp);
+        // Cut KG %
+        const cutKgPctCell = row.insertCell(4); cutKgPctCell.className = 'cut-kg-percent-cell';
+        const cutKgPctInp = document.createElement('input'); cutKgPctInp.type='number'; cutKgPctInp.className='table-input'; cutKgPctInp.min='0'; cutKgPctInp.step='0.01'; cutKgPctInp.value='0'; cutKgPctInp.tabIndex=-1;
+        cutKgPctCell.appendChild(cutKgPctInp);
+        // Cut KG
+        const cutKgCell = row.insertCell(5); cutKgCell.className = 'cut-kg-cell';
+        const cutKgInp = document.createElement('input'); cutKgInp.type='number'; cutKgInp.className='table-input'; cutKgInp.min='0'; cutKgInp.step='0.01'; cutKgInp.value='0'; cutKgInp.tabIndex=-1;
+        cutKgInp.addEventListener('input', function() { recalcNetKgFromManualCutAl(row); });
+        cutKgCell.appendChild(cutKgInp);
+        // AL KG %
+        const alKgPctCell = row.insertCell(6); alKgPctCell.className = 'al-kg-percent-cell';
+        const alKgPctInp = document.createElement('input'); alKgPctInp.type='number'; alKgPctInp.className='table-input'; alKgPctInp.min='0'; alKgPctInp.step='0.01'; alKgPctInp.value='0'; alKgPctInp.tabIndex=-1;
+        alKgPctCell.appendChild(alKgPctInp);
+        // AL KG
+        const alKgCell = row.insertCell(7); alKgCell.className = 'al-kg-cell';
+        const alKgInp = document.createElement('input'); alKgInp.type='number'; alKgInp.className='table-input'; alKgInp.min='0'; alKgInp.step='0.01'; alKgInp.value='0'; alKgInp.tabIndex=-1;
+        alKgInp.addEventListener('input', function() { recalcNetKgFromManualCutAl(row); });
+        alKgCell.appendChild(alKgInp);
+        // Net KG
+        const netKgCell = row.insertCell(8); netKgCell.className = 'net-kg-cell';
+        const netKgInp = document.createElement('input'); netKgInp.type='number'; netKgInp.className='table-input'; netKgInp.min='0'; netKgInp.step='0.01'; netKgInp.value='0'; netKgInp.tabIndex=-1;
+        netKgCell.appendChild(netKgInp);
+        // AL Rate Cut
+        const alRateCutCell = row.insertCell(9); alRateCutCell.className = 'al-rate-cut-cell';
+        const alRateCutInp = document.createElement('input'); alRateCutInp.type='number'; alRateCutInp.className='table-input'; alRateCutInp.min='0'; alRateCutInp.step='0.01'; alRateCutInp.value='0'; alRateCutInp.tabIndex=-1;
+        alRateCutCell.appendChild(alRateCutInp);
+
         // Price
-        const priceCell = row.insertCell(2);
+        const priceCell = row.insertCell(10);
         priceCell.className = 'price-cell';
         const priceInput = document.createElement('input');
         priceInput.type = 'number';
@@ -1190,10 +1311,16 @@ document.addEventListener('DOMContentLoaded', function () {
             calculateRowAmounts(row, totalQty, parseFloat(this.value) || 0);
         });
         priceCell.appendChild(priceInput);
+
+        // Net Rate (readonly)
+        const netRateCell = row.insertCell(row.cells.length); netRateCell.className = 'net-rate-cell';
+        const netRateInp = document.createElement('input'); netRateInp.type='number'; netRateInp.className='table-input'; netRateInp.readOnly=true; netRateInp.value='0.00'; netRateInp.tabIndex=-1;
+        netRateCell.appendChild(netRateInp);
         
         // Gross Amount
-        const grossCell = row.insertCell(3);
+        const grossCell = row.insertCell(row.cells.length);
         grossCell.className = 'gross-cell';
+        grossCell.style.display = 'none';
         const grossInput = document.createElement('input');
         grossInput.type = 'text';
         grossInput.className = 'table-input';
@@ -1203,7 +1330,7 @@ document.addEventListener('DOMContentLoaded', function () {
         grossCell.appendChild(grossInput);
         
         // Discount %
-        const discPercentCell = row.insertCell(4);
+        const discPercentCell = row.insertCell(row.cells.length);
         discPercentCell.className = 'disc-percent-cell';
         const discPercentInput = document.createElement('input');
         discPercentInput.type = 'number';
@@ -1226,7 +1353,7 @@ document.addEventListener('DOMContentLoaded', function () {
         discPercentCell.appendChild(discPercentInput);
         
         // Discount Amount
-        const discAmountCell = row.insertCell(5);
+        const discAmountCell = row.insertCell(row.cells.length);
         discAmountCell.className = 'disc-amount-cell';
         const discAmountInput = document.createElement('input');
         discAmountInput.type = 'number';
@@ -1237,7 +1364,7 @@ document.addEventListener('DOMContentLoaded', function () {
         discAmountCell.appendChild(discAmountInput);
         
         // TO %
-        const toPercentCell = row.insertCell(6);
+        const toPercentCell = row.insertCell(row.cells.length);
         toPercentCell.className = 'to-percent-cell';
         const toPercentInput = document.createElement('input');
         toPercentInput.type = 'number';
@@ -1260,7 +1387,7 @@ document.addEventListener('DOMContentLoaded', function () {
         toPercentCell.appendChild(toPercentInput);
         
         // TO Amount
-        const toAmountCell = row.insertCell(7);
+        const toAmountCell = row.insertCell(row.cells.length);
         toAmountCell.className = 'to-amount-cell';
         const toAmountInput = document.createElement('input');
         toAmountInput.type = 'number';
@@ -1271,7 +1398,7 @@ document.addEventListener('DOMContentLoaded', function () {
         toAmountCell.appendChild(toAmountInput);
         
         // Tax %
-        const taxPercentCell = row.insertCell(8);
+        const taxPercentCell = row.insertCell(row.cells.length);
         taxPercentCell.className = 'tax-percent-cell';
         const taxPercentInput = document.createElement('input');
         taxPercentInput.type = 'number';
@@ -1295,7 +1422,7 @@ document.addEventListener('DOMContentLoaded', function () {
         taxPercentCell.appendChild(taxPercentInput);
         
         // Tax Amount
-        const taxAmountCell = row.insertCell(9);
+        const taxAmountCell = row.insertCell(row.cells.length);
         taxAmountCell.className = 'tax-amount-cell';
         const taxAmountInput = document.createElement('input');
         taxAmountInput.type = 'number';
@@ -1307,7 +1434,7 @@ document.addEventListener('DOMContentLoaded', function () {
         taxAmountCell.appendChild(taxAmountInput);
         
         // FOC Qty
-        const focCell = row.insertCell(10);
+        const focCell = row.insertCell(row.cells.length);
         focCell.className = 'foc-cell';
         const focInput = document.createElement('input');
         focInput.type = 'number';
@@ -1318,7 +1445,7 @@ document.addEventListener('DOMContentLoaded', function () {
         focCell.appendChild(focInput);
         
         // Net Amount
-        const netCell = row.insertCell(11);
+        const netCell = row.insertCell(row.cells.length);
         netCell.className = 'net-cell';
         const netInput = document.createElement('input');
         netInput.type = 'text';
@@ -1329,7 +1456,7 @@ document.addEventListener('DOMContentLoaded', function () {
         netCell.appendChild(netInput);
         
         // Actions
-        const actionsCell = row.insertCell(12);
+        const actionsCell = row.insertCell(row.cells.length);
         const deleteBtn = document.createElement('button');
         deleteBtn.type = 'button';
         deleteBtn.className = 'btn btn-danger btn-sm';
@@ -1361,6 +1488,7 @@ document.addEventListener('DOMContentLoaded', function () {
             enableInlineCashDiscount: localStorage.getItem('enableInlineCashDiscount') === 'true',
             enableInlineCashDiscountAmount: localStorage.getItem('enableInlineCashDiscountAmount') === 'true'
         });
+        if (typeof wireKgListeners === 'function') wireKgListeners(row);
     }
     
     // Initialize dropdown for dynamic rows
@@ -1857,6 +1985,9 @@ document.addEventListener('DOMContentLoaded', function () {
             supplierInvoiceDate: document.getElementById('supplierInvoiceDate')?.value || null,
             biltyNo: document.getElementById('biltyNo')?.value || null,
             transportName: document.getElementById('transportName')?.value || null,
+            rpoNo: document.getElementById('rpoNo')?.value || null,
+            truckNo: document.getElementById('truckNo')?.value || null,
+            paymentTermId: document.getElementById('paymentTerm')?.value || null,
             companyId: document.getElementById('company')?.value,
             supplierId: document.getElementById('supplierCode')?.value,
             branchId: document.getElementById('branch')?.value,
@@ -1870,8 +2001,36 @@ document.addEventListener('DOMContentLoaded', function () {
             totalTaxPercent: parseFloat(document.getElementById('totalTaxPercent')?.value) || 0,
             totalTaxAmount: parseFloat(document.getElementById('totalTaxAmount')?.value) || 0,
             shippingFees: parseFloat(document.getElementById('shippingFees')?.value) || 0,
+            shippingFeesType: document.querySelector('input[name="shippingFeesType"]:checked')?.value || 'add',
             netAmount: parseFloat(document.getElementById('netAmount')?.textContent),
+            status: document.getElementById('invoiceStatus')?.value || 'pending',
             remarks: document.getElementById('remarks')?.value,
+            rateType: document.getElementById('rateType')?.value || null,
+            brokeryRateType: document.getElementById('brokeryRateType')?.value || null,
+            brokeryKgBasis: document.querySelector('input[name="brokeryKgBasis"]:checked')?.value || 'net',
+            brokeryPctMode: document.getElementById('brokeryPctToggle')?.dataset.mode === 'pct' ? 1 : 0,
+            brokeryRate: parseFloat(document.getElementById('brokeryRate')?.value) || 0,
+            brokeryAmount: parseFloat(document.getElementById('brokeryAmount')?.textContent) || 0,
+            brokeryAmountSign: document.querySelector('input[name="brokeryAmountSign"]:checked')?.value || '+',
+            brokeryTaxPercent: parseFloat(document.getElementById('brokeryTaxPercent')?.value) || 0,
+            brokeryTaxAmount: parseFloat(document.getElementById('brokeryTaxAmount')?.textContent) || 0,
+            brokeryTaxAmountSign: document.querySelector('input[name="brokeryTaxAmountSign"]:checked')?.value || '+',
+            wtCharges: parseFloat(document.getElementById('wtCharges')?.value) || 0,
+            wtChargesSign: document.querySelector('input[name="wtChargesSign"]:checked')?.value || '+',
+            freight: parseFloat(document.getElementById('freight')?.value) || 0,
+            freightSign: document.querySelector('input[name="freightSign"]:checked')?.value || '+',
+            mSukri: parseFloat(document.getElementById('mSukri')?.value) || 0,
+            mSukriSign: document.querySelector('input[name="mSukriSign"]:checked')?.value || '+',
+            brokenPercent: parseFloat(document.getElementById('brokenPercent')?.value) || 0,
+            brokenAmount: parseFloat(document.getElementById('brokenAmount')?.textContent) || 0,
+            brokenAmountSign: document.querySelector('input[name="brokenAmountSign"]:checked')?.value || '+',
+            bardana: parseFloat(document.getElementById('bardana')?.value) || 0,
+            bardanaSign: document.querySelector('input[name="bardanaSign"]:checked')?.value || '+',
+            phoneCharges: parseFloat(document.getElementById('phoneCharges')?.value) || 0,
+            phoneChargesSign: document.querySelector('input[name="phoneChargesSign"]:checked')?.value || '+',
+            fillingCharges: parseFloat(document.getElementById('fillingCharges')?.value) || 0,
+            fillingChargesSign: document.querySelector('input[name="fillingChargesSign"]:checked')?.value || '+',
+            totalCharges: parseFloat(document.getElementById('totalCharges')?.textContent) || 0,
             items: []
         };
 
@@ -1909,7 +2068,16 @@ document.addEventListener('DOMContentLoaded', function () {
                     taxPercent: parseFloat(row.querySelector('.tax-percent-cell input').value) || 0,
                     taxAmount: parseFloat(row.querySelector('.tax-amount-cell input').value) || 0,
                     focQty: parseFloat(row.querySelector('.foc-cell input').value) || 0,
-                    netAmount: parseFloat(row.querySelector('.net-cell input').value)
+                    netAmount: parseFloat(row.querySelector('.net-cell input').value),
+                    bag: parseFloat(row.querySelector('.bag-cell input')?.value) || 0,
+                    totalKg: parseFloat(row.querySelector('.total-kg-cell input')?.value) || 0,
+                    cutKgPercent: parseFloat(row.querySelector('.cut-kg-percent-cell input')?.value) || 0,
+                    cutKg: parseFloat(row.querySelector('.cut-kg-cell input')?.value) || 0,
+                    alKgPercent: parseFloat(row.querySelector('.al-kg-percent-cell input')?.value) || 0,
+                    alKg: parseFloat(row.querySelector('.al-kg-cell input')?.value) || 0,
+                    netKg: parseFloat(row.querySelector('.net-kg-cell input')?.value) || 0,
+                    alRateCut: parseFloat(row.querySelector('.al-rate-cut-cell input')?.value) || 0,
+                    netRate: parseFloat(row.querySelector('.net-rate-cell input')?.value) || 0
                 };
                 formData.items.push(item);
             }
@@ -2079,7 +2247,8 @@ document.addEventListener('DOMContentLoaded', function () {
             { col: 'to-amount',     show: enableTradeOfferAmount },
             { col: 'tax-percent',   show: enableTaxation },
             { col: 'tax-amount',    show: enableTaxation },
-            { col: 'foc',           show: enableFOC }
+            { col: 'foc',           show: enableFOC },
+            { col: 'gross-amount',  show: false }
         ];
         colMap.forEach(({ col, show }) => {
             document.querySelectorAll(`#itemsTable [data-col="${col}"]`).forEach(el => {

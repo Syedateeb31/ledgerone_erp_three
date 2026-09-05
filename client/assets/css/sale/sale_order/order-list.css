@@ -96,6 +96,13 @@ body {
   margin-bottom: 24px;
 }
 
+/* 5 filters (Date From, Date To, Company, Customer, Status) don't divide evenly
+   into any fixed column count, so the last one (Status) spans the full row
+   instead of sitting alone next to empty grid tracks. */
+.filters .form-group:last-child {
+  grid-column: 1 / -1;
+}
+
 .form-group {
   margin-bottom: 0;
 }
@@ -247,6 +254,11 @@ tbody tr:hover {
   color: var(--warning);
 }
 
+.status-warning {
+  background: rgba(232, 178, 63, 0.1);
+  color: var(--warning);
+}
+
 .status-overdue {
   background: rgba(227, 79, 79, 0.1);
   color: var(--error);
@@ -392,3 +404,28 @@ tbody tr:hover {
   gap: 12px;
   margin-top: 20px;
 }
+
+/* ── Soda Book compact overrides (iframe layout) ── */
+html, body { height: auto; overflow-y: auto; }
+
+.container { max-width: 100%; padding: 12px; }
+.header { margin-bottom: 12px; }
+.page-title { font-size: 18px; }
+.card { padding: 14px; margin-bottom: 14px; }
+.card-title { font-size: 14px; margin-bottom: 10px; padding-bottom: 8px; }
+
+.filters { grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 12px; }
+label { font-size: 11px; margin-bottom: 3px; }
+input, select { height: 32px; font-size: 12px; padding: 0 10px; }
+
+.actions { margin-bottom: 12px; }
+.search-box { width: 200px; }
+.btn { height: 32px; font-size: 12px; padding: 0 12px; }
+.btn-sm { height: 26px; font-size: 11px; padding: 0 8px; }
+
+th { font-size: 11px; padding: 8px 6px; }
+td { padding: 8px 6px; font-size: 11px; }
+
+.pagination { margin-top: 12px; }
+.pagination-info { font-size: 12px; }
+.pagination-btn { width: 30px; height: 30px; font-size: 12px; }

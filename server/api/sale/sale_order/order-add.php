@@ -1,5 +1,11 @@
 <?php
+ob_start();
+session_start();
 require_once '../../../../includes/connection.php';
+ob_end_clean();
+
+ini_set('display_errors', 0);
+error_reporting(0);
 
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
@@ -12,7 +18,6 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit;
 }
 
-session_start();
 $user_id = $_SESSION['user_id'] ?? null;
 $tenant_id = $_SESSION['tenant_id'] ?? null;
 
@@ -60,31 +65,42 @@ try {
     $stmt = $pdo->prepare("
         INSERT INTO sale_order (
             tenant_id, company_id, currency_id, bill_no, sale_date, customer_id, branch_id,
-            previous_balance, sale_officer_id, supplier_man_id, bilty_no, transport_name, total_bill, total_discount_percent, 
-            total_discount_amount, net_amount, remarks, status,
-            created_by, updated_by
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            previous_balance, bilty_no, transport_name, rpo_no, broker, delivered_date, mill_name,
+            truck_no, goods, mobile_no, freight, total_bill, total_discount_percent,
+            total_discount_amount, total_gst_percent, total_gst_amount, shipping_fees,
+            net_amount, remarks, status, payment_term_id, created_by, updated_by
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ");
 
     $stmt->execute([
         $tenant_id,
         $input['companyId'] ?? null,
-        $input['currencyId'],
+        $input['currencyId'] ?? null,
         $billNo,
         $input['saleDate'],
         $input['customerId'],
         $input['branchId'],
         extractBalanceAmount($input['previousBalance'] ?? '0.00'),
-        $input['salesOfficerId'] ?? null,
-        $input['supplierManId'] ?? null,
         $input['biltyNo'] ?? null,
         $input['transportName'] ?? null,
+        $input['rpoNo'] ?? null,
+        $input['broker'] ?? null,
+        $input['deliveredDate'] ?? null,
+        $input['millName'] ?? null,
+        $input['truckNo'] ?? null,
+        $input['goods'] ?? null,
+        $input['mobileNo'] ?? null,
+        $input['freight'] ?? 0,
         $input['totalBill'],
         $input['totalDiscountPercent'] ?? 0.00,
         $input['totalDiscountAmount'] ?? 0.00,
+        $input['totalGSTPercent'] ?? 0.00,
+        $input['totalGSTAmount'] ?? 0.00,
+        $input['shippingFees'] ?? 0.00,
         $input['netAmount'],
         $input['remarks'] ?? null,
         $input['status'] ?? 'Posted',
+        $input['paymentTermId'] ?? null,
         $user_id,
         $user_id
     ]);

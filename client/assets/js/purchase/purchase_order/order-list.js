@@ -7,7 +7,8 @@ document.addEventListener('DOMContentLoaded', function () {
     // Load invoices from API
     async function loadInvoices(page = 1) {
         try {
-            const response = await fetch(`../../../../server/api/purchase/purchase_order/order-list.php?page=${page}&limit=10`);
+            const statusValue = document.getElementById('statusFilter')?.value || 'pending';
+            const response = await fetch(`../../../../server/api/purchase/purchase_order/order-list.php?page=${page}&limit=10&status=${encodeURIComponent(statusValue)}`);
             const data = await response.json();
             
             if (data.success) {
@@ -15,6 +16,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     id: invoice.id,
                     invoiceNo: invoice.bill_no,
                     date: invoice.purchase_date,
+                    lastDate: invoice.last_date,
                     supplier: invoice.supplier_name,
                     supplier_id: invoice.supplier_id,
                     items: invoice.item_count,
@@ -92,18 +94,55 @@ document.addEventListener('DOMContentLoaded', function () {
             // Create cells
             row.insertCell(0).textContent = invoice.invoiceNo;
             row.insertCell(1).textContent = formattedDate;
-            row.insertCell(2).textContent = invoice.supplier || 'N/A';
-            row.insertCell(3).textContent = invoice.items;
-            row.insertCell(4).textContent = formattedAmount;
-            
+
+            // Last Date cell: the date plus a "days left / overdue" counter against today
+            const lastDateCell = row.insertCell(2);
+            if (invoice.lastDate) {
+                const formattedLastDate = new Date(invoice.lastDate).toLocaleDateString('en-US', {
+                    year: 'numeric', month: 'short', day: 'numeric'
+                });
+                const todayMidnight = new Date(); todayMidnight.setHours(0, 0, 0, 0);
+                const lastDateMidnight = new Date(invoice.lastDate); lastDateMidnight.setHours(0, 0, 0, 0);
+                const diffDays = Math.round((lastDateMidnight - todayMidnight) / 86400000);
+
+                let counterText, counterClass;
+                if (diffDays < 0) {
+                    counterText = `Overdue by ${Math.abs(diffDays)} day${Math.abs(diffDays) === 1 ? '' : 's'}`;
+                    counterClass = 'status-overdue';
+                } else if (diffDays === 0) {
+                    counterText = 'Due today';
+                    counterClass = 'status-warning';
+                } else {
+                    counterText = `${diffDays} day${diffDays === 1 ? '' : 's'} left`;
+                    counterClass = diffDays <= 3 ? 'status-warning' : 'status-paid';
+                }
+
+                lastDateCell.innerHTML = `
+                    <div>${formattedLastDate}</div>
+                    <span class="status ${counterClass}" style="margin-top: 4px; display: inline-block;">${counterText}</span>
+                `;
+            } else {
+                lastDateCell.textContent = '-';
+            }
+
+            row.insertCell(3).textContent = invoice.supplier || 'N/A';
+            row.insertCell(4).textContent = invoice.items;
+            row.insertCell(5).textContent = formattedAmount;
+
             // Status cell
-            const statusCell = row.insertCell(5);
+            const statusCell = row.insertCell(6);
             const statusBadge = document.createElement('span');
-            statusBadge.className = 'status ' + (invoice.status === 'Partially Fulfilled' ? 'status-pending' : 'status-overdue');
+            const statusClassMap = {
+                'Pending': 'status-pending',
+                'Confirmed': 'status-paid',
+                'Partially Fulfilled': 'status-warning',
+                'Fulfilled': 'status-paid'
+            };
+            statusBadge.className = 'status ' + (statusClassMap[invoice.status] || 'status-pending');
             statusBadge.textContent = invoice.status || 'Pending';
             statusCell.appendChild(statusBadge);
 
-            const actionsCell = row.insertCell(6);
+            const actionsCell = row.insertCell(7);
             const actionButtons = document.createElement('div');
             actionButtons.className = 'action-buttons';
 
@@ -207,6 +246,23 @@ document.addEventListener('DOMContentLoaded', function () {
     supplierFilter.addEventListener('change', applyFilters);
     searchInput.addEventListener('input', applyFilters);
 
+    // Status is filtered server-side (so pagination/counts stay correct),
+    // so changing it re-fetches from page 1 instead of just re-filtering
+    // the already-loaded page.
+    document.getElementById('statusFilter').addEventListener('change', function () {
+        loadInvoices(1);
+    });
+
+    // Explicit "Filter" button: re-fetches with the current Status (server-side),
+    // then re-applies the other (client-side) filters on top of the fresh result.
+    const applyFilterBtn = document.getElementById('applyFilterBtn');
+    if (applyFilterBtn) {
+        applyFilterBtn.addEventListener('click', async function () {
+            await loadInvoices(1);
+            applyFilters();
+        });
+    }
+
     // Update pagination
     function updatePagination(pagination) {
         const { page, limit, total, pages } = pagination;
@@ -258,7 +314,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // New invoice button
     document.getElementById('newInvoiceBtn').addEventListener('click', function () {
-        window.location.href = 'order-add.php';
+        const base = window.top.location.origin + window.top.location.pathname.replace(/\/client\/.*$/, '');
+        window.top.location.href = base + '/client/pages/soda_book/soda-book.php';
     });
 
     // Action functions

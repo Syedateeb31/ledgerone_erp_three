@@ -1,6 +1,10 @@
-<?php
+﻿<?php
 require_once '../../../../includes/connection.php';
 require_once 'invoice-tax-helper.php';
+require_once 'stock-management.php';
+
+error_reporting(0);
+ini_set('display_errors', '0');
 
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
@@ -36,6 +40,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 c.address as customer_address,
                 c.primary_phone as customer_phone,
                 c.email as customer_email,
+                c.identity_card_no as customer_identity_card,
                 csa.sub_account_name,
                 co.company_name,
                 b.branch_name,
@@ -53,10 +58,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 br.supplier_name as brand_name,
                 COALESCE(rv.amount, 0) as amount_paid,
                 CASE 
-                    WHEN rv.payment_method_id = 1 THEN 'Cash'
-                    WHEN rv.payment_method_id = 2 THEN 'Bank Transfer'
+                    WHEN rv.payment_method_id = 1 THEN 'cash'
+                    WHEN rv.payment_method_id = 2 THEN 'bank_transfer'
                     ELSE NULL
-                END as payment_method
+                END as payment_method,
+                pt.term_name as payment_term_name
             FROM sale_invoice si
             LEFT JOIN customers c ON si.customer_id = c.id
             LEFT JOIN customer_sub_accounts csa ON si.sub_account_id = csa.id
@@ -68,6 +74,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             LEFT JOIN employees sm ON si.supplier_man_id = sm.id
             LEFT JOIN suppliers br ON si.brand_id = br.id
             LEFT JOIN receive_voucher rv ON si.bill_no = rv.bill_no AND si.tenant_id = rv.tenant_id
+            LEFT JOIN payment_terms pt ON si.payment_term_id = pt.id
             WHERE si.id = ? AND si.tenant_id = ?
         ");
         $stmt->execute([$invoice_id, $tenant_id]);
@@ -136,9 +143,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
         $stmt = $pdo->prepare("
             UPDATE sale_invoice SET
                 currency_id = ?, sale_date = ?, customer_id = ?, sub_account_id = ?, company_id = ?, branch_id = ?,
-                previous_balance = ?, sale_officer_id = ?, supplier_man_id = ?, brand_id = ?, sale_order_id = ?, bilty_no = ?, transport_name = ?, total_bill = ?, total_discount_percent = ?,
+                previous_balance = ?, sale_officer_id = ?, supplier_man_id = ?, brand_id = ?, sale_order_id = ?, rpo_no = ?, truck_no = ?, payment_term_id = ?, bilty_no = ?, transport_name = ?,
+                rate_type = ?, brokery_rate_type = ?, brokery_kg_basis = ?, brokery_pct_mode = ?, brokery_rate = ?, brokery_amount = ?,
+                brokery_tax_percent = ?, brokery_tax_amount = ?,
+                wt_charges = ?, wt_charges_sign = ?, freight = ?, freight_sign = ?, m_sukri = ?, m_sukri_sign = ?,
+                broken_percent = ?, broken_amount = ?, broken_amount_sign = ?, brokery_amount_sign = ?, brokery_tax_amount_sign = ?,
+                bardana = ?, bardana_sign = ?, phone_charges = ?, phone_charges_sign = ?,
+                filling_charges = ?, filling_charges_sign = ?, total_charges = ?,
+                total_bill = ?, total_discount_percent = ?,
                 total_discount_amount = ?, extra_discount_1_percent = ?, extra_discount_1_amount = ?, extra_discount_2_percent = ?, extra_discount_2_amount = ?,
-                net_amount = ?, withholding_tax_percent = ?, withholding_tax_amount = ?, amount_paid_auto_fill = ?, remarks = ?, status = ?, updated_by = ?
+                shipping_fees = ?,
+                net_amount = ?, withholding_tax_percent = ?, withholding_tax_amount = ?, amount_paid_auto_fill = ?, invoice_type = ?, due_date = ?, remarks = ?, status = ?, invoice_status = ?, updated_by = ?
             WHERE id = ? AND tenant_id = ?
         ");
         $stmt->execute([
@@ -153,8 +168,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
             $input['supplierManId'] ?? null,
             $input['brandId'] ?? null,
             $input['saleOrderId'] ?? null,
+            $input['rpoNo'] ?? null,
+            $input['truckNo'] ?? null,
+            $input['paymentTermId'] ?? null,
             $input['biltyNo'] ?? null,
             $input['transportName'] ?? null,
+            $input['rateType'] ?? null,
+            $input['brokeryRateType'] ?? null,
+            $input['brokeryKgBasis'] ?? 'net',
+            $input['brokeryPctMode'] ? 1 : 0,
+            $input['brokeryRate'] ?? 0.00,
+            $input['brokeryAmount'] ?? 0.00,
+            $input['brokeryTaxPercent'] ?? 0.00,
+            $input['brokeryTaxAmount'] ?? 0.00,
+            $input['wtCharges'] ?? 0.00,
+            $input['wtChargesSign'] ?? '+',
+            $input['freight'] ?? 0.00,
+            $input['freightSign'] ?? '+',
+            $input['mSukri'] ?? 0.00,
+            $input['mSukriSign'] ?? '+',
+            $input['brokenPercent'] ?? 0.00,
+            $input['brokenAmount'] ?? 0.00,
+            $input['brokenAmountSign'] ?? '+',
+            $input['brokeryAmountSign'] ?? '+',
+            $input['brokeryTaxAmountSign'] ?? '+',
+            $input['bardana'] ?? 0.00,
+            $input['bardanaSign'] ?? '+',
+            $input['phoneCharges'] ?? 0.00,
+            $input['phoneChargesSign'] ?? '+',
+            $input['fillingCharges'] ?? 0.00,
+            $input['fillingChargesSign'] ?? '+',
+            $input['totalCharges'] ?? 0.00,
             $input['totalBill'],
             $input['totalDiscountPercent'] ?? 0.00,
             $input['totalDiscountAmount'] ?? 0.00,
@@ -162,12 +206,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
             $input['extraDiscount1Amount'] ?? 0.00,
             $input['extraDiscount2Percent'] ?? 0.00,
             $input['extraDiscount2Amount'] ?? 0.00,
+            $input['shippingFees'] ?? 0.00,
             $input['netAmount'],
             $withholdingTaxPercent,
             $withholdingTaxAmount,
             $input['amountPaidAutoFill'] ?? 'yes',
+            $input['invoiceType'] ?? 'Cash',
+            $input['dueDate'] ?? null,
             $input['remarks'] ?? null,
             $input['status'] ?? 'Posted',
+            $input['invoiceStatus'] ?? 'pending',
             $user_id,
             $invoice_id,
             $tenant_id
@@ -176,7 +224,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
         // Delete existing items and related records
         $pdo->prepare("DELETE FROM sale_invoice_taxes WHERE sale_invoice_id = ? AND tenant_id = ?")->execute([$invoice_id, $tenant_id]);
         $pdo->prepare("DELETE FROM sale_invoice_items WHERE sale_invoice_id = ? AND tenant_id = ?")->execute([$invoice_id, $tenant_id]);
-        $pdo->prepare("DELETE FROM stock_ledger WHERE reference_table = 'sale_invoice' AND reference_id = ? AND tenant_id = ?")->execute([$invoice_id, $tenant_id]);
+        // Delete existing stock ledger entries
+        deleteInvoiceStockLedger($pdo, $tenant_id, $invoice_id);
         $pdo->prepare("DELETE FROM accounting_ledger WHERE reference_table = 'sale_invoice' AND reference_id = ? AND tenant_id = ?")->execute([$invoice_id, $tenant_id]);
         
         // Delete existing receive voucher and its accounting entries
@@ -214,11 +263,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
         $item_stmt = $pdo->prepare("
             INSERT INTO sale_invoice_items (
                 tenant_id, sale_invoice_id, product_id, uom_id,
+                bag, total_kg, cut_kg_percent, cut_kg, al_kg_percent, al_kg, net_kg, al_rate_cut, net_rate,
                 quantity, sale_price, gross_amount, discount_percent,
                 discount_amount, trade_offer_percent, trade_offer_amount,
-                tax_percent, tax_amount, foc_quantity, net_amount, parent_row_id,
-                piece, carton, dozen, scheme, created_by, updated_by
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                gst_percent, gst_amount, tax_percent, tax_amount, foc_quantity, net_amount, parent_row_id,
+                piece, carton, dozen, scheme, chassis_no, motor_no, colour, created_by, updated_by
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ");
 
         $itemIdMap = [];
@@ -228,79 +278,63 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
                 $parentRowId = $itemIdMap[$item['parentRowId']] ?? null;
             }
             
-            $item_stmt->execute([
-                $tenant_id,
-                $invoice_id,
-                $item['productId'],
-                $item['uomId'],
-                $item['quantity'],
-                $item['salePrice'],
-                $item['grossAmount'],
-                $item['discountPercent'] ?? 0.00,
-                $item['discountAmount'] ?? 0.00,
-                $item['tradeOfferPercent'] ?? 0.00,
-                $item['tradeOfferAmount'] ?? 0.00,
-                $item['taxPercent'] ?? 0.00,
-                $item['taxAmount'] ?? 0.00,
-                $item['focQty'] ?? 0.00,
-                $item['netAmount'],
-                $parentRowId,
-                $item['piece'] ?? null,
-                $item['carton'] ?? null,
-                $item['dozen'] ?? null,
-                $item['scheme'] ?? 'sale_on_tp',
-                $user_id,
-                $user_id
-            ]);
+                        $item_stmt->execute([
+            $tenant_id,
+            $invoice_id,
+            $item['productId'],
+            $item['uomId'],
+            $item['bag'] ?? 0.00,
+            $item['totalKg'] ?? 0.00,
+            $item['cutKgPercent'] ?? 0.00,
+            $item['cutKg'] ?? 0.00,
+            $item['alKgPercent'] ?? 0.00,
+            $item['alKg'] ?? 0.00,
+            $item['netKg'] ?? 0.00,
+            $item['alRateCut'] ?? 0.00,
+            $item['netRate'] ?? 0.00,
+            $item['quantity'],
+            $item['salePrice'],
+            $item['grossAmount'],
+            $item['discountPercent'] ?? 0.00,
+            $item['discountAmount'] ?? 0.00,
+            $item['tradeOfferPercent'] ?? 0.00,
+            $item['tradeOfferAmount'] ?? 0.00,
+            0.00,
+            0.00,
+            $item['taxPercent'] ?? 0.00,
+            $item['taxAmount'] ?? 0.00,
+            $item['focQty'] ?? 0.00,
+            $item['netAmount'],
+            $parentRowId,
+            $item['piece'] ?? null,
+            $item['carton'] ?? null,
+            $item['dozen'] ?? null,
+            $item['scheme'] ?? 'sale_on_tp',
+            $item['chassisNo'] ?? null,
+            $item['motorNo'] ?? null,
+            $item['colour'] ?? null,
+            $user_id,
+            $user_id
+        ]);
             
             $itemIdMap[$index + 1] = $pdo->lastInsertId();
 
-            // Skip stock ledger for Draft status
+            // Handle stock ledger based on invoice type and stock_affects flag
             if ($status === 'Posted') {
-                // Convert quantity to pieces based on UOM
-                $qtyInPieces = convertToPieces($item['quantity'], $item['uomId'], $pdo, $item['productId']);
+                // Insert stock ledger entry (will skip if invoice type doesn't affect stock)
+                insertStockLedgerEntry(
+                    $pdo, $tenant_id, $invoice_id, $item['productId'],
+                    $item['quantity'], $item['uomId'], $input['branchId'],
+                    $input['saleDate'], $input['invoiceType'] ?? 'Cash'
+                );
                 
-                // Get product cost price
-                $costPrice = getCostPrice($pdo, $tenant_id, $item['productId'], $input['branchId']);
-                
-                // Insert stock ledger for quantity sold
-                $stock_stmt = $pdo->prepare("
-                        INSERT INTO stock_ledger (
-                            tenant_id, branch_id, product_id, reference_table, reference_id,
-                            qty_out, unit_cost, unit_id, transaction_type, transaction_date
-                        ) VALUES (?, ?, ?, 'sale_invoice', ?, ?, ?, ?, 'Sale Invoice', ?)
-                    ");
-                $stock_stmt->execute([
-                    $tenant_id,
-                    $input['branchId'],
-                    $item['productId'],
-                    $invoice_id,
-                    $qtyInPieces,
-                    $costPrice,
-                    $item['uomId'],
-                    $input['saleDate']
-                ]);
-                
-                // Insert stock ledger for FOC quantity if exists
+                // Insert FOC stock ledger entry if exists
                 if (isset($item['focQty']) && $item['focQty'] > 0) {
-                    $focQtyInPieces = convertToPieces($item['focQty'], $item['uomId'], $pdo, $item['productId']);
-                    
-                    $foc_stmt = $pdo->prepare("
-                        INSERT INTO stock_ledger (
-                            tenant_id, branch_id, product_id, reference_table, reference_id,
-                            qty_out, unit_cost, unit_id, transaction_type, transaction_date
-                        ) VALUES (?, ?, ?, 'sale_invoice', ?, ?, ?, ?, 'Sale Invoice - FOC', ?)
-                    ");
-                    $foc_stmt->execute([
-                        $tenant_id,
-                        $input['branchId'],
-                        $item['productId'],
-                        $invoice_id,
-                        $focQtyInPieces,
-                        0,
-                        $item['uomId'],
-                        $input['saleDate']
-                    ]);
+                    insertFOCStockLedgerEntry(
+                        $pdo, $tenant_id, $invoice_id, $item['productId'],
+                        $item['focQty'], $item['uomId'], $input['branchId'],
+                        $input['saleDate'], $input['invoiceType'] ?? 'Cash'
+                    );
                 }
             }
         }
@@ -503,85 +537,3 @@ function extractBalanceAmount($balanceString)
     return floatval($amount);
 }
 
-// Function to get cost price based on inventory valuation method
-function getCostPrice($pdo, $tenant_id, $product_id, $branch_id)
-{
-    // Get inventory valuation method
-    $methodStmt = $pdo->prepare("SELECT inventory_valuation_method FROM companies WHERE tenant_id = ? LIMIT 1");
-    $methodStmt->execute([$tenant_id]);
-    $method = $methodStmt->fetchColumn() ?: 'FIFO';
-    
-    $costPrice = 0;
-    
-    if ($method === 'FIFO') {
-        // Get oldest purchase price
-        $stmt = $pdo->prepare("
-            SELECT unit_cost 
-            FROM stock_ledger 
-            WHERE tenant_id = ? AND product_id = ? AND branch_id = ? AND qty_in > 0 AND unit_cost > 0
-            ORDER BY transaction_date ASC, id ASC 
-            LIMIT 1
-        ");
-        $stmt->execute([$tenant_id, $product_id, $branch_id]);
-        $costPrice = $stmt->fetchColumn() ?: 0;
-    } elseif ($method === 'LIFO') {
-        // Get latest purchase price
-        $stmt = $pdo->prepare("
-            SELECT unit_cost 
-            FROM stock_ledger 
-            WHERE tenant_id = ? AND product_id = ? AND branch_id = ? AND qty_in > 0 AND unit_cost > 0
-            ORDER BY transaction_date DESC, id DESC 
-            LIMIT 1
-        ");
-        $stmt->execute([$tenant_id, $product_id, $branch_id]);
-        $costPrice = $stmt->fetchColumn() ?: 0;
-    } elseif ($method === 'AVCO') {
-        // Calculate weighted average cost
-        $stmt = $pdo->prepare("
-            SELECT 
-                SUM(qty_in * unit_cost) / NULLIF(SUM(qty_in), 0) as avg_cost
-            FROM stock_ledger 
-            WHERE tenant_id = ? AND product_id = ? AND branch_id = ? AND qty_in > 0 AND unit_cost > 0
-        ");
-        $stmt->execute([$tenant_id, $product_id, $branch_id]);
-        $result = $stmt->fetch(PDO::FETCH_ASSOC);
-        $costPrice = $result['avg_cost'] ?: 0;
-    }
-    
-    // If no cost found from stock ledger, use purchase_price from products table
-    if ($costPrice == 0) {
-        $stmt = $pdo->prepare("SELECT purchase_price FROM products WHERE id = ?");
-        $stmt->execute([$product_id]);
-        $costPrice = $stmt->fetchColumn() ?: 0;
-    }
-    
-    return $costPrice;
-}
-
-// Function to convert quantity to pieces based on UOM
-function convertToPieces($quantity, $uomId, $pdo, $productId)
-{
-    $qty = floatval($quantity);
-    $uomId = intval($uomId);
-    
-    // Piece (id: 9) - base unit
-    if ($uomId === 9) {
-        return $qty;
-    }
-    
-    // Dozen (id: 10) - 12 pieces
-    if ($uomId === 10) {
-        return $qty * 12;
-    }
-    
-    // Carton (id: 16) - get from product's carton_conversion
-    if ($uomId === 16) {
-        $stmt = $pdo->prepare("SELECT carton_conversion FROM products WHERE id = ?");
-        $stmt->execute([$productId]);
-        $cartonConversion = $stmt->fetchColumn();
-        return $qty * intval($cartonConversion ?: 1);
-    }
-    
-    // Other units - return as is
-    return $qty;
-}

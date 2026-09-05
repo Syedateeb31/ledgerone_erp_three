@@ -35,6 +35,7 @@ $currency_symbol = $currency['symbol'] ?? '$';
     <title>LedgerOne ERP - Suppliers List</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
     <link rel="stylesheet" href="../../../assets/css/customer_supplier/suppliers/supplier-list.css">
 </head>
 
@@ -92,6 +93,9 @@ $currency_symbol = $currency['symbol'] ?? '$';
                     <select class="filter-select" id="companyFilter">
                         <option value="">All Companies</option>
                     </select>
+                    <select class="filter-select" id="cityFilter">
+                        <option value="">All Cities</option>
+                    </select>
                     <select class="filter-select" id="statusFilter">
                         <option value="">All Statuses</option>
                         <option value="active">Active</option>
@@ -123,7 +127,7 @@ $currency_symbol = $currency['symbol'] ?? '$';
                     <thead>
                         <tr>
                             <th>Supplier Code</th>
-                            <th>Brand Name</th>
+                            <th>Company Name</th>
                             <th>Supplier Name</th>
                             <th>Phone</th>
                             <th>Status</th>
@@ -179,7 +183,7 @@ $currency_symbol = $currency['symbol'] ?? '$';
                             </select>
                         </div>
                         <div class="form-group col-4">
-                            <label>Brand Name</label>
+                            <label>Company Name</label>
                             <input type="text" id="editSupplierName" required>
                         </div>
                         <div class="form-group col-4">
@@ -205,6 +209,27 @@ $currency_symbol = $currency['symbol'] ?? '$';
                         <div class="form-group col-6">
                             <label>Identity Card</label>
                             <input type="text" id="editIdentityCard" maxlength="15">
+                        </div>
+                        <!-- Territory -->
+                        <div class="form-group col-4">
+                            <label><i class="fas fa-globe"></i> Country</label>
+                            <select id="editCountry"><option value="">Select Country</option></select>
+                        </div>
+                        <div class="form-group col-4">
+                            <label><i class="fas fa-map"></i> Region</label>
+                            <select id="editRegion"><option value="">Select Region</option></select>
+                        </div>
+                        <div class="form-group col-4">
+                            <label><i class="fas fa-city"></i> City</label>
+                            <select id="editCity"><option value="">Select City</option></select>
+                        </div>
+                        <div class="form-group col-6">
+                            <label><i class="fas fa-map-pin"></i> City Zone</label>
+                            <select id="editCityZone"><option value="">Select City Zone</option></select>
+                        </div>
+                        <div class="form-group col-6">
+                            <label><i class="fas fa-map-marker-alt"></i> Area</label>
+                            <select id="editArea"><option value="">Select Area</option></select>
                         </div>
                         <div class="form-group col-6">
                             <label>Opening Debit</label>
@@ -252,6 +277,9 @@ $currency_symbol = $currency['symbol'] ?? '$';
                                 <label for="editBlacklist">Blacklist Supplier</label>
                             </div>
                         </div>
+
+                        <!-- Linked Customer Section -->
+                        <div class="form-group col-12" id="editPartyLinkContainer"></div>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -314,7 +342,7 @@ $currency_symbol = $currency['symbol'] ?? '$';
                         <div class="view-field" id="viewSalesman"></div>
                     </div>
                     <div class="form-group col-4">
-                        <label>Brand Name</label>
+                        <label>Company Name</label>
                         <div class="view-field" id="viewSupplierName"></div>
                     </div>
                     <div class="form-group col-4">
@@ -340,6 +368,26 @@ $currency_symbol = $currency['symbol'] ?? '$';
                     <div class="form-group col-6">
                         <label>Identity Card</label>
                         <div class="view-field" id="viewIdentityCard"></div>
+                    </div>
+                    <div class="form-group col-4">
+                        <label>Country</label>
+                        <div class="view-field" id="viewCountry"></div>
+                    </div>
+                    <div class="form-group col-4">
+                        <label>Region</label>
+                        <div class="view-field" id="viewRegion"></div>
+                    </div>
+                    <div class="form-group col-4">
+                        <label>City</label>
+                        <div class="view-field" id="viewCity"></div>
+                    </div>
+                    <div class="form-group col-6">
+                        <label>City Zone</label>
+                        <div class="view-field" id="viewCityZone"></div>
+                    </div>
+                    <div class="form-group col-6">
+                        <label>Area</label>
+                        <div class="view-field" id="viewArea"></div>
                     </div>
                     <div class="form-group col-6">
                         <label>Opening Debit</label>
@@ -396,6 +444,9 @@ $currency_symbol = $currency['symbol'] ?? '$';
     <script>
         const currencySymbol = '<?php echo $currency_symbol; ?>';
     </script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    <script src="../../../assets/js/customer_supplier/party-link.js"></script>
     <script src="../../../assets/js/customer_supplier/suppliers/supplier-list.js?v=<?php echo time(); ?>"></script>
 </body>
 

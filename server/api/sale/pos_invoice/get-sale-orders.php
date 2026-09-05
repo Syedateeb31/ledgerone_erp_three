@@ -16,7 +16,13 @@ if (!$tenant_id) {
 }
 
 try {
-    $stmt = $pdo->prepare("SELECT id, bill_no FROM sale_order WHERE tenant_id = ? ORDER BY bill_no DESC");
+    $stmt = $pdo->prepare("
+        SELECT so.id, so.bill_no, so.sale_date, c.customer_name
+        FROM sale_order so
+        LEFT JOIN customers c ON so.customer_id = c.id
+        WHERE so.tenant_id = ?
+        ORDER BY so.id DESC
+    ");
     $stmt->execute([$tenant_id]);
     $orders = $stmt->fetchAll(PDO::FETCH_ASSOC);
     

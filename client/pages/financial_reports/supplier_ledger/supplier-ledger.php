@@ -14,7 +14,7 @@ if (!$user_id) {
     exit();
 }
 
-// Get base currency symbol
+// Get base currency symbol and all tenant currency symbols
 require_once '../../../../includes/connection.php';
 $stmt = $pdo->prepare("
     SELECT c.symbol 
@@ -25,6 +25,16 @@ $stmt = $pdo->prepare("
 $stmt->execute([$_SESSION['tenant_id']]);
 $currency = $stmt->fetch();
 $currency_symbol = $currency['symbol'];
+
+$stmt2 = $pdo->prepare("
+    SELECT c.id, c.name, c.symbol, tc.is_base_currency
+    FROM tenant_currencies tc 
+    JOIN ledgerone_public.currencies c ON tc.currency_id = c.id 
+    WHERE tc.tenant_id = ?
+    ORDER BY tc.is_base_currency DESC
+");
+$stmt2->execute([$_SESSION['tenant_id']]);
+$all_symbols = $stmt2->fetchAll();
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -58,6 +68,16 @@ $currency_symbol = $currency['symbol'];
                     <label class="form-label" for="currency-filter">Currency</label>
                     <select class="form-control" id="currency-filter">
                         <option value="">Loading...</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="symbol-override">Symbol</label>
+                    <select class="form-control" id="symbol-override">
+                        <?php foreach ($all_symbols as $s): ?>
+                        <option value="<?php echo htmlspecialchars($s['symbol']); ?>" <?php echo $s['is_base_currency'] ? 'selected' : ''; ?>>
+                            <?php echo htmlspecialchars($s['symbol']); ?> - <?php echo htmlspecialchars($s['name']); ?>
+                        </option>
+                        <?php endforeach; ?>
                     </select>
                 </div>
                 <div class="form-group">
@@ -103,9 +123,12 @@ $currency_symbol = $currency['symbol'];
                         <a href="#" class="dropdown-item" id="print-ledger">
                             <i class="fas fa-print"></i> Print Ledger
                         </a>
-                        <a href="#" class="dropdown-item">
-                            <i class="fas fa-file-excel"></i> Export To Excel
+                        <a href="#" class="dropdown-item" id="pdf-ledger">
+                            <i class="fas fa-file-pdf"></i> Download PDF
                         </a>
+                       <a href="#" class="dropdown-item" id="excel-ledger">
+    <i class="fas fa-file-excel"></i> Export To Excel
+</a>
                         <a href="#" class="dropdown-item">
                             <i class="fas fa-code"></i> Export JSON
                         </a>
@@ -222,7 +245,9 @@ $currency_symbol = $currency['symbol'];
 
     <script>
         window.currencySymbol = '<?php echo $currency_symbol; ?>';
+        window.allSymbols = <?php echo json_encode(array_map(fn($s) => ['symbol' => $s['symbol'], 'name' => $s['name']], $all_symbols)); ?>;
     </script>
-    <script src="../../../assets/js/financial_reports/supplier_ledger/supplier-ledger.js"></script>
+   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="../../../assets/js/financial_reports/supplier_ledger/supplier-ledger.js"></script>
 </body>
 </html>

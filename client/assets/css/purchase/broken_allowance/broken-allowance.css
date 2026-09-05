@@ -1,0 +1,79 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body { font-family: 'Segoe UI', sans-serif; background: #f5f6fa; color: #333; }
+
+.container { max-width: 1100px; margin: 0 auto; padding: 24px 16px; }
+
+.header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+
+.page-title { font-size: 1.5rem; font-weight: 600; color: #1a1a2e; }
+
+.card { background: #fff; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); padding: 24px; margin-bottom: 20px; }
+
+.card-title { font-size: 1rem; font-weight: 600; color: #1a1a2e; margin-bottom: 16px; }
+
+.form-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+
+.form-group { display: flex; flex-direction: column; gap: 6px; }
+
+.form-group label { font-size: 0.85rem; font-weight: 500; color: #555; }
+
+.form-group label.required::after { content: ' *'; color: #e53e3e; }
+
+.form-group input, .form-group select {
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.form-group input:focus, .form-group select:focus { border-color: #4a6cf7; }
+
+.table-container { overflow-x: auto; }
+
+table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+
+thead th {
+    background: #f0f2ff;
+    padding: 10px 12px;
+    text-align: left;
+    font-weight: 600;
+    color: #444;
+    border-bottom: 2px solid #dde0f0;
+}
+
+tbody td { padding: 8px 12px; border-bottom: 1px solid #f0f0f0; vertical-align: middle; }
+
+tbody tr:hover { background: #fafbff; }
+
+.table-input {
+    width: 100%;
+    padding: 6px 10px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    font-size: 0.88rem;
+    outline: none;
+}
+
+.table-input:focus { border-color: #4a6cf7; }
+
+.actions { display: flex; gap: 10px; margin-top: 16px; justify-content: flex-end; }
+
+.btn { display: inline-flex; align-items: center; gap: 6px; padding: 9px 18px; border: none; border-radius: 6px; font-size: 0.88rem; font-weight: 500; cursor: pointer; transition: background 0.2s; }
+
+.btn-primary { background: #4a6cf7; color: #fff; }
+.btn-primary:hover { background: #3a5ce6; }
+
+.btn-secondary { background: #e8eaf6; color: #3a3a6e; }
+.btn-secondary:hover { background: #d0d4f0; }
+
+.btn-danger { background: #fee2e2; color: #dc2626; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 0.82rem; }
+.btn-danger:hover { background: #fecaca; }
+
+.btn-sm { padding: 5px 10px; font-size: 0.82rem; }
+
+@media (max-width: 600px) {
+    .form-grid { grid-template-columns: 1fr; }
+}

@@ -44,21 +44,28 @@ if (!$user_id) {
                         <label for="purchaseDate" class="required">Purchase Date</label>
                         <input type="date" id="purchaseDate" required tabindex="-1">
                     </div>
-                    <div class="form-group">
+                    <div class="form-group" style="display:none">
                         <label for="supplierInvoiceNo">Supplier Invoice No</label>
                         <input type="text" id="supplierInvoiceNo" placeholder="Enter supplier invoice number">
                     </div>
-                    <div class="form-group">
+                    <div class="form-group" style="display:none">
                         <label for="supplierInvoiceDate">Supplier Invoice Date</label>
                         <input type="date" id="supplierInvoiceDate">
                     </div>
-                    <div class="form-group">
+                    <div class="form-group" style="display:none">
                         <label for="company" class="required">Company</label>
                         <select id="company" required>
                             <option value="">Select Company</option>
                             <!-- Options loaded dynamically -->
                         </select>
                         <div class="error-message" id="companyError">Please select a company</div>
+                    </div>
+                    <div class="form-group">
+                        <label for="invoiceStatus" class="required">Status</label>
+                        <select id="invoiceStatus" required>
+                            <option value="pending">Pending</option>
+                            <option value="confirmed">Confirmed</option>
+                        </select>
                     </div>
                     <div class="form-group">
                         <label for="purchaseOrder">Purchase Order #</label>
@@ -71,10 +78,49 @@ if (!$user_id) {
                         </div>
                     </div>
                     <div class="form-group">
+                        <label for="rpoNo">RPO #</label>
+                        <input type="text" id="rpoNo" placeholder="Enter RPO number">
+                    </div>
+                    <div class="form-group">
+                        <label for="paymentTerm">Payment Cond.</label>
+                        <select id="paymentTerm">
+                            <option value="">Select Payment Term</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="truckNo">Truck No</label>
+                        <input type="text" id="truckNo" placeholder="Enter truck number">
+                    </div>
+                    <div class="form-group">
+                        <label for="rateType">Rate Type</label>
+                        <select id="rateType" tabindex="-1">
+                            <option value="">Select Rate Type</option>
+                            <option value="per_bag">Per Bag</option>
+                            <option value="per_kg">Per KG</option>
+                            <option value="100_kg">100 KG</option>
+                            <option value="mon">MON</option>
+                            <option value="ton">Ton</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="brokeryRateType">Brokery Rate Type</label>
+                        <div style="display:flex; gap:8px; align-items:center;">
+                            <select id="brokeryRateType" tabindex="-1" style="flex:1;">
+                                <option value="">Select Brokery Rate Type</option>
+                                <option value="per_bag">Per Bag</option>
+                                <option value="per_kg">Per KG</option>
+                                <option value="100_kg">100 KG</option>
+                                <option value="mon">MON</option>
+                                <option value="ton">Ton</option>
+                            </select>
+                            <button type="button" id="brokeryPctToggle" tabindex="-1" class="btn btn-secondary" style="white-space:nowrap; font-size:12px;">Rate Mode</button>
+                        </div>
+                    </div>
+                    <div class="form-group">
                         <label for="biltyNo">Bilty No</label>
                         <input type="text" id="biltyNo" placeholder="Enter bilty/LR number">
                     </div>
-                    <div class="form-group">
+                    <div class="form-group" style="display:none">
                         <label for="transportName">Transport Name</label>
                         <input type="text" id="transportName" placeholder="Enter transport company name">
                     </div>
@@ -98,7 +144,7 @@ if (!$user_id) {
                         </div>
                         <div class="error-message" id="supplierCodeError">Please select a supplier code</div>
                     </div>
-                    <div class="form-group">
+                    <div class="form-group" style="display:none">
                         <label for="subAccount">Sub Account</label>
                         <div class="searchable-dropdown">
                             <input type="text" class="search-input" autocomplete="off" placeholder="Search sub account..." id="subAccountSearch">
@@ -109,7 +155,7 @@ if (!$user_id) {
                         </div>
                     </div>
 
-                    <div class="form-group">
+                    <div class="form-group" style="display:none">
                         <label for="branch" class="required">Branch</label>
                         <div class="searchable-dropdown">
                             <input type="text" autocomplete="off" class="search-input" placeholder="Search branch..." id="branchSearch">
@@ -120,7 +166,7 @@ if (!$user_id) {
                         </div>
                         <div class="error-message" id="branchError">Please select a branch</div>
                     </div>
-                    <div class="form-group">
+                    <div class="form-group" style="display:none">
                         <label for="currency" class="required">Currency</label>
                         <select id="currency" required tabindex="-1">
                             <option value="">Select Currency</option>
@@ -128,7 +174,7 @@ if (!$user_id) {
                         </select>
                         <div class="error-message" id="currencyError">Please select a currency</div>
                     </div>
-                    <div class="form-group full-width">
+                    <div class="form-group full-width" style="display:none">
                         <label for="remarks">Remarks</label>
                         <textarea id="remarks" placeholder="Enter any additional remarks" tabindex="-1"></textarea>
                     </div>
@@ -150,8 +196,17 @@ if (!$user_id) {
                                 <th width="4%">S#</th>
                                 <th width="20%">Product Code / Name</th>
                                 <!-- Dynamic unit columns will be inserted here -->
+                                <th width="5%" class="bag-cell">Bag</th>
+                                <th width="5%" class="total-kg-cell">Total KG</th>
+                                <th width="5%" class="cut-kg-percent-cell">Cut KG %</th>
+                                <th width="5%" class="cut-kg-cell">Cut KG</th>
+                                <th width="5%" class="al-kg-percent-cell">AL KG %</th>
+                                <th width="5%" class="al-kg-cell">AL KG</th>
+                                <th width="5%" class="net-kg-cell">Net KG</th>
+                                <th width="5%" class="al-rate-cut-cell">AL Rate Cut</th>
                                 <th width="8%"><span id="purchasePriceLabel">Trade Price (TP)</span></th>
-                                <th width="8%"><span id="grossAmountLabel">Gross Amount</span></th>
+                                <th width="5%" class="net-rate-cell">Net Rate</th>
+                                <th width="8%" data-col="gross-amount"><span id="grossAmountLabel">Gross Amount</span></th>
                                 <th width="5%" data-col="disc-percent">Disc %</th>
                                 <th width="8%" data-col="disc-amount"><span id="discountAmountLabel">Disc Amt</span></th>
                                 <th width="5%" data-col="to-percent">TO %</th>
@@ -170,8 +225,17 @@ if (!$user_id) {
                             <tr class="totals-row">
                                 <th colspan="2">Totals</th>
                                 <!-- Dynamic unit totals will be inserted here -->
+                                <th class="bag-cell"></th>
+                                <th id="totalTotalKG" class="total-kg-cell">0.00</th>
+                                <th class="cut-kg-percent-cell"></th>
+                                <th id="totalCutKG" class="cut-kg-cell">0.00</th>
+                                <th class="al-kg-percent-cell"></th>
+                                <th id="totalAlKG" class="al-kg-cell">0.00</th>
+                                <th id="totalNetKG" class="net-kg-cell">0.00</th>
+                                <th class="al-rate-cut-cell"></th>
                                 <th id="totalPurchasePrice">0.00</th>
-                                <th id="totalGrossAmount">0.00</th>
+                                <th class="net-rate-cell"></th>
+                                <th id="totalGrossAmount" data-col="gross-amount">0.00</th>
                                 <th data-col="disc-percent"></th>
                                 <th id="totalDiscountAmountItems" data-col="disc-amount">0.00</th>
                                 <th data-col="to-percent"></th>
@@ -224,12 +288,104 @@ if (!$user_id) {
                         </div>
                     </div>
                     <div class="summary-item">
+                        <span class="summary-label">Wt Charges</span>
+                        <input type="number" id="wtCharges" class="table-input" min="0" step="0.01" value="0" tabindex="-1">
+                        <div style="display:flex;gap:8px;margin-top:4px;font-size:11px;">
+                            <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="radio" name="wtChargesSign" value="+" checked style="width:auto;height:auto;"> <span>+</span></label>
+                            <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="radio" name="wtChargesSign" value="-" style="width:auto;height:auto;"> <span>-</span></label>
+                        </div>
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-label">Freight</span>
+                        <input type="number" id="freight" class="table-input" min="0" step="0.01" value="0" tabindex="-1">
+                        <div style="display:flex;gap:8px;margin-top:4px;font-size:11px;">
+                            <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="radio" name="freightSign" value="+" checked style="width:auto;height:auto;"> <span>+</span></label>
+                            <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="radio" name="freightSign" value="-" style="width:auto;height:auto;"> <span>-</span></label>
+                        </div>
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-label">M/Sukri</span>
+                        <input type="number" id="mSukri" class="table-input" min="0" step="0.01" value="0" tabindex="-1">
+                        <div style="display:flex;gap:8px;margin-top:4px;font-size:11px;">
+                            <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="radio" name="mSukriSign" value="+" checked style="width:auto;height:auto;"> <span>+</span></label>
+                            <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="radio" name="mSukriSign" value="-" style="width:auto;height:auto;"> <span>-</span></label>
+                        </div>
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-label">Broken %</span>
+                        <input type="number" id="brokenPercent" class="table-input" min="0" max="100" step="0.01" value="0" tabindex="-1">
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-label">Broken Amount</span>
+                        <span class="summary-value" id="brokenAmount">0.00</span>
+                        <div style="display:flex;gap:8px;margin-top:4px;font-size:11px;">
+                            <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="radio" name="brokenAmountSign" value="+" checked style="width:auto;height:auto;"> <span>+</span></label>
+                            <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="radio" name="brokenAmountSign" value="-" style="width:auto;height:auto;"> <span>-</span></label>
+                        </div>
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-label" id="brokeryRateLabel">Brokery</span>
+                        <input type="number" id="brokeryRate" class="table-input" min="0" step="0.01" value="0" tabindex="-1">
+                        <div style="display:flex;gap:8px;margin-top:4px;font-size:11px;">
+                            <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="radio" name="brokeryKgBasis" value="net" checked style="width:auto;height:auto;"> <span>Net KG</span></label>
+                            <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="radio" name="brokeryKgBasis" value="total" style="width:auto;height:auto;"> <span>Total KG</span></label>
+                        </div>
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-label">Brokery Amount</span>
+                        <span class="summary-value" id="brokeryAmount">0.00</span>
+                        <div style="display:flex;gap:8px;margin-top:4px;font-size:11px;">
+                            <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="radio" name="brokeryAmountSign" value="+" checked style="width:auto;height:auto;"> <span>+</span></label>
+                            <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="radio" name="brokeryAmountSign" value="-" style="width:auto;height:auto;"> <span>-</span></label>
+                        </div>
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-label">Brokery Tax %</span>
+                        <input type="number" id="brokeryTaxPercent" class="table-input" min="0" max="100" step="0.01" value="0" tabindex="-1">
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-label">Brokery Tax Amount</span>
+                        <span class="summary-value" id="brokeryTaxAmount">0.00</span>
+                        <div style="display:flex;gap:8px;margin-top:4px;font-size:11px;">
+                            <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="radio" name="brokeryTaxAmountSign" value="+" checked style="width:auto;height:auto;"> <span>+</span></label>
+                            <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="radio" name="brokeryTaxAmountSign" value="-" style="width:auto;height:auto;"> <span>-</span></label>
+                        </div>
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-label">Bardana</span>
+                        <input type="number" id="bardana" class="table-input" min="0" step="0.01" value="0" tabindex="-1">
+                        <div style="display:flex;gap:8px;margin-top:4px;font-size:11px;">
+                            <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="radio" name="bardanaSign" value="+" checked style="width:auto;height:auto;"> <span>+</span></label>
+                            <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="radio" name="bardanaSign" value="-" style="width:auto;height:auto;"> <span>-</span></label>
+                        </div>
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-label">Phone Charges</span>
+                        <input type="number" id="phoneCharges" class="table-input" min="0" step="0.01" value="0" tabindex="-1">
+                        <div style="display:flex;gap:8px;margin-top:4px;font-size:11px;">
+                            <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="radio" name="phoneChargesSign" value="+" checked style="width:auto;height:auto;"> <span>+</span></label>
+                            <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="radio" name="phoneChargesSign" value="-" style="width:auto;height:auto;"> <span>-</span></label>
+                        </div>
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-label">Filling Charges</span>
+                        <input type="number" id="fillingCharges" class="table-input" min="0" step="0.01" value="0" tabindex="-1">
+                        <div style="display:flex;gap:8px;margin-top:4px;font-size:11px;">
+                            <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="radio" name="fillingChargesSign" value="+" checked style="width:auto;height:auto;"> <span>+</span></label>
+                            <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="radio" name="fillingChargesSign" value="-" style="width:auto;height:auto;"> <span>-</span></label>
+                        </div>
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-label">Total Charges</span>
+                        <span class="summary-value" id="totalCharges">0.00</span>
+                    </div>
+                    <div class="summary-item">
                         <span class="summary-label" id="netAmountSummaryLabel">Net Amount</span>
                         <span class="summary-value" id="netAmount">0.00</span>
                     </div>
                     <!-- Dynamic Invoice-Level Taxes will be inserted here -->
                     <div id="invoiceLevelTaxesContainer"></div>
-                    <div class="summary-item">
+                    <div class="summary-item" style="display:none;">
                         <span class="summary-label" id="netReceivableLabel">Net Receivable</span>
                         <span class="summary-value" id="netReceivable" style="color: var(--primary); font-size: 16px; font-weight: 700;">0.00</span>
                     </div>

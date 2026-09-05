@@ -20,7 +20,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const form = document.getElementById('invoiceForm');
 
     // Load all data, then initialize dropdowns and add first row
-    Promise.all([loadSuppliers(), loadBranches(), loadProducts(), loadUOM(), loadCurrencies(), loadCompanies()]).then(() => {
+    Promise.all([loadSuppliers(), loadBranches(), loadProducts(), loadUOM(), loadCurrencies(), loadCompanies(), loadPaymentTerms()]).then(() => {
         initSearchableDropdown('supplierCodeSearch', 'supplierCodeOptions', 'supplierCode');
         initSearchableDropdown('branchSearch', 'branchOptions', 'branch');
 
@@ -96,6 +96,25 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 
+    async function loadPaymentTerms() {
+        try {
+            const response = await fetch('../../../../server/api/purchase/purchase_order/get-payment-terms.php');
+            const data = await response.json();
+            if (data.success) {
+                const select = document.getElementById('paymentTerm');
+                select.innerHTML = '<option value="">Select Payment Term</option>';
+                data.payment_terms.forEach(term => {
+                    const option = document.createElement('option');
+                    option.value = term.id;
+                    option.textContent = `${term.term_name} (${term.days} days)`;
+                    select.appendChild(option);
+                });
+            }
+        } catch (error) {
+            console.error('Error loading payment terms:', error);
+        }
+    }
+
     // Load suppliers from API
     async function loadSuppliers() {
         try {
@@ -130,6 +149,7 @@ document.addEventListener('DOMContentLoaded', function () {
             if (data.success) {
                 const branchOptions = document.getElementById('branchOptions');
                 branchOptions.innerHTML = '';
+                let defaultBranch = null;
 
                 data.branches.forEach(branch => {
                     const option = document.createElement('div');
@@ -140,7 +160,17 @@ document.addEventListener('DOMContentLoaded', function () {
                         : `${branch.branch_code} - ${branch.branch_name} (${branch.branch_type})`;
                     option.textContent = displayText;
                     branchOptions.appendChild(option);
+                    
+                    if (branch.is_default == 1) {
+                        defaultBranch = { id: branch.id, text: displayText };
+                    }
                 });
+                
+                // Auto-select default branch
+                if (defaultBranch) {
+                    document.getElementById('branchSearch').value = defaultBranch.text;
+                    document.getElementById('branch').value = defaultBranch.id;
+                }
             }
         } catch (error) {
             console.error('Error loading branches:', error);
@@ -257,8 +287,11 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
-    // Add currency change event listener
-    document.getElementById('currency').addEventListener('change', updateCurrencySymbols);
+    // Add currency change event listener - Safe
+    const currencyEl = document.getElementById('currency');
+    if (currencyEl) {
+        currencyEl.addEventListener('change', updateCurrencySymbols);
+    }
 
     async function loadInvoiceData(invoiceId) {
         try {
@@ -269,10 +302,12 @@ document.addEventListener('DOMContentLoaded', function () {
                 const invoice = data.invoice;
 
                 document.getElementById('purchaseDate').value = invoice.purchase_date;
+                document.getElementById('lastDate').value = invoice.last_date || '';
                 document.getElementById('supplierInvoiceNo').value = invoice.supplier_invoice_no || '';
                 document.getElementById('supplierInvoiceDate').value = invoice.supplier_invoice_date || '';
                 document.getElementById('biltyNo').value = invoice.bilty_no || '';
                 document.getElementById('transportName').value = invoice.transport_name || '';
+                document.getElementById('truckNo').value = invoice.truck_no || '';
                 document.getElementById('company').value = invoice.company_id || '';
                 document.getElementById('supplierCodeSearch').value = `${invoice.supplier_code} - ${invoice.supplier_name}`;
                 document.getElementById('supplierCode').value = invoice.supplier_id;
@@ -283,6 +318,16 @@ document.addEventListener('DOMContentLoaded', function () {
                 document.getElementById('branch').value = invoice.branch_id;
                 document.getElementById('currency').value = invoice.currency_id;
                 document.getElementById('previousBalance').value = invoice.previous_balance;
+                document.getElementById('broker').value = invoice.broker || '';
+                document.getElementById('millName').value = invoice.mill_name || '';
+                document.getElementById('rpoNo').value = invoice.rpo_no || '';
+                document.getElementById('moist').value = invoice.moist || '';
+                // autopopulate paymentTerm
+                document.getElementById('paymentTerm').value = invoice.payment_term_id || '';
+                document.getElementById('damage').value = invoice.damage || '';
+                document.getElementById('underMill').value = invoice.under_mill || '';
+                document.getElementById('broken').value = invoice.broken || '';
+                document.getElementById('chakki').value = invoice.chakki || '';
                 document.getElementById('remarks').value = invoice.remarks || '';
 
                 updateCurrencySymbols();
@@ -308,11 +353,6 @@ document.addEventListener('DOMContentLoaded', function () {
                         lastRow.querySelector('.price-cell input').value = item.purchase_price;
                         lastRow.querySelector('.disc-percent-cell input').value = item.discount_percent;
                         lastRow.querySelector('.disc-amount-cell input').value = item.discount_amount;
-                        lastRow.querySelector('.to-percent-cell input').value = item.trade_offer_percent || 0;
-                        lastRow.querySelector('.to-amount-cell input').value = item.trade_offer_amount || 0;
-                        lastRow.querySelector('.gst-percent-cell input').value = item.gst_percent || 0;
-                        lastRow.querySelector('.gst-amount-cell input').value = item.gst_amount || 0;
-                        lastRow.querySelector('.foc-cell input').value = item.foc_quantity || 0;
                         lastRow.querySelector('.gross-cell input').value = item.gross_amount;
                         lastRow.querySelector('.net-cell input').value = item.net_amount;
                         
@@ -332,9 +372,12 @@ document.addEventListener('DOMContentLoaded', function () {
                 // Update summary
                 document.getElementById('totalDiscountPercent').value = invoice.total_discount_percent;
                 document.getElementById('totalDiscountAmount').value = invoice.total_discount_amount;
-                document.getElementById('totalGSTPercent').value = invoice.total_gst_percent || 0;
-                document.getElementById('totalGSTAmount').value = invoice.total_gst_amount || 0;
                 document.getElementById('shippingFees').value = invoice.shipping_fees || 0;
+                document.getElementById('moist').value = invoice.moist || '';
+                document.getElementById('damage').value = invoice.damage || '';
+                document.getElementById('underMill').value = invoice.under_mill || '';
+                document.getElementById('broken').value = invoice.broken || '';
+                document.getElementById('chakki').value = invoice.chakki || '';
                 updateInvoiceSummaryDynamic();
 
                 document.querySelector('.page-title').textContent = `Edit Purchase Order - ${invoice.bill_no}`;
@@ -922,6 +965,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Add row with dynamic UOM columns
     function addRowDynamic() {
+        console.log('addRowDynamic called, current rows:', itemsTable.rows.length);
         const rowCount = itemsTable.rows.length;
         const row = itemsTable.insertRow();
         
@@ -1026,87 +1070,8 @@ document.addEventListener('DOMContentLoaded', function () {
         discAmountInput.value = '0.00';
         discAmountCell.appendChild(discAmountInput);
         
-        // TO %
-        const toPercentCell = row.insertCell(6);
-        toPercentCell.className = 'to-percent-cell';
-        const toPercentInput = document.createElement('input');
-        toPercentInput.type = 'number';
-        toPercentInput.className = 'table-input';
-        toPercentInput.min = '0';
-        toPercentInput.max = '100';
-        toPercentInput.step = '0.01';
-        toPercentInput.value = '0';
-        toPercentInput.addEventListener('input', function() {
-            const unitInputs = row.querySelectorAll('.unit-input');
-            let totalQty = 0;
-            unitInputs.forEach(input => {
-                const qty = parseFloat(input.value) || 0;
-                const cf = parseFloat(input.dataset.conversionFactor) || 1;
-                totalQty += qty * cf;
-            });
-            const price = parseFloat(row.querySelector('.price-cell input').value) || 0;
-            calculateRowAmounts(row, totalQty, price);
-        });
-        toPercentCell.appendChild(toPercentInput);
-        
-        // TO Amount
-        const toAmountCell = row.insertCell(7);
-        toAmountCell.className = 'to-amount-cell';
-        const toAmountInput = document.createElement('input');
-        toAmountInput.type = 'number';
-        toAmountInput.className = 'table-input';
-        toAmountInput.min = '0';
-        toAmountInput.step = '0.01';
-        toAmountInput.value = '0.00';
-        toAmountCell.appendChild(toAmountInput);
-        
-        // GST %
-        const gstPercentCell = row.insertCell(8);
-        gstPercentCell.className = 'gst-percent-cell';
-        const gstPercentInput = document.createElement('input');
-        gstPercentInput.type = 'number';
-        gstPercentInput.className = 'table-input';
-        gstPercentInput.min = '0';
-        gstPercentInput.max = '100';
-        gstPercentInput.step = '0.01';
-        gstPercentInput.value = '0';
-        gstPercentInput.addEventListener('input', function() {
-            const unitInputs = row.querySelectorAll('.unit-input');
-            let totalQty = 0;
-            unitInputs.forEach(input => {
-                const qty = parseFloat(input.value) || 0;
-                const cf = parseFloat(input.dataset.conversionFactor) || 1;
-                totalQty += qty * cf;
-            });
-            const price = parseFloat(row.querySelector('.price-cell input').value) || 0;
-            calculateRowAmounts(row, totalQty, price);
-        });
-        gstPercentCell.appendChild(gstPercentInput);
-        
-        // GST Amount
-        const gstAmountCell = row.insertCell(9);
-        gstAmountCell.className = 'gst-amount-cell';
-        const gstAmountInput = document.createElement('input');
-        gstAmountInput.type = 'number';
-        gstAmountInput.className = 'table-input';
-        gstAmountInput.min = '0';
-        gstAmountInput.step = '0.01';
-        gstAmountInput.value = '0.00';
-        gstAmountCell.appendChild(gstAmountInput);
-        
-        // FOC Qty
-        const focCell = row.insertCell(10);
-        focCell.className = 'foc-cell';
-        const focInput = document.createElement('input');
-        focInput.type = 'number';
-        focInput.className = 'table-input';
-        focInput.min = '0';
-        focInput.step = '0.01';
-        focInput.value = '0';
-        focCell.appendChild(focInput);
-        
         // Net Amount
-        const netCell = row.insertCell(11);
+        const netCell = row.insertCell(6);
         netCell.className = 'net-cell';
         const netInput = document.createElement('input');
         netInput.type = 'text';
@@ -1117,7 +1082,7 @@ document.addEventListener('DOMContentLoaded', function () {
         netCell.appendChild(netInput);
         
         // Actions
-        const actionsCell = row.insertCell(12);
+        const actionsCell = row.insertCell(7);
         const deleteBtn = document.createElement('button');
         deleteBtn.type = 'button';
         deleteBtn.className = 'btn btn-danger btn-sm';
@@ -1216,9 +1181,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 
                 // Set default values
                 row.querySelector('.disc-percent-cell input').value = product.default_discount || 0;
-                row.querySelector('.to-percent-cell input').value = product.trade_offer_discount || 0;
-                row.querySelector('.foc-cell input').value = product.default_foc || 0;
-                row.querySelector('.gst-percent-cell input').value = product.sales_tax || 0;
                 
                 optionsContainer.style.display = 'none';
                 
@@ -1503,20 +1465,23 @@ document.addEventListener('DOMContentLoaded', function () {
         document.getElementById('netAmount').textContent = netAmount.toFixed(2);
     }
 
-    // Add event listener for total discount percent
-    document.getElementById('totalDiscountPercent').addEventListener('input', updateInvoiceSummary);
+    // Add event listener for total discount percent - Safe
+    const totalDiscountPercentEl = document.getElementById('totalDiscountPercent');
+    if (totalDiscountPercentEl) {
+        totalDiscountPercentEl.addEventListener('input', updateInvoiceSummary);
+    }
 
-    // Add event listener for total discount amount
-    document.getElementById('totalDiscountAmount').addEventListener('input', updateInvoiceSummaryFromAmount);
+    // Add event listener for total discount amount - Safe
+    const totalDiscountAmountEl = document.getElementById('totalDiscountAmount');
+    if (totalDiscountAmountEl) {
+        totalDiscountAmountEl.addEventListener('input', updateInvoiceSummaryFromAmount);
+    }
 
-    // Add event listener for total GST percent
-    document.getElementById('totalGSTPercent').addEventListener('input', updateInvoiceSummary);
-
-    // Add event listener for total GST amount
-    document.getElementById('totalGSTAmount').addEventListener('input', updateInvoiceSummaryFromGSTAmount);
-
-    // Add event listener for shipping fees
-    document.getElementById('shippingFees').addEventListener('input', updateInvoiceSummary);
+    // Add event listener for shipping fees - Safe
+    const shippingFeesEl = document.getElementById('shippingFees');
+    if (shippingFeesEl) {
+        shippingFeesEl.addEventListener('input', updateInvoiceSummaryDynamic);
+    }
 
     function updateInvoiceSummaryFromAmount() {
         let totalBill = 0;
@@ -1634,20 +1599,31 @@ document.addEventListener('DOMContentLoaded', function () {
         // Collect form data
         const formData = {
             purchaseDate: document.getElementById('purchaseDate').value,
+            lastDate: document.getElementById('lastDate').value || null,
             supplierInvoiceNo: document.getElementById('supplierInvoiceNo').value || null,
             supplierInvoiceDate: document.getElementById('supplierInvoiceDate').value || null,
             biltyNo: document.getElementById('biltyNo').value || null,
             transportName: document.getElementById('transportName').value || null,
+            truckNo: document.getElementById('truckNo').value || null,
             companyId: document.getElementById('company').value,
             supplierId: document.getElementById('supplierCode').value,
             branchId: document.getElementById('branch').value,
             currencyId: document.getElementById('currency').value,
             previousBalance: parseFloat(document.getElementById('previousBalance').value) || 0,
+            paymentTermId: document.getElementById('paymentTerm').value || null,
+            broker: document.getElementById('broker').value || null,
+            millName: document.getElementById('millName').value || null,
+            rpoNo: document.getElementById('rpoNo').value || null,
+            moist: document.getElementById('moist').value || null,
+            damage: document.getElementById('damage').value || null,
+            underMill: document.getElementById('underMill').value || null,
+            broken: parseFloat(document.getElementById('broken').value) || null,
+            chakki: parseFloat(document.getElementById('chakki').value) || null,
             totalBill: parseFloat(document.getElementById('totalBill').textContent),
             totalDiscountPercent: parseFloat(document.getElementById('totalDiscountPercent').value) || 0,
             totalDiscountAmount: parseFloat(document.getElementById('totalDiscountAmount').value),
-            totalGSTPercent: parseFloat(document.getElementById('totalGSTPercent').value) || 0,
-            totalGSTAmount: parseFloat(document.getElementById('totalGSTAmount').value) || 0,
+            totalGSTPercent: 0,
+            totalGSTAmount: 0,
             shippingFees: parseFloat(document.getElementById('shippingFees').value) || 0,
             netAmount: parseFloat(document.getElementById('netAmount').textContent),
             remarks: document.getElementById('remarks').value,
@@ -1660,37 +1636,57 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         const rows = itemsTable.rows;
+        console.log('Total rows in table:', rows.length);
         for (let i = 0; i < rows.length; i++) {
             const row = rows[i];
+            console.log('Processing row', i);
             const unitInputs = row.querySelectorAll('.unit-input');
+            console.log('Row', i, 'unit inputs found:', unitInputs.length);
             const unitEntries = [];
+            let hasQty = false;
             
-            unitInputs.forEach(input => {
+            unitInputs.forEach((input, idx) => {
                 const qty = parseFloat(input.value) || 0;
-                if (qty > 0) {
-                    unitEntries.push({
-                        uomId: input.dataset.unitId,
-                        quantity: qty
-                    });
-                }
+                console.log('Row', i, 'Unit', idx, '- UOM ID:', input.dataset.unitId, 'Qty:', qty);
+                if (qty > 0) hasQty = true;
+                unitEntries.push({
+                    uomId: input.dataset.unitId,
+                    quantity: qty
+                });
             });
             
-            if (unitEntries.length > 0) {
-                const item = {
-                    productId: row.cells[1].querySelector('.item-code').value,
-                    unitEntries: unitEntries,
-                    purchasePrice: parseFloat(row.querySelector('.price-cell input').value),
-                    grossAmount: parseFloat(row.querySelector('.gross-cell input').value),
-                    discountPercent: parseFloat(row.querySelector('.disc-percent-cell input').value) || 0,
-                    discountAmount: parseFloat(row.querySelector('.disc-amount-cell input').value),
-                    tradeOfferPercent: parseFloat(row.querySelector('.to-percent-cell input').value) || 0,
-                    tradeOfferAmount: parseFloat(row.querySelector('.to-amount-cell input').value) || 0,
-                    gstPercent: parseFloat(row.querySelector('.gst-percent-cell input').value) || 0,
-                    gstAmount: parseFloat(row.querySelector('.gst-amount-cell input').value) || 0,
-                    focQty: parseFloat(row.querySelector('.foc-cell input').value) || 0,
-                    netAmount: parseFloat(row.querySelector('.net-cell input').value)
-                };
-                formData.items.push(item);
+            console.log('Row', i, '- Has quantity:', hasQty, 'Total unit entries:', unitEntries.length);
+            
+            if (hasQty || unitEntries.length === 0) {
+                const productIdEl = row.cells[1].querySelector('.item-code');
+                const priceCell = row.querySelector('.price-cell');
+                const grossCell = row.querySelector('.gross-cell');
+                const discPercentCell = row.querySelector('.disc-percent-cell');
+                const discAmountCell = row.querySelector('.disc-amount-cell');
+                const netCell = row.querySelector('.net-cell');
+                
+                console.log('Row', i, '- Product ID:', productIdEl ? productIdEl.value : 'NULL');
+                
+                if (productIdEl && priceCell && grossCell && discPercentCell && discAmountCell && netCell) {
+                    const item = {
+                        productId: productIdEl.value,
+                        unitEntries: unitEntries.length > 0 ? unitEntries : [{uomId: 1, quantity: 0}],
+                        purchasePrice: parseFloat(priceCell.querySelector('input').value) || 0,
+                        grossAmount: parseFloat(grossCell.querySelector('input').value) || 0,
+                        discountPercent: parseFloat(discPercentCell.querySelector('input').value) || 0,
+                        discountAmount: parseFloat(discAmountCell.querySelector('input').value) || 0,
+                        tradeOfferPercent: 0,
+                        tradeOfferAmount: 0,
+                        gstPercent: 0,
+                        gstAmount: 0,
+                        focQty: 0,
+                        netAmount: parseFloat(netCell.querySelector('input').value) || 0
+                    };
+                    console.log('Row', i, '- Item to save:', item);
+                    formData.items.push(item);
+                } else {
+                    console.warn('Row', i, '- Missing cell elements');
+                }
             }
         }
 
@@ -1707,13 +1703,17 @@ document.addEventListener('DOMContentLoaded', function () {
             },
             body: JSON.stringify(formData)
         })
-            .then(response => response.json())
+            .then(response => {
+                console.log('API response status:', response.status);
+                return response.json();
+            })
             .then(data => {
+                console.log('API returned:', data);
                 if (data.success) {
-                    // Store invoice ID for print functionality
                     window.lastInvoiceId = data.invoice_id;
                     document.getElementById('successModal').style.display = 'flex';
                 } else {
+                    console.error('API Error:', data.message);
                     alert('Error: ' + data.message);
                 }
             })
@@ -1781,62 +1781,106 @@ document.addEventListener('DOMContentLoaded', function () {
         setTimeout(updateCurrencySymbols, 100);
     }
 
-    // Modal button events
-    document.getElementById('printLaterBtn').addEventListener('click', function () {
-        document.getElementById('successModal').style.display = 'none';
-        performReset();
-    });
+    // Modal button events - Safe initialization
+    const printLaterBtn = document.getElementById('printLaterBtn');
+    const printInvoiceBtn = document.getElementById('printInvoiceBtn');
+    const successModal = document.getElementById('successModal');
 
-    document.getElementById('printInvoiceBtn').addEventListener('click', function () {
-        document.getElementById('successModal').style.display = 'none';
-        const invoiceId = isEditMode ? editId : window.lastInvoiceId;
-        if (invoiceId) {
-            window.open(`invoice-print.php?id=${invoiceId}`, '_blank');
-        }
-        performReset();
-    });
+    if (printLaterBtn) {
+        printLaterBtn.addEventListener('click', function () {
+            if (successModal) successModal.style.display = 'none';
+            const base = window.top.location.origin + window.top.location.pathname.replace(/\/client\/.*$/, '');
+            window.top.location.href = base + '/client/pages/soda_book/soda-book-list.php';
+        });
+    }
 
-    // Invoice Settings Modal
-    document.getElementById('invoiceSettingsBtn').addEventListener('click', function () {
-        // Load settings from localStorage
-        document.getElementById('enableTradeOffer').checked = localStorage.getItem('enableTradeOffer') === 'true';
-        document.getElementById('enableTradeOfferAmount').checked = localStorage.getItem('enableTradeOfferAmount') === 'true';
-        document.getElementById('enableFOC').checked = localStorage.getItem('enableFOC') === 'true';
-        document.getElementById('enableTaxation').checked = localStorage.getItem('enableTaxation') === 'true';
-        document.getElementById('enableInlineCashDiscount').checked = localStorage.getItem('enableInlineCashDiscount') === 'true';
-        document.getElementById('enableInlineCashDiscountAmount').checked = localStorage.getItem('enableInlineCashDiscountAmount') === 'true';
-        document.getElementById('enableInvoiceCashDiscount').checked = localStorage.getItem('enableInvoiceCashDiscount') === 'true';
-        document.getElementById('enableInvoiceCashDiscountAmount').checked = localStorage.getItem('enableInvoiceCashDiscountAmount') === 'true';
-        document.getElementById('enableShippingFees').checked = localStorage.getItem('enableShippingFees') === 'true';
-        document.getElementById('settingsModal').style.display = 'flex';
-    });
+    if (printInvoiceBtn) {
+        printInvoiceBtn.addEventListener('click', function () {
+            if (successModal) successModal.style.display = 'none';
+            const invoiceId = isEditMode ? editId : window.lastInvoiceId;
+            if (invoiceId) {
+                window.open(`invoice-print.php?id=${invoiceId}`, '_blank');
+            }
+            performReset();
+        });
+    }
 
-    document.getElementById('closeSettingsBtn').addEventListener('click', function () {
-        document.getElementById('settingsModal').style.display = 'none';
-    });
+    // Invoice Settings Modal - Safe initialization
+    const invoiceSettingsBtn = document.getElementById('invoiceSettingsBtn');
+    const closeSettingsBtn = document.getElementById('closeSettingsBtn');
+    const saveSettingsBtn = document.getElementById('saveSettingsBtn');
+    const settingsModal = document.getElementById('settingsModal');
 
-    document.getElementById('saveSettingsBtn').addEventListener('click', function () {
-        // Save settings to localStorage
-        localStorage.setItem('enableTradeOffer', document.getElementById('enableTradeOffer').checked);
-        localStorage.setItem('enableTradeOfferAmount', document.getElementById('enableTradeOfferAmount').checked);
-        localStorage.setItem('enableFOC', document.getElementById('enableFOC').checked);
-        localStorage.setItem('enableTaxation', document.getElementById('enableTaxation').checked);
-        localStorage.setItem('enableInlineCashDiscount', document.getElementById('enableInlineCashDiscount').checked);
-        localStorage.setItem('enableInlineCashDiscountAmount', document.getElementById('enableInlineCashDiscountAmount').checked);
-        localStorage.setItem('enableInvoiceCashDiscount', document.getElementById('enableInvoiceCashDiscount').checked);
-        localStorage.setItem('enableInvoiceCashDiscountAmount', document.getElementById('enableInvoiceCashDiscountAmount').checked);
-        localStorage.setItem('enableShippingFees', document.getElementById('enableShippingFees').checked);
-        document.getElementById('settingsModal').style.display = 'none';
+    if (invoiceSettingsBtn) {
+        invoiceSettingsBtn.addEventListener('click', function () {
+            if (settingsModal) {
+                // Load settings from localStorage
+                const enableTradeOffer = document.getElementById('enableTradeOffer');
+                const enableTradeOfferAmount = document.getElementById('enableTradeOfferAmount');
+                const enableFOC = document.getElementById('enableFOC');
+                const enableTaxation = document.getElementById('enableTaxation');
+                const enableInlineCashDiscount = document.getElementById('enableInlineCashDiscount');
+                const enableInlineCashDiscountAmount = document.getElementById('enableInlineCashDiscountAmount');
+                const enableInvoiceCashDiscount = document.getElementById('enableInvoiceCashDiscount');
+                const enableInvoiceCashDiscountAmount = document.getElementById('enableInvoiceCashDiscountAmount');
+                const enableShippingFees = document.getElementById('enableShippingFees');
+                
+                if (enableTradeOffer) enableTradeOffer.checked = localStorage.getItem('enableTradeOffer') === 'true';
+                if (enableTradeOfferAmount) enableTradeOfferAmount.checked = localStorage.getItem('enableTradeOfferAmount') === 'true';
+                if (enableFOC) enableFOC.checked = localStorage.getItem('enableFOC') === 'true';
+                if (enableTaxation) enableTaxation.checked = localStorage.getItem('enableTaxation') === 'true';
+                if (enableInlineCashDiscount) enableInlineCashDiscount.checked = localStorage.getItem('enableInlineCashDiscount') === 'true';
+                if (enableInlineCashDiscountAmount) enableInlineCashDiscountAmount.checked = localStorage.getItem('enableInlineCashDiscountAmount') === 'true';
+                if (enableInvoiceCashDiscount) enableInvoiceCashDiscount.checked = localStorage.getItem('enableInvoiceCashDiscount') === 'true';
+                if (enableInvoiceCashDiscountAmount) enableInvoiceCashDiscountAmount.checked = localStorage.getItem('enableInvoiceCashDiscountAmount') === 'true';
+                if (enableShippingFees) enableShippingFees.checked = localStorage.getItem('enableShippingFees') === 'true';
+                
+                settingsModal.style.display = 'flex';
+            }
+        });
+    }
 
-        // Apply settings immediately
-        applyInvoiceSettings();
-    });
+    if (closeSettingsBtn) {
+        closeSettingsBtn.addEventListener('click', function () {
+            if (settingsModal) settingsModal.style.display = 'none';
+        });
+    }
 
-    document.getElementById('settingsModal').addEventListener('click', function (e) {
-        if (e.target === this) {
-            this.style.display = 'none';
-        }
-    });
+    if (saveSettingsBtn) {
+        saveSettingsBtn.addEventListener('click', function () {
+            // Save settings to localStorage
+            const enableTradeOffer = document.getElementById('enableTradeOffer');
+            const enableTradeOfferAmount = document.getElementById('enableTradeOfferAmount');
+            const enableFOC = document.getElementById('enableFOC');
+            const enableTaxation = document.getElementById('enableTaxation');
+            const enableInlineCashDiscount = document.getElementById('enableInlineCashDiscount');
+            const enableInlineCashDiscountAmount = document.getElementById('enableInlineCashDiscountAmount');
+            const enableInvoiceCashDiscount = document.getElementById('enableInvoiceCashDiscount');
+            const enableInvoiceCashDiscountAmount = document.getElementById('enableInvoiceCashDiscountAmount');
+            const enableShippingFees = document.getElementById('enableShippingFees');
+            
+            if (enableTradeOffer) localStorage.setItem('enableTradeOffer', enableTradeOffer.checked);
+            if (enableTradeOfferAmount) localStorage.setItem('enableTradeOfferAmount', enableTradeOfferAmount.checked);
+            if (enableFOC) localStorage.setItem('enableFOC', enableFOC.checked);
+            if (enableTaxation) localStorage.setItem('enableTaxation', enableTaxation.checked);
+            if (enableInlineCashDiscount) localStorage.setItem('enableInlineCashDiscount', enableInlineCashDiscount.checked);
+            if (enableInlineCashDiscountAmount) localStorage.setItem('enableInlineCashDiscountAmount', enableInlineCashDiscountAmount.checked);
+            if (enableInvoiceCashDiscount) localStorage.setItem('enableInvoiceCashDiscount', enableInvoiceCashDiscount.checked);
+            if (enableInvoiceCashDiscountAmount) localStorage.setItem('enableInvoiceCashDiscountAmount', enableInvoiceCashDiscountAmount.checked);
+            if (enableShippingFees) localStorage.setItem('enableShippingFees', enableShippingFees.checked);
+            
+            if (settingsModal) settingsModal.style.display = 'none';
+            applyInvoiceSettings();
+        });
+    }
+
+    if (settingsModal) {
+        settingsModal.addEventListener('click', function (e) {
+            if (e.target === this) {
+                this.style.display = 'none';
+            }
+        });
+    }
 
     // Apply invoice settings to show/hide columns
     function applyInvoiceSettings() {
@@ -1857,14 +1901,10 @@ document.addEventListener('DOMContentLoaded', function () {
         // Hide/show invoice summary fields
         const discountPercentItem = document.getElementById('totalDiscountPercent')?.closest('.summary-item');
         const discountAmountItem = document.getElementById('totalDiscountAmount')?.closest('.summary-item');
-        const gstPercentItem = document.getElementById('totalGSTPercent')?.closest('.summary-item');
-        const gstAmountItem = document.getElementById('totalGSTAmount')?.closest('.summary-item');
-        const shippingFeesItem = document.getElementById('shippingFees')?.closest('.summary-item');
 
+        const shippingFeesItem = document.getElementById('shippingFees')?.closest('.summary-item');
         if (discountPercentItem) discountPercentItem.style.display = enableInvoiceCashDiscount ? '' : 'none';
         if (discountAmountItem) discountAmountItem.style.display = enableInvoiceCashDiscountAmount ? '' : 'none';
-        if (gstPercentItem) gstPercentItem.style.display = enableTaxation ? '' : 'none';
-        if (gstAmountItem) gstAmountItem.style.display = enableTaxation ? '' : 'none';
         if (shippingFeesItem) shippingFeesItem.style.display = enableShippingFees ? '' : 'none';
     }
 
@@ -2058,3 +2098,124 @@ function addChildProducts(parentRow, children) {
     }));
     parentRow.dataset.childProducts = JSON.stringify(childProducts);
 }
+
+
+// â”€â”€ Payment Terms Modal â”€â”€
+(function () {
+    const API = '../../../../server/api/purchase/purchase_order/payment-terms-crud.php';
+
+    function openModal() {
+        document.getElementById('paymentTermsModal').style.display = 'flex';
+        loadPtList();
+    }
+
+    function closeModal() {
+        document.getElementById('paymentTermsModal').style.display = 'none';
+        resetForm();
+    }
+
+    function resetForm() {
+        document.getElementById('ptEditId').value = '';
+        document.getElementById('ptTermName').value = '';
+        document.getElementById('ptDays').value = '';
+        document.getElementById('ptCancelEditBtn').style.display = 'none';
+        document.getElementById('ptSaveBtn').innerHTML = '<i class="fas fa-save"></i> Save';
+    }
+
+    async function loadPtList() {
+        const tbody = document.getElementById('ptTableBody');
+        tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;padding:16px;color:var(--subtext);">Loading...</td></tr>';
+        try {
+            const res = await fetch(API);
+            const data = await res.json();
+            tbody.innerHTML = '';
+            if (!data.success || data.payment_terms.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;padding:16px;color:var(--subtext);">No records found</td></tr>';
+                return;
+            }
+            data.payment_terms.forEach(pt => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td style="padding:8px 6px;border-bottom:1px solid var(--border-default);">${pt.term_name}</td>
+                    <td style="padding:8px 6px;border-bottom:1px solid var(--border-default);text-align:center;">${pt.days}</td>
+                    <td style="padding:8px 6px;border-bottom:1px solid var(--border-default);text-align:center;">
+                        <div style="display:flex;gap:4px;justify-content:center;">
+                            <button class="btn btn-primary btn-sm pt-edit-btn" data-id="${pt.id}" data-name="${pt.term_name}" data-days="${pt.days}"><i class="fas fa-edit"></i></button>
+                            <button class="btn btn-danger btn-sm pt-delete-btn" data-id="${pt.id}"><i class="fas fa-trash"></i></button>
+                        </div>
+                    </td>`;
+                tbody.appendChild(tr);
+            });
+
+            tbody.querySelectorAll('.pt-edit-btn').forEach(btn => {
+                btn.addEventListener('click', function () {
+                    document.getElementById('ptEditId').value = this.dataset.id;
+                    document.getElementById('ptTermName').value = this.dataset.name;
+                    document.getElementById('ptDays').value = this.dataset.days;
+                    document.getElementById('ptCancelEditBtn').style.display = '';
+                    document.getElementById('ptSaveBtn').innerHTML = '<i class="fas fa-save"></i> Update';
+                    document.getElementById('ptTermName').focus();
+                });
+            });
+
+            tbody.querySelectorAll('.pt-delete-btn').forEach(btn => {
+                btn.addEventListener('click', async function () {
+                    if (!confirm('Delete this payment term?')) return;
+                    await fetch(`${API}?id=${this.dataset.id}`, { method: 'DELETE' });
+                    loadPtList();
+                    reloadPaymentTermsDropdown();
+                });
+            });
+        } catch (e) {
+            tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;padding:16px;color:var(--error);">Error loading</td></tr>';
+        }
+    }
+
+    async function reloadPaymentTermsDropdown() {
+        try {
+            const res = await fetch('../../../../server/api/purchase/purchase_order/get-payment-terms.php');
+            const data = await res.json();
+            if (data.success) {
+                const select = document.getElementById('paymentTerm');
+                const current = select.value;
+                select.innerHTML = '<option value="">Select Payment Term</option>';
+                data.payment_terms.forEach(term => {
+                    const opt = document.createElement('option');
+                    opt.value = term.id;
+                    opt.textContent = `${term.term_name} (${term.days} days)`;
+                    select.appendChild(opt);
+                });
+                select.value = current;
+            }
+        } catch (e) {}
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        document.getElementById('addPaymentTermBtn').addEventListener('click', openModal);
+        document.getElementById('closePaymentTermsBtn').addEventListener('click', closeModal);
+        document.getElementById('paymentTermsModal').addEventListener('click', function (e) {
+            if (e.target === this) closeModal();
+        });
+        document.getElementById('ptCancelEditBtn').addEventListener('click', resetForm);
+
+        document.getElementById('ptSaveBtn').addEventListener('click', async function () {
+            const id = document.getElementById('ptEditId').value;
+            const term_name = document.getElementById('ptTermName').value.trim();
+            const days = document.getElementById('ptDays').value;
+            if (!term_name) { alert('Term name is required'); return; }
+
+            const method = id ? 'PUT' : 'POST';
+            const body = id ? { id: parseInt(id), term_name, days: parseInt(days) } : { term_name, days: parseInt(days) };
+
+            const res = await fetch(API, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+            const data = await res.json();
+            if (data.success) {
+                resetForm();
+                loadPtList();
+                reloadPaymentTermsDropdown();
+            } else {
+                alert('Error: ' + data.message);
+            }
+        });
+    });
+})();

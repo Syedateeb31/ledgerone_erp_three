@@ -1,5 +1,4 @@
 <?php
-require_once '../../../../includes/dashboard.php';
 // Start session if not already started
 if (session_status() == PHP_SESSION_NONE) {
     session_start();
@@ -19,28 +18,18 @@ if (!$user_id) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>LedgerOne ERP - Sale Order</title>
+    <title>LedgerOne ERP - Soda Book Seller</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="../../../assets/css/sale/sale_order/order-add.css">
 </head>
 <body class="light-theme">
     <div class="container">
         <div class="header">
-            <h1 class="page-title">Sale Order</h1>
+            <h1 class="page-title">Soda Book Seller</h1>
         </div>
 
         <form id="invoiceForm">
-            <div class="actions" style="margin-bottom: 20px;">
-                <button type="button" class="btn btn-secondary" id="viewDraftsBtn">
-                    <i class="fas fa-file-alt"></i> View Draft Orders
-                </button>
-                <button type="button" class="btn btn-secondary" id="invoiceSettingsBtn">
-                    <i class="fas fa-cog"></i> Order Settings
-                </button>
-                <button type="button" class="btn btn-secondary" id="printSettingsBtn">
-                    <i class="fas fa-cog"></i> Print Settings
-                </button>
-            </div>
+
             
             <div class="card">
                 <h2 class="card-title">Order Details</h2>
@@ -79,12 +68,12 @@ if (!$user_id) {
                         </div>
                         <div class="error-message" id="customerCodeError">Please select a customer code</div>
                     </div>
-                    <div class="form-group full-width" id="customerAddressGroup">
+                    <div class="form-group" id="customerAddressGroup" style="display:none;">
                         <label>Customer Address</label>
                         <div id="customerAddress" style="padding: 10px; background: var(--surface-2); border-radius: var(--radius); min-height: 40px; color: var(--subtext);">Select a customer to view address</div>
                     </div>
 
-                    <div class="form-group" id="branchGroup">
+                    <div class="form-group" id="branchGroup" style="display:none;">
                         <label for="branch" class="required">Branch</label>
                         <div class="searchable-dropdown">
                             <input type="text" class="search-input" placeholder="Search branch..." id="branchSearch" autocomplete="off">
@@ -95,7 +84,7 @@ if (!$user_id) {
                         </div>
                         <div class="error-message" id="branchError">Please select a branch</div>
                     </div>
-                    <div class="form-group" id="currencyGroup">
+                    <div class="form-group" id="currencyGroup" style="display:none;">
                         <label for="currency" class="required">Currency</label>
                         <select id="currency" required tabindex="-1">
                             <option value="">Select Currency</option>
@@ -103,27 +92,53 @@ if (!$user_id) {
                         </select>
                         <div class="error-message" id="currencyError">Please select a currency</div>
                     </div>
-                    <div class="form-group" id="salesOfficerGroup">
-                        <label for="salesOfficer">Sales Officer</label>
-                        <select id="salesOfficer" tabindex="-1">
-                            <option value="">Select Sales Officer</option>
-                            <!-- Options loaded dynamically -->
-                        </select>
-                    </div>
-                    <div class="form-group" id="supplierManGroup">
-                        <label for="supplierMan">Supplier Man</label>
-                        <select id="supplierMan" tabindex="-1">
-                            <option value="">Select Supplier Man</option>
-                            <!-- Options loaded dynamically -->
-                        </select>
+
+                    <div class="form-group">
+                        <label for="paymentTerm">Payment Cond.</label>
+                        <div style="display:flex; gap:8px;">
+                            <select id="paymentTerm" tabindex="-1">
+                                <option value="">Select Payment Term</option>
+                            </select>
+                            <button type="button" class="btn btn-secondary btn-sm" id="addPaymentTermBtn" title="Manage Payment Terms" style="flex-shrink:0;" tabindex="-1">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                        </div>
                     </div>
                     <div class="form-group" id="biltyNoGroup">
                         <label for="biltyNo">Bilty No</label>
                         <input type="text" id="biltyNo" placeholder="Enter bilty number" tabindex="-1">
                     </div>
+                    <div class="form-group">
+                        <label for="rpoNo">RPO #</label>
+                        <input type="text" id="rpoNo" placeholder="Enter RPO number" tabindex="-1">
+                    </div>
                     <div class="form-group" id="transportNameGroup">
                         <label for="transportName">Transport Name</label>
                         <input type="text" id="transportName" placeholder="Enter transport name" tabindex="-1">
+                    </div>
+                    <div class="form-group">
+                        <label for="broker">Broker</label>
+                        <input type="text" id="broker" placeholder="Enter broker name" tabindex="-1">
+                    </div>
+                    <div class="form-group">
+                        <label for="deliveredDate">Delivered Date</label>
+                        <input type="date" id="deliveredDate" tabindex="-1">
+                    </div>
+                    <div class="form-group">
+                        <label for="millName">Mill Name</label>
+                        <input type="text" id="millName" placeholder="Enter mill name" tabindex="-1">
+                    </div>
+                    <div class="form-group">
+                        <label for="truckNo">Truck No</label>
+                        <input type="text" id="truckNo" placeholder="Enter truck number" tabindex="-1">
+                    </div>
+                    <div class="form-group">
+                        <label for="goods">Goods</label>
+                        <input type="text" id="goods" placeholder="Enter goods description" tabindex="-1">
+                    </div>
+                    <div class="form-group">
+                        <label for="mobileNo">Mobile No</label>
+                        <input type="text" id="mobileNo" placeholder="Enter mobile number" tabindex="-1">
                     </div>
                     <div class="form-group full-width" id="remarksGroup">
                         <label for="remarks">Remarks</label>
@@ -151,14 +166,9 @@ if (!$user_id) {
                                 <th width="3%">S#</th>
                                 <th width="15%">Product Code / Name</th>
                                 <th width="8%"><span id="salePriceLabel">Sale Price</span></th>
-                                <th width="8%"><span id="grossAmountLabel">Gross Amount</span></th>
-                                <th width="5%">Disc %</th>
-                                <th width="8%"><span id="discountAmountLabel">Disc Amt</span></th>
-                                <th width="5%">T.O Disc %</th>
-                                <th width="8%">T.O Amt</th>
-                                <th width="5%">GST %</th>
-                                <th width="8%">GST Amt</th>
-                                <th width="5%">FOC Qty</th>
+                                <th width="8%" class="gross-header"><span id="grossAmountLabel">Gross Amount</span></th>
+                                <th width="5%" class="disc-percent-header">Disc %</th>
+                                <th width="8%" class="disc-amount-header"><span id="discountAmountLabel">Disc Amt</span></th>
                                 <th width="8%"><span id="netAmountLabel">Net Amount</span></th>
                                 <th width="3%">Actions</th>
                             </tr>
@@ -170,14 +180,9 @@ if (!$user_id) {
                             <tr class="totals-row">
                                 <th colspan="2">Totals</th>
                                 <th id="totalSalePrice">0.00</th>
-                                <th id="totalGrossAmount">0.00</th>
-                                <th></th>
-                                <th id="totalDiscountAmountItems">0.00</th>
-                                <th></th>
-                                <th id="totalTradeOfferAmount">0.00</th>
-                                <th></th>
-                                <th id="totalGstAmount">0.00</th>
-                                <th id="totalFocQty">0.00</th>
+                                <th id="totalGrossAmount" class="gross-header">0.00</th>
+                                <th class="disc-percent-header"></th>
+                                <th id="totalDiscountAmountItems" class="disc-amount-header">0.00</th>
                                 <th id="totalNetAmountItems">0.00</th>
                                 <th></th>
                             </tr>
@@ -198,25 +203,21 @@ if (!$user_id) {
                         <span class="summary-label" id="totalBillLabel">Total Bill</span>
                         <span class="summary-value" id="totalBill">0.00</span>
                     </div>
-                    <div class="summary-item">
+                    <div class="summary-item" style="display:none;">
                         <span class="summary-label">Discount %</span>
                         <input type="number" id="totalDiscountPercent" class="table-input" min="0" max="100" step="0.01" value="0">
                     </div>
-                    <div class="summary-item">
+                    <div class="summary-item" style="display:none;">
                         <span class="summary-label" id="totalDiscountAmountLabel">Discount Amount</span>
                         <input type="number" id="totalDiscountAmount" class="table-input" min="0" step="0.01" value="0">
                     </div>
-                    <div class="summary-item">
-                        <span class="summary-label">GST %</span>
-                        <input type="number" id="totalGstPercent" class="table-input" min="0" max="100" step="0.01" value="0">
-                    </div>
-                    <div class="summary-item">
-                        <span class="summary-label" id="totalGstAmountLabel">GST Amount</span>
-                        <input type="number" id="totalGstAmountSummary" class="table-input" min="0" step="0.01" value="0">
-                    </div>
-                    <div class="summary-item">
+                    <div class="summary-item" style="display:none;">
                         <span class="summary-label" id="shippingFeesLabel">Shipping Fees</span>
                         <input type="number" id="shippingFees" class="table-input" min="0" step="0.01" value="0">
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-label">Freight</span>
+                        <input type="number" id="freight" class="table-input" min="0" step="0.01" value="0">
                     </div>
                     <div class="summary-item">
                         <span class="summary-label" id="netAmountSummaryLabel">Net Amount</span>
@@ -278,139 +279,7 @@ if (!$user_id) {
         </div>
     </div>
 
-    <!-- Draft Invoices Modal -->
-    <div class="modal" id="draftsModal">
-        <div class="modal-content" style="width: 800px; max-width: 95%;">
-            <h3 class="modal-title">Draft Orders</h3>
-            <div class="table-container" style="max-height: 400px; overflow-y: auto;">
-                <table style="width: 100%; border-collapse: collapse;">
-                    <thead>
-                        <tr>
-                            <th style="padding: 8px; border-bottom: 1px solid var(--border-default);">Bill No</th>
-                            <th style="padding: 8px; border-bottom: 1px solid var(--border-default);">Date</th>
-                            <th style="padding: 8px; border-bottom: 1px solid var(--border-default);">Customer</th>
-                            <th style="padding: 8px; border-bottom: 1px solid var(--border-default);">Amount</th>
-                            <th style="padding: 8px; border-bottom: 1px solid var(--border-default);">Action</th>
-                        </tr>
-                    </thead>
-                    <tbody id="draftsTableBody">
-                        <tr>
-                            <td colspan="5" style="text-align: center; padding: 20px;">Loading...</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-            <div class="modal-actions">
-                <button class="btn btn-secondary" id="closeDraftsBtn">Close</button>
-            </div>
-        </div>
-    </div>
 
-    <!-- Invoice Settings Modal -->
-    <div class="modal" id="invoiceSettingsModal">
-        <div class="modal-content" style="max-height: 90vh; overflow-y: auto;">
-            <h3 class="modal-title">Order Settings</h3>
-            <div style="margin: 20px 0;">
-                <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; cursor: pointer;">
-                    <input type="checkbox" id="enableTradeOfferDiscount" style="width: auto;">
-                    <span>Enable Inline Trade Offer Discount %</span>
-                </label>
-                <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; cursor: pointer;">
-                    <input type="checkbox" id="enableTradeOfferAmount" style="width: auto;">
-                    <span>Enable Inline Trade Offer Amount</span>
-                </label>
-                <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; cursor: pointer;">
-                    <input type="checkbox" id="enableFOC" style="width: auto;">
-                    <span>Enable Free Of Cost (FOC) Quantity</span>
-                </label>
-                <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; cursor: pointer;">
-                    <input type="checkbox" id="enableTaxation" style="width: auto;">
-                    <span>Enable Taxation</span>
-                </label>
-                <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; cursor: pointer;">
-                    <input type="checkbox" id="enableCashDiscountPercent" style="width: auto;">
-                    <span>Enable Inline Cash Discount %</span>
-                </label>
-                <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; cursor: pointer;">
-                    <input type="checkbox" id="enableCashDiscountAmount" style="width: auto;">
-                    <span>Enable Inline Cash Discount Amount</span>
-                </label>
-                <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; cursor: pointer;">
-                    <input type="checkbox" id="enableInvoiceCashDiscountPercent" style="width: auto;">
-                    <span>Enable Order-wise Cash Discount %</span>
-                </label>
-                <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; cursor: pointer;">
-                    <input type="checkbox" id="enableInvoiceCashDiscountAmount" style="width: auto;">
-                    <span>Enable Order-wise Cash Discount Amount</span>
-                </label>
-                <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; cursor: pointer;">
-                    <input type="checkbox" id="enableShippingFees" style="width: auto;">
-                    <span>Enable Shipping Fees</span>
-                </label>
-                <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; cursor: pointer;">
-                    <input type="checkbox" id="enableCtn" style="width: auto;">
-                    <span>Enable Carton (Ctn)</span>
-                </label>
-                <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; cursor: pointer;">
-                    <input type="checkbox" id="enableDz" style="width: auto;">
-                    <span>Enable Dozen (Dz)</span>
-                </label>
-                <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; cursor: pointer;">
-                    <input type="checkbox" id="enablePcs" style="width: auto;">
-                    <span>Enable Pieces (Pcs)</span>
-                </label>
-                <hr style="margin: 16px 0; border: none; border-top: 1px solid var(--border-default);">
-                <p style="margin-bottom: 12px; font-weight: 600;">Sale Price Source:</p>
-                <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; cursor: pointer;">
-                    <input type="radio" name="priceSource" id="useMRP" value="mrp" style="width: auto;">
-                    <span>Use MRP</span>
-                </label>
-                <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; cursor: pointer;">
-                    <input type="radio" name="priceSource" id="useTP" value="trade_price" style="width: auto;">
-                    <span>Use Trade Price</span>
-                </label>
-                <hr style="margin: 16px 0; border: none; border-top: 1px solid var(--border-default);">
-                <p style="margin-bottom: 12px; font-weight: 600;">Child Products Display:</p>
-                <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; cursor: pointer;">
-                    <input type="radio" name="childDisplay" id="inlineChild" value="inline" style="width: auto;">
-                    <span>Inline (Product: Qty | Product: Qty)</span>
-                </label>
-                <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; cursor: pointer;">
-                    <input type="radio" name="childDisplay" id="separateChild" value="separate" style="width: auto;">
-                    <span>Separate Rows</span>
-                </label>
-            </div>
-            <div class="modal-actions">
-                <button class="btn btn-secondary" id="closeInvoiceSettingsBtn">Close</button>
-                <button class="btn btn-primary" id="saveInvoiceSettingsBtn">Save Settings</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Print Settings Modal -->
-    <div class="modal" id="printSettingsModal">
-        <div class="modal-content">
-            <h3 class="modal-title">Print Settings</h3>
-            <p>Configure your print preferences:</p>
-            <div style="margin: 20px 0;">
-                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                    <input type="checkbox" id="enableRememberPrint" style="width: auto;">
-                    <span>Remember my print choice</span>
-                </label>
-                <div id="printPreferenceSection" style="margin-top: 15px; display: none;">
-                    <p style="margin-bottom: 10px; font-size: 14px;">Current preference:</p>
-                    <select id="printPreference" class="table-input" style="width: 100%;">
-                        <option value="full">Full Invoice</option>
-                        <option value="thermal">Thermal Invoice</option>
-                    </select>
-                </div>
-            </div>
-            <div class="modal-actions">
-                <button class="btn btn-secondary" id="closePrintSettingsBtn">Close</button>
-                <button class="btn btn-primary" id="savePrintSettingsBtn">Save Settings</button>
-            </div>
-        </div>
-    </div>
 
     <!-- Overlay Modal -->
     <div class="modal" id="overlayModal" style="display: none;">
@@ -422,6 +291,38 @@ if (!$user_id) {
                 </button>
             </div>
             <iframe id="overlayIframe" style="width: 100%; height: calc(100% - 60px); border: none;"></iframe>
+        </div>
+    </div>
+
+    <!-- Payment Terms Modal -->
+    <div class="modal" id="paymentTermsModal">
+        <div class="modal-content" style="width:480px; max-width:95%; max-height:90vh; overflow-y:auto;">
+            <h3 class="modal-title">Payment Terms</h3>
+
+            <div style="display:flex; gap:8px; margin-bottom:16px;">
+                <input type="hidden" id="ptEditId">
+                <input type="text" id="ptTermName" placeholder="Term name (e.g. Net 30)" style="flex:1;">
+                <input type="number" id="ptDays" placeholder="Days" min="0" style="width:80px;">
+                <button type="button" class="btn btn-primary btn-sm" id="ptSaveBtn"><i class="fas fa-save"></i> Save</button>
+                <button type="button" class="btn btn-secondary btn-sm" id="ptCancelEditBtn" style="display:none;"><i class="fas fa-times"></i></button>
+            </div>
+
+            <table style="width:100%; border-collapse:collapse; font-size:12px;">
+                <thead>
+                    <tr>
+                        <th style="padding:8px 6px; background:var(--surface-2); border-bottom:1px solid var(--border-default); text-align:left;">Term Name</th>
+                        <th style="padding:8px 6px; background:var(--surface-2); border-bottom:1px solid var(--border-default); text-align:center;">Days</th>
+                        <th style="padding:8px 6px; background:var(--surface-2); border-bottom:1px solid var(--border-default); text-align:center;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="ptTableBody">
+                    <tr><td colspan="3" style="text-align:center; padding:16px; color:var(--subtext);">Loading...</td></tr>
+                </tbody>
+            </table>
+
+            <div class="modal-actions">
+                <button class="btn btn-secondary" id="closePaymentTermsBtn">Close</button>
+            </div>
         </div>
     </div>
 

@@ -1,32 +1,21 @@
 <?php
-require_once '../../../../includes/dashboard.php';
-// Start session if not already started
-if (session_status() == PHP_SESSION_NONE) {
-    session_start();
-}
-
-// Get user_id from session
+if (session_status() == PHP_SESSION_NONE) session_start();
 $user_id = $_SESSION['user_id'] ?? null;
-
-if (!$user_id) {
-    // Redirect to login if no user_id in session
-    header('Location: ../../auth/login.html');
-    exit();
-}
+if (!$user_id) { header('Location: ../../auth/login.html'); exit(); }
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>LedgerOne ERP - Sale Orders</title>
+    <title>LedgerOne ERP - Soda Book Seller</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="../../../assets/css/sale/sale_order/order-list.css">
 </head>
 <body class="light-theme">
     <div class="container">
         <div class="header">
-            <h1 class="page-title">Sale Orders</h1>
+            <h1 class="page-title">Soda Book Seller</h1>
         </div>
 
         <div class="card">
@@ -55,18 +44,22 @@ if (!$user_id) {
                 <div class="form-group">
                     <label for="statusFilter">Status</label>
                     <select id="statusFilter">
-                        <option value="">All Status</option>
-                        <option value="Pending">Pending</option>
-                        <option value="Partially Fulfilled">Partially Fulfilled</option>
+                        <option value="pending" selected>Pending</option>
+                        <option value="confirmed">Confirmed</option>
+                        <option value="partially fulfilled">Partially Fulfilled</option>
+                        <option value="all">All Status</option>
                     </select>
                 </div>
             </div>
-            
+
             <div class="actions">
                 <div class="search-box">
                     <i class="fas fa-search"></i>
                     <input type="text" id="searchInput" placeholder="Search by invoice number, customer...">
                 </div>
+                <button class="btn btn-secondary" id="applyFilterBtn" type="button">
+                    <i class="fas fa-filter"></i> Filter
+                </button>
                 <button class="btn btn-primary" id="newInvoiceBtn">
                     <i class="fas fa-plus"></i> New Order
                 </button>
@@ -142,6 +135,6 @@ if (!$user_id) {
         </div>
     </div>
 
-    <script src="../../../assets/js/sale/sale_order/order-list.js"></script>
+    <script src="../../../assets/js/sale/sale_order/order-list.js?v=<?php echo @filemtime(__DIR__ . '/../../../assets/js/sale/sale_order/order-list.js') ?: time(); ?>"></script>
 </body>
 </html>

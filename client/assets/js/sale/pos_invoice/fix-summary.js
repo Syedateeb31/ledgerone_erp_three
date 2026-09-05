@@ -124,15 +124,14 @@ function updateInvoiceSummaryFixed() {
     
     const shippingFeesEl = document.getElementById('shippingFees');
     const shippingFees = parseFloat(shippingFeesEl?.value) || 0;
-    const netAmount = afterDiscount + shippingFees;
+    const totalChargesVal = parseFloat(document.getElementById('totalCharges')?.textContent) || 0;
+    const netAmount = afterDiscount + shippingFees + totalChargesVal;
     
     const totalDiscountAmountEl = document.getElementById('totalDiscountAmount');
     const netAmountEl = document.getElementById('netAmount');
     
     if (totalDiscountAmountEl) totalDiscountAmountEl.value = invoiceDiscountAmount.toFixed(2);
     if (netAmountEl) netAmountEl.textContent = netAmount.toFixed(2);
-    
-    console.log('DOM netAmount element now contains:', netAmountEl?.textContent);
     
     // Store net amount for tax calculation
     window.currentNetAmount = netAmount;

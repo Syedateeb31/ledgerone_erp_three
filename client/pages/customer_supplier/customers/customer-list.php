@@ -197,9 +197,9 @@ $currency_symbol = $currency['symbol'] ?? '$';
                             </select>
                         </div>
                         <div class="form-group col-4">
-                            <label>Brand Name</label>
+                            <label>Company Name</label>
                             <select id="editBrandName">
-                                <option value="">Select Brand</option>
+                                <option value="">Select Company Name</option>
                             </select>
                         </div>
                         <div class="form-group col-12">
@@ -390,6 +390,9 @@ $currency_symbol = $currency['symbol'] ?? '$';
                                 <label for="editBlacklist">Blacklist Customer</label>
                             </div>
                         </div>
+
+                        <!-- Linked Supplier Section -->
+                        <div class="form-group col-12" id="editPartyLinkContainer"></div>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -460,7 +463,7 @@ $currency_symbol = $currency['symbol'] ?? '$';
                         <div class="view-field" id="viewCustomerCategory"></div>
                     </div>
                     <div class="form-group col-4">
-                        <label>Brand Name</label>
+                        <label>Company Name</label>
                         <div class="view-field" id="viewBrandName"></div>
                     </div>
                     <div class="form-group col-8">
@@ -654,6 +657,7 @@ $currency_symbol = $currency['symbol'] ?? '$';
     <script>
         const currencySymbol = '<?php echo $currency_symbol; ?>';
     </script>
+    <script src="../../../assets/js/customer_supplier/party-link.js"></script>
     <script src="../../../assets/js/customer_supplier/customers/customer-list.js"></script>
 </body>
 </html>

@@ -1,12 +1,17 @@
 <?php
+ob_start();
+session_start();
 require_once '../../../../includes/connection.php';
+ob_end_clean();
+
+ini_set('display_errors', 0);
+error_reporting(0);
 
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, PUT');
 header('Access-Control-Allow-Headers: Content-Type');
 
-session_start();
 $user_id = $_SESSION['user_id'] ?? null;
 $tenant_id = $_SESSION['tenant_id'] ?? null;
 
@@ -183,13 +188,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
                 company_id = ?, currency_id = ?, purchase_date = ?, supplier_id = ?, branch_id = ?,
                 previous_balance = ?, total_bill = ?, total_discount_percent = ?,
                 total_discount_amount = ?, total_gst_percent = ?, total_gst_amount = ?,
-                shipping_fees = ?, net_amount = ?, supplier_invoice_no = ?, 
-                supplier_invoice_date = ?, bilty_no = ?, transport_name = ?, remarks = ?, updated_by = ?
+                shipping_fees = ?, net_amount = ?, supplier_invoice_no = ?,
+                supplier_invoice_date = ?, bilty_no = ?, transport_name = ?, truck_no = ?,
+                last_date = ?, broker = ?, mill_name = ?,
+                moist = ?, damage = ?, under_mill = ?, broken = ?, chakki = ?,
+                payment_term_id = ?, remarks = ?, rpo_no = ?, updated_by = ?
             WHERE id = ? AND tenant_id = ?
         ");
         $stmt->execute([
-            $input['companyId'],
-            $input['currencyId'],
+            $input['companyId'] ?? null,
+            $input['currencyId'] ?? null,
             $input['purchaseDate'],
             $input['supplierId'],
             $input['branchId'],
@@ -201,11 +209,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
             $input['totalGSTAmount'] ?? 0.00,
             $input['shippingFees'] ?? 0.00,
             $input['netAmount'],
-            $input['supplierInvoiceNo'],
-            $input['supplierInvoiceDate'],
-            $input['biltyNo'],
-            $input['transportName'],
+            $input['supplierInvoiceNo'] ?? null,
+            $input['supplierInvoiceDate'] ?? null,
+            $input['biltyNo'] ?? null,
+            $input['transportName'] ?? null,
+            $input['truckNo'] ?? null,
+            $input['lastDate'] ?? null,
+            $input['broker'] ?? null,
+            $input['millName'] ?? null,
+            $input['moist'] ?? null,
+            $input['damage'] ?? null,
+            $input['underMill'] ?? null,
+            $input['broken'] ?? null,
+            $input['chakki'] ?? null,
+            $input['paymentTermId'] ?? null,
             $input['remarks'] ?? null,
+            $input['rpoNo'] ?? null,
             $user_id,
             $invoice_id,
             $tenant_id

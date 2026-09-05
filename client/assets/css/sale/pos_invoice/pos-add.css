@@ -708,6 +708,10 @@ td:not(:has(.unit-input)):not(:has(button)):not(.price-cell):not(.gross-cell):no
 }
 
 /* Gross amount cell styling */
+.gross-cell {
+  display: none !important;
+}
+
 .gross-cell input {
   background: linear-gradient(135deg, #f0fdf4 0%, #ffffff 100%);
   border-color: var(--success);

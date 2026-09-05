@@ -551,6 +551,13 @@ document.addEventListener('DOMContentLoaded', function () {
     const editCustomerForm = document.getElementById('editCustomerForm');
     let currentEditingCustomerId = null;
 
+    // Link this Customer to a Supplier (same real-world party trading both ways)
+    const editPartyLink = initPartyLink({
+        partyType: 'customer',
+        container: document.getElementById('editPartyLinkContainer'),
+        dropdownParent: '#editModal'
+    });
+
     // Action buttons
     customersTable.addEventListener('click', function (e) {
         const target = e.target.closest('button');
@@ -794,6 +801,7 @@ document.addEventListener('DOMContentLoaded', function () {
             .then(data => {
                 if (data.success) {
                     populateEditForm(data.customer);
+                    editPartyLink.loadExisting(customerId);
                     editModal.classList.add('show');
                 } else {
                     showNotification('Error', data.message, 'error');
@@ -1179,6 +1187,7 @@ document.addEventListener('DOMContentLoaded', function () {
         editModal.classList.remove('show');
         currentEditingCustomerId = null;
         editCustomerForm.reset();
+        editPartyLink.reset();
         // Re-enable both fields when closing
         document.getElementById('editOpeningDebit').disabled = false;
         document.getElementById('editOpeningCredit').disabled = false;
@@ -1266,6 +1275,22 @@ document.addEventListener('DOMContentLoaded', function () {
         .then(data => {
             if (data.success) {
                 showNotification('Success', data.message, 'success');
+
+                // If the user opted to link this customer to a supplier, do that now
+                editPartyLink.applyLink(currentEditingCustomerId, () => ({
+                    name: formData.customerName,
+                    address: formData.address,
+                    primaryPhone: formData.primaryPhone,
+                    secondaryPhone: formData.secondaryPhone,
+                    email: formData.email,
+                    identityCard: formData.identityCard,
+                    companyId: formData.companyId
+                })).then(linkResult => {
+                    if (linkResult && linkResult.success === false) {
+                        showNotification('Linking Failed', linkResult.message || 'Customer was updated but could not be linked to a supplier', 'error');
+                    }
+                });
+
                 closeEditModal();
                 loadCustomers(); // Reload the customer list
             } else {

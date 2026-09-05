@@ -16,7 +16,7 @@ if (!$tenant_id) {
 }
 
 try {
-    $stmt = $pdo->prepare("SELECT b.id, b.branch_code, b.branch_name, b.branch_type, pb.branch_name as parent_branch_name FROM branches b LEFT JOIN branches pb ON b.parent_branch_id = pb.id WHERE b.tenant_id = ? AND b.is_active = 1 AND (b.parent_branch_id IS NOT NULL) ORDER BY b.branch_name");
+    $stmt = $pdo->prepare("SELECT b.id, b.branch_code, b.branch_name, b.branch_type, b.is_default, pb.branch_name as parent_branch_name FROM branches b LEFT JOIN branches pb ON b.parent_branch_id = pb.id WHERE b.tenant_id = ? AND b.is_active = 1 AND (b.parent_branch_id IS NOT NULL) ORDER BY b.branch_name");
     $stmt->execute([$tenant_id]);
     $branches = $stmt->fetchAll(PDO::FETCH_ASSOC);
     

@@ -27,26 +27,60 @@ try {
     $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 10;
     $offset = ($page - 1) * $limit;
     $company_id = isset($_GET['company_id']) ? (int)$_GET['company_id'] : null;
-    
+    // Status filter: pending (default) / confirmed / partially fulfilled / all.
+    // Matches the fulfillment_status computed below. Defaults to 'pending' so
+    // orders whose sale invoice is already confirmed don't clutter the default
+    // Soda Book Seller view.
+    $statusFilter = strtolower(trim($_GET['status'] ?? 'pending'));
+
     // Build WHERE clause
     $where = "si.tenant_id = ? AND si.status = 'Posted'";
     $countParams = [$tenant_id];
     $params = [$tenant_id];
-    
+
     if ($company_id) {
         $where .= " AND si.company_id = ?";
         $countParams[] = $company_id;
         $params[] = $company_id;
     }
-    
-    // Get total count
-    $countStmt = $pdo->prepare("SELECT COUNT(*) FROM sale_order si WHERE $where");
-    $countStmt->execute($countParams);
+
+    // Shared fulfillment_status expression, reused identically by the count
+    // query and the paginated data query so the two never disagree.
+    $fulfillmentCase = "
+        CASE
+            WHEN EXISTS(
+                SELECT 1 FROM sale_invoice inv WHERE inv.sale_order_id = si.id AND inv.invoice_status = 'confirmed'
+            ) THEN 'Confirmed'
+            WHEN EXISTS(
+                SELECT 1 FROM sale_invoice inv WHERE inv.sale_order_id = si.id AND inv.status = 'Posted'
+            ) THEN 'Partially Fulfilled'
+            ELSE 'Pending'
+        END
+    ";
+
+    $havingClause = '';
+    $havingParams = [];
+    if ($statusFilter !== '' && $statusFilter !== 'all') {
+        $havingClause = 'HAVING LOWER(fulfillment_status) = ?';
+        $havingParams[] = $statusFilter;
+    }
+
+    // Get total count (of orders matching the status filter)
+    $countStmt = $pdo->prepare("
+        SELECT COUNT(*) FROM (
+            SELECT si.id, $fulfillmentCase as fulfillment_status
+            FROM sale_order si
+            WHERE $where
+            GROUP BY si.id
+            $havingClause
+        ) t
+    ");
+    $countStmt->execute(array_merge($countParams, $havingParams));
     $totalRecords = $countStmt->fetchColumn();
-    
+
     // Get paginated data
     $stmt = $pdo->prepare("
-        SELECT 
+        SELECT
             si.id,
             si.bill_no,
             si.sale_date,
@@ -56,12 +90,7 @@ try {
             COUNT(sii.id) as item_count,
             si.net_amount,
             cur.symbol as currency_symbol,
-            CASE 
-                WHEN EXISTS(
-                    SELECT 1 FROM sale_invoice inv WHERE inv.sale_order_id = si.id AND inv.status = 'Posted'
-                ) THEN 'Partially Fulfilled'
-                ELSE 'Pending'
-            END as fulfillment_status
+            $fulfillmentCase as fulfillment_status
         FROM sale_order si
         LEFT JOIN customers c ON si.customer_id = c.id
         LEFT JOIN employees e ON si.sale_officer_id = e.id
@@ -70,20 +99,16 @@ try {
         LEFT JOIN ledgerone_public.currencies cur ON si.currency_id = cur.id
         WHERE $where
         GROUP BY si.id
+        $havingClause
         ORDER BY si.sale_date DESC, si.id DESC
-        LIMIT ? OFFSET ?
+        LIMIT $limit OFFSET $offset
     ");
-    
-    foreach ($params as $key => $value) {
-        $stmt->bindValue($key + 1, $value, PDO::PARAM_INT);
-    }
-    $stmt->bindValue(count($params) + 1, $limit, PDO::PARAM_INT);
-    $stmt->bindValue(count($params) + 2, $offset, PDO::PARAM_INT);
-    $stmt->execute();
+
+    $stmt->execute(array_merge($params, $havingParams));
     $invoices = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    
+
     echo json_encode([
-        'success' => true, 
+        'success' => true,
         'invoices' => $invoices,
         'pagination' => [
             'page' => $page,

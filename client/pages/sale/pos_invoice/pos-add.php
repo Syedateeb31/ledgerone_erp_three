@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 require_once '../../../../includes/dashboard.php';
 // Start session if not already started
 if (session_status() == PHP_SESSION_NONE) {
@@ -51,7 +51,7 @@ if (!$user_id) {
                         <label for="saleDate" class="required">Sale Date</label>
                         <input type="date" id="saleDate" required tabindex="-1">
                     </div>
-                    <div class="form-group" id="areaCityGroup">
+                    <div class="form-group" id="areaCityGroup" style="display:none;">
                         <label for="areaCitySearch">Area/City</label>
                         <div class="searchable-dropdown">
                             <input type="text" class="search-input" placeholder="Search area or city..." id="areaCitySearch" autocomplete="off" tabindex="-1">
@@ -75,7 +75,7 @@ if (!$user_id) {
                         </div>
                         <div class="error-message" id="customerCodeError">Please select a customer code</div>
                     </div>
-                    <div class="form-group" id="subAccountGroup">
+                    <div class="form-group" id="subAccountGroup" style="display:none;">
                         <label for="subAccount">Sub Account</label>
                         <select id="subAccount" tabindex="-1">
                             <option value="">Select Sub Account</option>
@@ -83,15 +83,7 @@ if (!$user_id) {
                         </select>
                     </div>
 
-                    <div class="form-group" id="brandGroup">
-                        <label for="brand">Brand</label>
-                        <select id="brand" tabindex="-1">
-                            <option value="">Select Brand</option>
-                            <!-- Options loaded dynamically -->
-                        </select>
-                    </div>
-
-                    <div class="form-group" id="saleOrderGroup">
+                    <div class="form-group" id="saleOrderGroup" style="display:none;">
                         <label for="saleOrder">Sale Order#</label>
                         <div class="searchable-dropdown">
                             <input type="text" class="search-input" placeholder="Search sale order..." id="saleOrderSearch" autocomplete="off">
@@ -102,7 +94,7 @@ if (!$user_id) {
                         </div>
                     </div>
 
-                    <div class="form-group" id="companyGroup">
+                    <div class="form-group" id="companyGroup" style="display:none;">
                         <label for="company" class="required">Company</label>
                         <div class="searchable-dropdown">
                             <input type="text" class="search-input" placeholder="Search company..." id="companySearch" autocomplete="off">
@@ -113,7 +105,7 @@ if (!$user_id) {
                         </div>
                         <div class="error-message" id="companyError">Please select a company</div>
                     </div>
-                    <div class="form-group" id="branchGroup">
+                    <div class="form-group" id="branchGroup" style="display:none;">
                         <label for="branch" class="required">Branch</label>
                         <div class="searchable-dropdown">
                             <input type="text" class="search-input" placeholder="Search branch..." id="branchSearch" autocomplete="off">
@@ -124,7 +116,7 @@ if (!$user_id) {
                         </div>
                         <div class="error-message" id="branchError">Please select a branch</div>
                     </div>
-                    <div class="form-group" id="currencyGroup">
+                    <div class="form-group" id="currencyGroup" style="display:none;">
                         <label for="currency" class="required">Currency</label>
                         <select id="currency" required tabindex="-1">
                             <option value="">Select Currency</option>
@@ -132,36 +124,83 @@ if (!$user_id) {
                         </select>
                         <div class="error-message" id="currencyError">Please select a currency</div>
                     </div>
-                    <div class="form-group" id="salesOfficerGroup">
+                    <div class="form-group" id="salesOfficerGroup" style="display:none;">
                         <label for="salesOfficer">Sales Officer</label>
                         <select id="salesOfficer" tabindex="-1">
                             <option value="">Select Sales Officer</option>
                             <!-- Options loaded dynamically -->
                         </select>
                     </div>
-                    <div class="form-group" id="supplierManGroup">
+                    <div class="form-group" id="supplierManGroup" style="display:none;">
                         <label for="supplierMan">Supplier Man</label>
                         <select id="supplierMan" tabindex="-1">
                             <option value="">Select Supplier Man</option>
                             <!-- Options loaded dynamically -->
                         </select>
                     </div>
-                    <div class="form-group" id="invoiceTypeGroup">
+                    <div class="form-group" id="invoiceTypeGroup" style="display:none;">
                         <label for="invoiceType">Invoice Type</label>
                         <select id="invoiceType" tabindex="-1">
-                            <option value="Credit">Credit</option>
                             <option value="Cash">Cash</option>
+                            <option value="Credit" selected>Credit</option>
+                            <option value="Booking">Booking</option>
                         </select>
                     </div>
-                    <div class="form-group" id="dueDateGroup">
+                    <div class="form-group" id="dueDateGroup" style="display:none;">
                         <label for="dueDate">Due Date</label>
                         <input type="date" id="dueDate" tabindex="-1">
+                    </div>
+                    <div class="form-group" id="invoiceStatusGroup">
+                        <label for="invoiceStatus">Status</label>
+                        <select id="invoiceStatus" tabindex="-1">
+                            <option value="pending" selected>Pending</option>
+                            <option value="confirmed">Confirmed</option>
+                        </select>
                     </div>
                     <div class="form-group" id="biltyNoGroup">
                         <label for="biltyNo">Bilty No</label>
                         <input type="text" id="biltyNo" placeholder="Enter bilty number" tabindex="-1">
                     </div>
-                    <div class="form-group" id="transportNameGroup">
+                    <div class="form-group" id="rpoNoGroup">
+                        <label for="rpoNo">RPO #</label>
+                        <input type="text" id="rpoNo" placeholder="Enter RPO number" tabindex="-1">
+                    </div>
+                    <div class="form-group" id="truckNoGroup">
+                        <label for="truckNo">Truck No</label>
+                        <input type="text" id="truckNo" placeholder="Enter truck number" tabindex="-1">
+                    </div>
+                    <div class="form-group" id="paymentTermGroup">
+                        <label for="paymentTerm">Payment Cond.</label>
+                        <select id="paymentTerm" tabindex="-1">
+                            <option value="">Select Payment Term</option>
+                        </select>
+                    </div>
+                    <div class="form-group" id="rateTypeGroup">
+                        <label for="rateType">Rate Type</label>
+                        <select id="rateType" tabindex="-1">
+                            <option value="">Select Rate Type</option>
+                            <option value="per_bag">Per Bag</option>
+                            <option value="per_kg">Per KG</option>
+                            <option value="100_kg">100 KG</option>
+                            <option value="mon">MON</option>
+                            <option value="ton">Ton</option>
+                        </select>
+                    </div>
+                    <div class="form-group" id="brokeryRateTypeGroup">
+                        <label for="brokeryRateType">Brokery Rate Type</label>
+                        <div style="display:flex; gap:8px; align-items:center;">
+                            <select id="brokeryRateType" tabindex="-1" style="flex:1;">
+                                <option value="">Select Brokery Rate Type</option>
+                                <option value="per_bag">Per Bag</option>
+                                <option value="per_kg">Per KG</option>
+                                <option value="100_kg">100 KG</option>
+                                <option value="mon">MON</option>
+                                <option value="ton">Ton</option>
+                            </select>
+                            <button type="button" id="brokeryPctToggle" tabindex="-1" class="btn btn-secondary" style="white-space:nowrap; font-size:12px;" title="Switch to Brokery %">% Mode</button>
+                        </div>
+                    </div>
+                    <div class="form-group" id="transportNameGroup" style="display:none;">
                         <label for="transportName">Transport Name</label>
                         <input type="text" id="transportName" placeholder="Enter transport name" tabindex="-1">
                     </div>
@@ -189,17 +228,23 @@ if (!$user_id) {
                             <tr>
                                 <th width="3%">S#</th>
                                 <th width="15%">Product Code / Name</th>
-                                <th width="10%">Scheme</th>
                                 <!-- Dynamic unit columns will be inserted here -->
-                                <th width="8%" class="price-cell"><span id="salePriceLabel">Sale Price</span></th>
+                                <th width="6%" class="bag-cell">Bag</th>
+                                <th width="6%" class="total-kg-cell" id="totalKgHeader">Total KG</th>
+                                <th width="6%" class="cut-kg-percent-cell" id="cutKgPercentHeader">Cut KG</th>
+                                <th width="6%" class="cut-kg-cell" id="cutKgHeader">Cut KG</th>
+                                <th width="6%" class="al-kg-percent-cell" id="alKgPercentHeader">AL KG</th>
+                                <th width="6%" class="al-kg-cell" id="alKgHeader">AL KG</th>
+                                <th width="6%" class="net-kg-cell" id="netKgHeader">Net KG</th>
+                                <th width="6%" class="al-rate-cut-cell">AL Rate Cut</th>
+                                <th width="8%" class="price-cell"><span id="salePriceLabel">Rate</span></th>
+                                <th width="6%" class="net-rate-cell">Net Rate</th>
                                 <th width="8%" class="gross-cell"><span id="grossAmountLabel">Gross Amount</span></th>
                                 <th width="5%" class="disc-percent-cell">Disc %</th>
                                 <th width="8%" class="disc-amount-cell"><span id="discountAmountLabel">Disc Amt</span></th>
-                                <th width="8%" class="to-amount-cell">T.O Amt</th>
                                 <th width="5%" class="tax-percent-cell">Tax %</th>
                                 <th width="8%" class="tax-amount-cell">Tax Amt</th>
-                                <th width="8%" class="foc-cell">FOC Qty</th>
-                                <th width="8%" class="net-cell"><span id="netAmountLabel">Net Amount</span></th>
+                                <th width="7%" class="net-cell"><span id="netAmountLabel">Net Amount</span></th>
                                 <th width="3%">Actions</th>
                             </tr>
                         </thead>
@@ -210,16 +255,22 @@ if (!$user_id) {
                             <tr class="totals-row">
                                 <th style="text-align: left;">Totals</th>
                                 <th style="text-align: left;"></th>
-                                <th style="text-align: left;"></th>
                                 <!-- Dynamic unit totals will be inserted here -->
+                                <th class="bag-cell"></th>
+                                <th id="totalTotalKG" class="total-kg-cell">0.00</th>
+                                <th class="cut-kg-percent-cell"></th>
+                                <th id="totalCutKG" class="cut-kg-cell">0.00</th>
+                                <th class="al-kg-percent-cell"></th>
+                                <th id="totalAlKG" class="al-kg-cell">0.00</th>
+                                <th id="totalNetKG" class="net-kg-cell">0.00</th>
+                                <th class="al-rate-cut-cell"></th>
                                 <th id="totalSalePrice" class="price-cell">0.00</th>
+                                <th class="net-rate-cell"></th>
                                 <th id="totalGrossAmount" class="gross-cell">0.00</th>
                                 <th class="disc-percent-cell"></th>
                                 <th id="totalDiscountAmountItems" class="disc-amount-cell">0.00</th>
-                                <th id="totalTradeOfferAmount" class="to-amount-cell">0.00</th>
                                 <th class="tax-percent-cell"></th>
-                                <th id="totalTaxAmount" class="tax-amount-cell">0.00</th>
-                                <th id="totalFocQty" class="foc-cell">0.00</th>
+                                <th id="totalTaxAmountItems" class="tax-amount-cell">0.00</th>
                                 <th id="totalNetAmountItems" class="net-cell">0.00</th>
                                 <th></th>
                             </tr>
@@ -249,24 +300,100 @@ if (!$user_id) {
                         <input type="number" id="totalDiscountAmount" class="table-input" min="0" step="0.01" value="0">
                     </div>
                     <div class="summary-item">
-                        <span class="summary-label">Extra Discount 1 %</span>
-                        <input type="number" id="extraDiscount1Percent" class="table-input" min="0" max="100" step="0.01" value="0">
-                    </div>
-                    <div class="summary-item">
-                        <span class="summary-label">Extra Discount 1 Amt</span>
-                        <input type="number" id="extraDiscount1Amount" class="table-input" min="0" step="0.01" value="0">
-                    </div>
-                    <div class="summary-item">
-                        <span class="summary-label">Extra Discount 2 %</span>
-                        <input type="number" id="extraDiscount2Percent" class="table-input" min="0" max="100" step="0.01" value="0">
-                    </div>
-                    <div class="summary-item">
-                        <span class="summary-label">Extra Discount 2 Amt</span>
-                        <input type="number" id="extraDiscount2Amount" class="table-input" min="0" step="0.01" value="0">
-                    </div>
-                    <div class="summary-item">
                         <span class="summary-label" id="shippingFeesLabel">Shipping Fees</span>
                         <input type="number" id="shippingFees" class="table-input" min="0" step="0.01" value="0">
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-label">Wt Charges</span>
+                        <input type="number" id="wtCharges" class="table-input" min="0" step="0.01" value="0" tabindex="-1">
+                        <div style="display:flex;gap:8px;margin-top:4px;font-size:11px;">
+                            <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="radio" name="wtChargesSign" value="+" style="width:auto;height:auto;"> <span>+</span></label>
+                            <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="radio" name="wtChargesSign" value="-" style="width:auto;height:auto;"> <span>-</span></label>
+                        </div>
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-label">Freight</span>
+                        <input type="number" id="freight" class="table-input" min="0" step="0.01" value="0" tabindex="-1">
+                        <div style="display:flex;gap:8px;margin-top:4px;font-size:11px;">
+                            <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="radio" name="freightSign" value="+" style="width:auto;height:auto;"> <span>+</span></label>
+                            <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="radio" name="freightSign" value="-" style="width:auto;height:auto;"> <span>-</span></label>
+                        </div>
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-label">M/Sukri</span>
+                        <input type="number" id="mSukri" class="table-input" min="0" step="0.01" value="0" tabindex="-1">
+                        <div style="display:flex;gap:8px;margin-top:4px;font-size:11px;">
+                            <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="radio" name="mSukriSign" value="+" style="width:auto;height:auto;"> <span>+</span></label>
+                            <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="radio" name="mSukriSign" value="-" style="width:auto;height:auto;"> <span>-</span></label>
+                        </div>
+                    </div>
+                    <div class="summary-item" id="brokenPercentGroup">
+                        <span class="summary-label">Broken %</span>
+                        <input type="number" id="brokenPercent" class="table-input" min="0" max="100" step="0.01" value="0" tabindex="-1">
+                    </div>
+                    <div class="summary-item" id="brokenAmountGroup">
+                        <span class="summary-label">Broken Amount</span>
+                        <span class="summary-value" id="brokenAmount">0.00</span>
+                        <div style="display:flex;gap:8px;margin-top:4px;font-size:11px;">
+                            <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="radio" name="brokenAmountSign" value="+" style="width:auto;height:auto;"> <span>+</span></label>
+                            <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="radio" name="brokenAmountSign" value="-" style="width:auto;height:auto;"> <span>-</span></label>
+                        </div>
+                    </div>
+                    <div class="summary-item" id="brokeryRateGroup">
+                        <span class="summary-label" id="brokeryRateLabel">Brokery</span>
+                        <input type="number" id="brokeryRate" class="table-input" min="0" step="0.01" value="0" tabindex="-1">
+                        <div style="display:flex;gap:8px;margin-top:4px;font-size:11px;">
+                            <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="radio" name="brokeryKgBasis" value="net" checked style="width:auto;height:auto;"> <span>Net KG</span></label>
+                            <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="radio" name="brokeryKgBasis" value="total" style="width:auto;height:auto;"> <span>Total KG</span></label>
+                        </div>
+                    </div>
+                    <div class="summary-item" id="brokeryAmountGroup">
+                        <span class="summary-label">Brokery Amount</span>
+                        <span class="summary-value" id="brokeryAmount">0.00</span>
+                        <div style="display:flex;gap:8px;margin-top:4px;font-size:11px;">
+                            <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="radio" name="brokeryAmountSign" value="+" style="width:auto;height:auto;"> <span>+</span></label>
+                            <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="radio" name="brokeryAmountSign" value="-" style="width:auto;height:auto;"> <span>-</span></label>
+                        </div>
+                    </div>
+                    <div class="summary-item" id="brokeryTaxPercentGroup">
+                        <span class="summary-label">Brokery Tax %</span>
+                        <input type="number" id="brokeryTaxPercent" class="table-input" min="0" max="100" step="0.01" value="0" tabindex="-1" oninput="calculateBrokeryAmount()">
+                    </div>
+                    <div class="summary-item" id="brokeryTaxAmountGroup">
+                        <span class="summary-label">Brokery Tax Amount</span>
+                        <span class="summary-value" id="brokeryTaxAmount">0.00</span>
+                        <div style="display:flex;gap:8px;margin-top:4px;font-size:11px;">
+                            <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="radio" name="brokeryTaxAmountSign" value="+" style="width:auto;height:auto;"> <span>+</span></label>
+                            <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="radio" name="brokeryTaxAmountSign" value="-" style="width:auto;height:auto;"> <span>-</span></label>
+                        </div>
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-label">Bardana</span>
+                        <input type="number" id="bardana" class="table-input" min="0" step="0.01" value="0" tabindex="-1">
+                        <div style="display:flex;gap:8px;margin-top:4px;font-size:11px;">
+                            <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="radio" name="bardanaSign" value="+" style="width:auto;height:auto;"> <span>+</span></label>
+                            <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="radio" name="bardanaSign" value="-" style="width:auto;height:auto;"> <span>-</span></label>
+                        </div>
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-label">Phone Charges</span>
+                        <input type="number" id="phoneCharges" class="table-input" min="0" step="0.01" value="0" tabindex="-1">
+                        <div style="display:flex;gap:8px;margin-top:4px;font-size:11px;">
+                            <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="radio" name="phoneChargesSign" value="+" style="width:auto;height:auto;"> <span>+</span></label>
+                            <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="radio" name="phoneChargesSign" value="-" style="width:auto;height:auto;"> <span>-</span></label>
+                        </div>
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-label">Filling Charges</span>
+                        <input type="number" id="fillingCharges" class="table-input" min="0" step="0.01" value="0" tabindex="-1">
+                        <div style="display:flex;gap:8px;margin-top:4px;font-size:11px;">
+                            <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="radio" name="fillingChargesSign" value="+" style="width:auto;height:auto;"> <span>+</span></label>
+                            <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="radio" name="fillingChargesSign" value="-" style="width:auto;height:auto;"> <span>-</span></label>
+                        </div>
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-label">Total Charges</span>
+                        <span class="summary-value" id="totalCharges">0.00</span>
                     </div>
                     <div class="summary-item">
                         <span class="summary-label" id="netAmountSummaryLabel">Net Amount</span>
@@ -416,33 +543,6 @@ if (!$user_id) {
             </div>
 
             <div style="margin: 0;">
-                <!-- Default Scheme Section -->
-                <div style="margin-bottom: 28px; padding: 16px; background: var(--surface-2); border-radius: var(--radius); border-left: 4px solid var(--primary);">
-                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 16px;">
-                        <i class="fas fa-tag" style="color: var(--primary); font-size: 16px;"></i>
-                        <h4 style="margin: 0; color: var(--heading); font-size: 15px; font-weight: 600;">Default Scheme</h4>
-                    </div>
-                    
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px; background: var(--surface-1); border-radius: 6px; transition: all 0.2s;" onmouseover="this.style.background='var(--surface-0)'" onmouseout="this.style.background='var(--surface-1)'">
-                            <input type="radio" name="defaultScheme" value="sale_on_tp" id="schemeDefault" style="width: auto;">
-                            <span style="font-size: 13px;">Sale On TP</span>
-                        </label>
-                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px; background: var(--surface-1); border-radius: 6px; transition: all 0.2s;" onmouseover="this.style.background='var(--surface-0)'" onmouseout="this.style.background='var(--surface-1)'">
-                            <input type="radio" name="defaultScheme" value="less" id="schemeLess" style="width: auto;">
-                            <span style="font-size: 13px;">Less</span>
-                        </label>
-                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px; background: var(--surface-1); border-radius: 6px; transition: all 0.2s;" onmouseover="this.style.background='var(--surface-0)'" onmouseout="this.style.background='var(--surface-1)'">
-                            <input type="radio" name="defaultScheme" value="less_special" id="schemeLessSpecial" style="width: auto;">
-                            <span style="font-size: 13px;">Less Special</span>
-                        </label>
-                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px; background: var(--surface-1); border-radius: 6px; transition: all 0.2s;" onmouseover="this.style.background='var(--surface-0)'" onmouseout="this.style.background='var(--surface-1)'">
-                            <input type="radio" name="defaultScheme" value="given" id="schemeGiven" style="width: auto;">
-                            <span style="font-size: 13px;">Given</span>
-                        </label>
-                    </div>
-                </div>
-
                 <!-- Sale Price Section -->
                 <div style="margin-bottom: 28px; padding: 16px; background: var(--surface-2); border-radius: var(--radius); border-left: 4px solid var(--success);">
                     <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 16px;">
@@ -496,20 +596,20 @@ if (!$user_id) {
                     
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
                         <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px; background: var(--surface-1); border-radius: 6px; transition: all 0.2s;" onmouseover="this.style.background='var(--surface-0)'" onmouseout="this.style.background='var(--surface-1)'">
-                            <input type="checkbox" id="enableTradeOfferAmount" style="width: auto;">
-                            <span style="font-size: 13px;">Trade Offer Amount</span>
-                        </label>
-                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px; background: var(--surface-1); border-radius: 6px; transition: all 0.2s;" onmouseover="this.style.background='var(--surface-0)'" onmouseout="this.style.background='var(--surface-1)'">
-                            <input type="checkbox" id="enableFOC" style="width: auto;">
-                            <span style="font-size: 13px;">FOC Quantity</span>
-                        </label>
-                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px; background: var(--surface-1); border-radius: 6px; transition: all 0.2s;" onmouseover="this.style.background='var(--surface-0)'" onmouseout="this.style.background='var(--surface-1)'">
                             <input type="checkbox" id="enableCashDiscountPercent" style="width: auto;">
                             <span style="font-size: 13px;">Cash Discount %</span>
                         </label>
                         <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px; background: var(--surface-1); border-radius: 6px; transition: all 0.2s;" onmouseover="this.style.background='var(--surface-0)'" onmouseout="this.style.background='var(--surface-1)'">
                             <input type="checkbox" id="enableCashDiscountAmount" style="width: auto;">
                             <span style="font-size: 13px;">Cash Discount Amt</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px; background: var(--surface-1); border-radius: 6px; transition: all 0.2s;" onmouseover="this.style.background='var(--surface-0)'" onmouseout="this.style.background='var(--surface-1)'">
+                            <input type="checkbox" id="enableTaxation" style="width: auto;">
+                            <span style="font-size: 13px;">Tax % &amp; Tax Amt</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px; background: var(--surface-1); border-radius: 6px; grid-column: 1 / -1; transition: all 0.2s;" onmouseover="this.style.background='var(--surface-0)'" onmouseout="this.style.background='var(--surface-1)'">
+                            <input type="checkbox" id="enableChassisMotorColour" style="width: auto;">
+                            <span style="font-size: 13px;">Chassis No / Motor No / Colour</span>
                         </label>
                     </div>
                 </div>
@@ -529,14 +629,6 @@ if (!$user_id) {
                         <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px; background: var(--surface-1); border-radius: 6px; transition: all 0.2s;" onmouseover="this.style.background='var(--surface-0)'" onmouseout="this.style.background='var(--surface-1)'">
                             <input type="checkbox" id="enableInvoiceCashDiscountAmount" style="width: auto;">
                             <span style="font-size: 13px;">Invoice Discount Amt</span>
-                        </label>
-                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px; background: var(--surface-1); border-radius: 6px; transition: all 0.2s;" onmouseover="this.style.background='var(--surface-0)'" onmouseout="this.style.background='var(--surface-1)'">
-                            <input type="checkbox" id="enableExtraDiscount1" style="width: auto;">
-                            <span style="font-size: 13px;">Extra Discount 1</span>
-                        </label>
-                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px; background: var(--surface-1); border-radius: 6px; transition: all 0.2s;" onmouseover="this.style.background='var(--surface-0)'" onmouseout="this.style.background='var(--surface-1)'">
-                            <input type="checkbox" id="enableExtraDiscount2" style="width: auto;">
-                            <span style="font-size: 13px;">Extra Discount 2</span>
                         </label>
                         <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px; background: var(--surface-1); border-radius: 6px; transition: all 0.2s;" onmouseover="this.style.background='var(--surface-0)'" onmouseout="this.style.background='var(--surface-1)'">
                             <input type="checkbox" id="enableShippingFees" style="width: auto;">
@@ -924,14 +1016,11 @@ if (!$user_id) {
     </div>
 
     <script src="../../../assets/js/sale/pos_invoice/pos-add-uom.js?v=<?php echo time(); ?>&debug=1"></script>
+    <script src="../../../assets/js/sale/pos_invoice/vehicle-details.js?v=<?php echo time(); ?>"></script>
     <script src="../../../assets/js/sale/pos_invoice/brand-autofill.js?v=<?php echo time(); ?>"></script>
-    <script src="../../../assets/js/sale/pos_invoice/pos-add-scheme.js?v=<?php echo time(); ?>"></script>
     <script src="../../../assets/js/sale/pos_invoice/invoice-level-taxes-dynamic.js?v=<?php echo time(); ?>"></script>
-    <script src="../../../assets/js/sale/pos_invoice/pos-tax-calculation.js?v=<?php echo time(); ?>"></script>
-    <script src="../../../assets/js/sale/pos_invoice/withholding-tax.js?v=<?php echo time(); ?>"></script>
     <script src="../../../assets/js/sale/pos_invoice/stock-validation.js?v=<?php echo time(); ?>"></script>
     <script src="../../../assets/js/sale/pos_invoice/pos-add.js?v=<?php echo time(); ?>"></script>
-    <script src="../../../assets/js/sale/pos_invoice/tax-integration.js?v=<?php echo time(); ?>"></script>
     <script src="../../../assets/js/sale/pos_invoice/supplier-product-filter.js?v=<?php echo time(); ?>"></script>
 </body>
 </html>

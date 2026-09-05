@@ -42,6 +42,7 @@ try {
             s.supplier_name,
             COUNT(pii.id) as item_count,
             pi.net_amount,
+            pi.status,
             c.symbol as currency_symbol
         FROM purchase_invoice pi
         LEFT JOIN suppliers s ON pi.supplier_id = s.id

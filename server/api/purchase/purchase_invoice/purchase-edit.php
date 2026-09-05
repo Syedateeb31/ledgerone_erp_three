@@ -49,7 +49,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 co.city as company_city,
                 co.state as company_state,
                 co.zipcode as company_zipcode,
-                co.logo_url
+                co.logo_url,
+                pt.term_name as payment_term_name
             FROM purchase_invoice pi
             LEFT JOIN suppliers s ON pi.supplier_id = s.id
             LEFT JOIN branches b ON pi.branch_id = b.id
@@ -58,6 +59,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             LEFT JOIN purchase_order po ON pi.purchase_order_id = po.id
             LEFT JOIN supplier_sub_accounts sa ON pi.sub_account_id = sa.id
             LEFT JOIN companies co ON pi.company_id = co.id
+            LEFT JOIN payment_terms pt ON pi.payment_term_id = pt.id
             WHERE pi.id = ? AND pi.tenant_id = ?
         ");
         $stmt->execute([$invoice_id, $tenant_id]);
@@ -153,7 +155,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                         'tax_amount' => $totalGst,
                         'foc_quantity' => $totalFoc,
                         'net_amount' => $totalNet,
-                        'unit_entries' => array_values($uomMap)
+                        'unit_entries' => array_values($uomMap),
+                        'bag' => floatval($firstItem['bag'] ?? 0),
+                        'total_kg' => floatval($firstItem['total_kg'] ?? 0),
+                        'cut_kg_percent' => floatval($firstItem['cut_kg_percent'] ?? 0),
+                        'cut_kg' => floatval($firstItem['cut_kg'] ?? 0),
+                        'al_kg_percent' => floatval($firstItem['al_kg_percent'] ?? 0),
+                        'al_kg' => floatval($firstItem['al_kg'] ?? 0),
+                        'net_kg' => floatval($firstItem['net_kg'] ?? 0),
+                        'al_rate_cut' => floatval($firstItem['al_rate_cut'] ?? 0),
+                        'net_rate' => floatval($firstItem['net_rate'] ?? 0)
                     ];
                 }
             }
@@ -192,8 +203,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
                 company_id = ?, currency_id = ?, purchase_date = ?, supplier_id = ?, branch_id = ?,
                 previous_balance = ?, total_bill = ?, total_discount_percent = ?,
                 total_discount_amount = ?, total_tax_percent = ?, total_tax_amount = ?,
-                shipping_fees = ?, shipping_fees_type = ?, net_amount = ?, supplier_invoice_no = ?, 
-                supplier_invoice_date = ?, purchase_order_id = ?, bilty_no = ?, transport_name = ?, remarks = ?, sub_account_id = ?, updated_by = ?
+                shipping_fees = ?, shipping_fees_type = ?, net_amount = ?, supplier_invoice_no = ?,
+                supplier_invoice_date = ?, purchase_order_id = ?, rpo_no = ?, truck_no = ?, payment_term_id = ?, bilty_no = ?, transport_name = ?, remarks = ?, sub_account_id = ?,
+                rate_type = ?, brokery_rate_type = ?, brokery_kg_basis = ?, brokery_pct_mode = ?, brokery_rate = ?, brokery_amount = ?, brokery_amount_sign = ?,
+                brokery_tax_percent = ?, brokery_tax_amount = ?, brokery_tax_amount_sign = ?,
+                wt_charges = ?, wt_charges_sign = ?, freight = ?, freight_sign = ?, m_sukri = ?, m_sukri_sign = ?,
+                broken_percent = ?, broken_amount = ?, broken_amount_sign = ?,
+                bardana = ?, bardana_sign = ?, phone_charges = ?, phone_charges_sign = ?,
+                filling_charges = ?, filling_charges_sign = ?, total_charges = ?,
+                status = ?, updated_by = ?
             WHERE id = ? AND tenant_id = ?
         ");
         $stmt->execute([
@@ -214,10 +232,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
             $input['supplierInvoiceNo'],
             $input['supplierInvoiceDate'],
             $input['purchaseOrderId'] ?? null,
+            $input['rpoNo'] ?? null,
+            $input['truckNo'] ?? null,
+            $input['paymentTermId'] ?? null,
             $input['biltyNo'],
             $input['transportName'],
             $input['remarks'] ?? null,
             $input['subAccountId'] ?? null,
+            $input['rateType'] ?? null,
+            $input['brokeryRateType'] ?? null,
+            $input['brokeryKgBasis'] ?? 'net',
+            $input['brokeryPctMode'] ?? 0,
+            $input['brokeryRate'] ?? 0,
+            $input['brokeryAmount'] ?? 0,
+            $input['brokeryAmountSign'] ?? '+',
+            $input['brokeryTaxPercent'] ?? 0,
+            $input['brokeryTaxAmount'] ?? 0,
+            $input['brokeryTaxAmountSign'] ?? '+',
+            $input['wtCharges'] ?? 0,
+            $input['wtChargesSign'] ?? '+',
+            $input['freight'] ?? 0,
+            $input['freightSign'] ?? '+',
+            $input['mSukri'] ?? 0,
+            $input['mSukriSign'] ?? '+',
+            $input['brokenPercent'] ?? 0,
+            $input['brokenAmount'] ?? 0,
+            $input['brokenAmountSign'] ?? '+',
+            $input['bardana'] ?? 0,
+            $input['bardanaSign'] ?? '+',
+            $input['phoneCharges'] ?? 0,
+            $input['phoneChargesSign'] ?? '+',
+            $input['fillingCharges'] ?? 0,
+            $input['fillingChargesSign'] ?? '+',
+            $input['totalCharges'] ?? 0,
+            $input['status'] ?? 'pending',
             $user_id,
             $invoice_id,
             $tenant_id
@@ -235,8 +283,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
                 quantity, purchase_price, gross_amount, discount_percent,
                 discount_amount, trade_offer_percent, trade_offer_amount,
                 tax_percent, tax_amount, foc_quantity, net_amount,
+                bag, total_kg, cut_kg_percent, cut_kg, al_kg_percent, al_kg, net_kg, al_rate_cut, net_rate,
                 created_by, updated_by
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ");
         
         foreach ($input['items'] as $item) {
@@ -258,6 +307,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
                     $isFirstEntry ? $item['taxAmount'] : 0,
                     $item['focQty'] ?? 0,
                     $isFirstEntry ? $item['netAmount'] : 0,
+                    $isFirstEntry ? ($item['bag'] ?? 0) : 0,
+                    $isFirstEntry ? ($item['totalKg'] ?? 0) : 0,
+                    $isFirstEntry ? ($item['cutKgPercent'] ?? 0) : 0,
+                    $isFirstEntry ? ($item['cutKg'] ?? 0) : 0,
+                    $isFirstEntry ? ($item['alKgPercent'] ?? 0) : 0,
+                    $isFirstEntry ? ($item['alKg'] ?? 0) : 0,
+                    $isFirstEntry ? ($item['netKg'] ?? 0) : 0,
+                    $isFirstEntry ? ($item['alRateCut'] ?? 0) : 0,
+                    $isFirstEntry ? ($item['netRate'] ?? 0) : 0,
                     $user_id,
                     $user_id
                 ]);

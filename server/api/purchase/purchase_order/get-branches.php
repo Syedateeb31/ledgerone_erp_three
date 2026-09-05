@@ -22,10 +22,11 @@ try {
             b.branch_code, 
             b.branch_name, 
             b.branch_type,
+            b.is_default,
             pb.branch_name as parent_branch_name
         FROM branches b
         LEFT JOIN branches pb ON b.parent_branch_id = pb.id
-        WHERE b.tenant_id = ? AND b.is_active = 1 AND b.parent_branch_id IS NOT NULL
+        WHERE b.tenant_id = ? AND b.is_active = 1
         ORDER BY pb.branch_name, b.branch_name
     ");
     $stmt->execute([$tenant_id]);

@@ -60,9 +60,8 @@ if (!$user_id) {
                     <label for="statusFilter">Status</label>
                     <select id="statusFilter">
                         <option value="">All Status</option>
-                        <option value="paid">Paid</option>
                         <option value="pending">Pending</option>
-                        <option value="overdue">Overdue</option>
+                        <option value="confirmed">Confirmed</option>
                     </select>
                 </div>
             </div>
@@ -84,9 +83,10 @@ if (!$user_id) {
                             <th width="12%">Invoice No</th>
                             <th width="15%">Date</th>
                             <th width="25%">Supplier</th>
-                            <th width="12%">Items</th>
-                            <th width="15%">Total Amount</th>
-                            <th width="21%">Actions</th>
+                            <th width="10%">Items</th>
+                            <th width="13%">Total Amount</th>
+                            <th width="10%">Status</th>
+                            <th width="15%">Actions</th>
                         </tr>
                     </thead>
                     <tbody>

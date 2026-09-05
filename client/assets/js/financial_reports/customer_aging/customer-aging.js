@@ -1,207 +1,39 @@
-let reportData = [];
-let summaryData = {};
-let currentPage = 1;
-const itemsPerPage = 10;
+// customer-aging.js
+// Handles: filter bar (company, customer, country/region/city/zone/area),
+// data loading, table + summary rendering, pagination, and exports.
 
-// Fetch data from API
-async function fetchReportData() {
-    try {
-        const companyFilter = document.getElementById('companyFilter');
-        let url = '../../../../server/api/financial_reports/customer_aging/customer-aging.php';
-        if (companyFilter && companyFilter.value) {
-            url += '?company_id=' + companyFilter.value;
-        }
-        const response = await fetch(url);
-        const result = await response.json();
-        
-        if (result.success) {
-            reportData = result.data;
-            summaryData = result.summary;
-            renderTable();
-            updateSummary();
-        } else {
-            alert('Error loading data: ' + result.message);
-        }
-    } catch (error) {
-        console.error('Error:', error);
-        alert('Failed to load report data');
+const DATA_ENDPOINT = '../../../../server/api/financial_reports/customer_aging/customer-aging.php';
+const FILTERS_ENDPOINT = '../../../../server/api/financial_reports/customer_aging/location_filters.php';
+
+const PAGE_SIZE = 10;
+
+const state = {
+    page: 1,
+    allRows: [],       // full filtered dataset returned by the API
+    filters: {
+        company_id: '',
+        customer_id: '',
+        country_id: '',
+        region_id: '',
+        city_id: '',
+        zone_id: '',
+        area_id: ''
     }
-}
+};
 
-// Update summary cards
-function updateSummary() {
-    const bucketCards = document.querySelectorAll('.bucket-card');
-    if (bucketCards.length >= 4) {
-        bucketCards[0].querySelector('.bucket-value').textContent = summaryData.total_overdue || '$0.00';
-        bucketCards[1].querySelector('.bucket-value').textContent = summaryData.bucket_15 || '$0.00';
-        bucketCards[1].querySelector('.mt-2').textContent = `${summaryData.count_15 || 0} invoices`;
-        bucketCards[2].querySelector('.bucket-value').textContent = summaryData.bucket_25 || '$0.00';
-        bucketCards[2].querySelector('.mt-2').textContent = `${summaryData.count_25 || 0} invoices`;
-        bucketCards[3].querySelector('.bucket-value').textContent = summaryData.bucket_45 || '$0.00';
-        bucketCards[3].querySelector('.mt-2').textContent = `${summaryData.count_45 || 0} invoices`;
-    }
-}
-
-// Function to render table rows
-function renderTable() {
-    const tableBody = document.getElementById('reportTableBody');
-    tableBody.innerHTML = '';
-
-    if (reportData.length === 0) {
-        tableBody.innerHTML = '<tr><td colspan="9" style="text-align: center; padding: 20px;">No overdue invoices found</td></tr>';
-        updatePaginationInfo();
-        return;
-    }
-
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    const endIndex = startIndex + itemsPerPage;
-    const paginatedData = reportData.slice(startIndex, endIndex);
-
-    paginatedData.forEach(item => {
-        let badgeClass = "badge-primary";
-        if (item.bucket === "25+" || item.bucket === "35+") {
-            badgeClass = "badge-warning";
-        } else if (item.bucket === "45+") {
-            badgeClass = "badge-error";
-        }
-
-        const row = document.createElement('tr');
-        row.innerHTML = `
-            <td>${item.id}</td>
-            <td><strong>${item.customerCode}</strong></td>
-            <td>${item.customerName}</td>
-            <td>${item.address}</td>
-            <td><span class="badge badge-primary">${item.invoiceNo}</span></td>
-            <td>${item.type}</td>
-            <td><strong>${item.amount}</strong></td>
-            <td>${item.daysOverdue} days</td>
-            <td><span class="badge ${badgeClass}">${item.bucket} days</span></td>
-        `;
-        tableBody.appendChild(row);
-    });
-    
-    updatePaginationInfo();
-    renderPaginationButtons();
-}
-
-function updatePaginationInfo() {
-    const totalPages = Math.ceil(reportData.length / itemsPerPage);
-    const startEntry = reportData.length === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1;
-    const endEntry = Math.min(currentPage * itemsPerPage, reportData.length);
-    
-    document.querySelector('.card-header .pagination-info').textContent = 
-        `Showing ${startEntry}-${endEntry} of ${reportData.length} entries`;
-    document.querySelector('.pagination .pagination-info').textContent = 
-        `Page ${reportData.length === 0 ? 0 : currentPage} of ${totalPages}`;
-}
-
-function renderPaginationButtons() {
-    const totalPages = Math.ceil(reportData.length / itemsPerPage);
-    const paginationControls = document.querySelector('.pagination-controls');
-    paginationControls.innerHTML = '';
-    
-    // Previous button
-    const prevBtn = document.createElement('button');
-    prevBtn.className = 'page-btn';
-    prevBtn.innerHTML = '<i class="fas fa-chevron-left"></i>';
-    prevBtn.disabled = currentPage === 1;
-    prevBtn.onclick = () => changePage(currentPage - 1);
-    paginationControls.appendChild(prevBtn);
-    
-    // Page number buttons
-    for (let i = 1; i <= totalPages; i++) {
-        if (i === 1 || i === totalPages || (i >= currentPage - 1 && i <= currentPage + 1)) {
-            const pageBtn = document.createElement('button');
-            pageBtn.className = 'page-btn' + (i === currentPage ? ' active' : '');
-            pageBtn.textContent = i;
-            pageBtn.onclick = () => changePage(i);
-            paginationControls.appendChild(pageBtn);
-        } else if (i === currentPage - 2 || i === currentPage + 2) {
-            const dots = document.createElement('span');
-            dots.textContent = '...';
-            dots.style.padding = '0 8px';
-            paginationControls.appendChild(dots);
-        }
-    }
-    
-    // Next button
-    const nextBtn = document.createElement('button');
-    nextBtn.className = 'page-btn';
-    nextBtn.innerHTML = '<i class="fas fa-chevron-right"></i>';
-    nextBtn.disabled = currentPage === totalPages;
-    nextBtn.onclick = () => changePage(currentPage + 1);
-    paginationControls.appendChild(nextBtn);
-}
-
-function changePage(page) {
-    const totalPages = Math.ceil(reportData.length / itemsPerPage);
-    if (page < 1 || page > totalPages) return;
-    currentPage = page;
-    renderTable();
-}
-
-// Action functions
-function viewDetails(id) {
-    alert(`Viewing details for record #${id}`);
-}
-
-function sendReminder(id) {
-    alert(`Sending payment reminder for record #${id}`);
-}
-
-function addNote(id) {
-    alert(`Adding note to record #${id}`);
-}
-
-// Action functions
-function viewDetails(id) {
-    alert(`Viewing details for record #${id}`);
-}
-
-function sendReminder(id) {
-    alert(`Sending payment reminder for record #${id}`);
-}
-
-function addNote(id) {
-    alert(`Adding note to record #${id}`);
-}
-
-// Filter functionality
-function filterByBucket(bucket) {
-    // In a real app, this would filter the data
-    alert(`Filtering by bucket: ${bucket}`);
-}
-
-// Export functionality
-function printReport() {
-    window.open('print.php', '_blank');
-}
-
-function exportToExcel() {
-    alert('Exporting report to Excel format');
-}
-
-function exportToJSON() {
-    const dataStr = JSON.stringify(reportData, null, 2);
-    const dataBlob = new Blob([dataStr], { type: 'application/json' });
-    const url = URL.createObjectURL(dataBlob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'customer-aging-report.json';
-    link.click();
-    URL.revokeObjectURL(url);
-}
-
-// Initialize the table on page load
-document.addEventListener('DOMContentLoaded', function () {
+document.addEventListener('DOMContentLoaded', () => {
     loadCompanies();
-    fetchReportData();
+    loadCountries();
+    setupCascadingFilters();
+    setupCustomerCombo();
+    setupButtons();
+    loadReportData();
 
-    // Add event listeners to bucket cards
+    // Bucket cards: click to filter by that bucket
     document.querySelectorAll('.bucket-card').forEach((card, index) => {
         card.style.cursor = 'pointer';
         card.addEventListener('click', function () {
-            const buckets = ['15+', '25+', '35+', '45+'];
+            const buckets = ['all', '15+', '25+', '45+'];
             if (index < buckets.length) {
                 filterByBucket(buckets[index]);
             }
@@ -209,27 +41,381 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 });
 
-// Load companies
+// ---------- Lookup loaders ----------
+
 async function loadCompanies() {
-    try {
-        const response = await fetch('../../../../server/api/financial_reports/customer_aging/get-companies.php');
-        const result = await response.json();
-        
-        if (result.success) {
-            const companyFilter = document.getElementById('companyFilter');
-            companyFilter.innerHTML = '<option value="">All Companies</option>';
-            result.data.forEach(company => {
-                companyFilter.innerHTML += `<option value="${company.id}">${company.company_name}</option>`;
-            });
-            
-            if (result.data.length === 1) {
-                companyFilter.value = result.data[0].id;
-            }
-            
-            // Add change event listener
-            companyFilter.addEventListener('change', fetchReportData);
-        }
-    } catch (error) {
-        console.error('Error loading companies:', error);
+    const rows = await fetchLookup('companies');
+    const select = document.getElementById('companyFilter');
+    resetSelect(select, 'All Companies');
+    rows.forEach(r => select.appendChild(makeOption(r.id, r.company_name)));
+
+    if (rows.length === 1) {
+        select.value = rows[0].id;
+        state.filters.company_id = rows[0].id;
     }
+}
+
+async function loadCountries() {
+    const rows = await fetchLookup('countries');
+    const select = document.getElementById('countryFilter');
+    resetSelect(select, 'All Countries');
+    rows.forEach(r => select.appendChild(makeOption(r.id, r.country_name)));
+}
+
+async function loadRegions(countryId) {
+    const select = document.getElementById('regionFilter');
+    resetSelect(select, 'All Regions');
+    if (!countryId) {
+        select.disabled = true;
+        return;
+    }
+    const rows = await fetchLookup('regions', { country_id: countryId });
+    rows.forEach(r => select.appendChild(makeOption(r.id, r.region_name)));
+    select.disabled = false;
+}
+
+async function loadCities(regionId) {
+    const select = document.getElementById('cityFilter');
+    resetSelect(select, 'All Cities');
+    if (!regionId) {
+        select.disabled = true;
+        return;
+    }
+    const rows = await fetchLookup('cities', { region_id: regionId });
+    rows.forEach(r => select.appendChild(makeOption(r.id, r.city_name)));
+    select.disabled = false;
+}
+
+async function loadZones(cityId) {
+    const select = document.getElementById('zoneFilter');
+    resetSelect(select, 'All Zones');
+    if (!cityId) {
+        select.disabled = true;
+        return;
+    }
+    const rows = await fetchLookup('zones', { city_id: cityId });
+    rows.forEach(r => select.appendChild(makeOption(r.id, r.city_zone_name)));
+    select.disabled = false;
+}
+
+async function loadAreas(zoneId) {
+    const select = document.getElementById('areaFilter');
+    resetSelect(select, 'All Areas');
+    if (!zoneId) {
+        select.disabled = true;
+        return;
+    }
+    const rows = await fetchLookup('areas', { zone_id: zoneId });
+    rows.forEach(r => select.appendChild(makeOption(r.id, r.area_name)));
+    select.disabled = false;
+}
+
+function setupCascadingFilters() {
+    document.getElementById('countryFilter').addEventListener('change', async (e) => {
+        state.filters.country_id = e.target.value;
+        state.filters.region_id = state.filters.city_id = state.filters.zone_id = state.filters.area_id = '';
+        await loadRegions(e.target.value);
+        resetSelect(document.getElementById('cityFilter'), 'All Cities');
+        document.getElementById('cityFilter').disabled = true;
+        resetSelect(document.getElementById('zoneFilter'), 'All Zones');
+        document.getElementById('zoneFilter').disabled = true;
+        resetSelect(document.getElementById('areaFilter'), 'All Areas');
+        document.getElementById('areaFilter').disabled = true;
+    });
+
+    document.getElementById('regionFilter').addEventListener('change', async (e) => {
+        state.filters.region_id = e.target.value;
+        state.filters.city_id = state.filters.zone_id = state.filters.area_id = '';
+        await loadCities(e.target.value);
+        resetSelect(document.getElementById('zoneFilter'), 'All Zones');
+        document.getElementById('zoneFilter').disabled = true;
+        resetSelect(document.getElementById('areaFilter'), 'All Areas');
+        document.getElementById('areaFilter').disabled = true;
+    });
+
+    document.getElementById('cityFilter').addEventListener('change', async (e) => {
+        state.filters.city_id = e.target.value;
+        state.filters.zone_id = state.filters.area_id = '';
+        await loadZones(e.target.value);
+        resetSelect(document.getElementById('areaFilter'), 'All Areas');
+        document.getElementById('areaFilter').disabled = true;
+    });
+
+    document.getElementById('zoneFilter').addEventListener('change', async (e) => {
+        state.filters.zone_id = e.target.value;
+        state.filters.area_id = '';
+        await loadAreas(e.target.value);
+    });
+
+    document.getElementById('areaFilter').addEventListener('change', (e) => {
+        state.filters.area_id = e.target.value;
+    });
+
+    document.getElementById('companyFilter').addEventListener('change', (e) => {
+        state.filters.company_id = e.target.value;
+    });
+}
+
+// ---------- Customer: dropdown + type-to-search combobox ----------
+
+function setupCustomerCombo() {
+    const input = document.getElementById('customerFilterInput');
+    const hidden = document.getElementById('customerFilter');
+    const dropdown = document.getElementById('customerDropdown');
+    let debounceTimer = null;
+
+    async function openWithResults(query) {
+        const rows = await fetchLookup('customers', query ? { q: query } : {});
+        dropdown.innerHTML = '';
+
+        const allOption = document.createElement('div');
+        allOption.className = 'combo-option';
+        allOption.textContent = 'All Customers';
+        allOption.addEventListener('click', () => selectCustomer('', ''));
+        dropdown.appendChild(allOption);
+
+        if (rows.length === 0) {
+            const empty = document.createElement('div');
+            empty.className = 'combo-empty';
+            empty.textContent = 'No matching customers';
+            dropdown.appendChild(empty);
+        } else {
+            rows.forEach(r => {
+                const opt = document.createElement('div');
+                opt.className = 'combo-option';
+                opt.textContent = `${r.customer_code} — ${r.customer_name}`;
+                opt.addEventListener('click', () => selectCustomer(r.id, `${r.customer_code} — ${r.customer_name}`));
+                dropdown.appendChild(opt);
+            });
+        }
+        dropdown.classList.add('open');
+    }
+
+    function selectCustomer(id, label) {
+        hidden.value = id;
+        input.value = label;
+        input.dataset.selectedLabel = label;
+        state.filters.customer_id = id;
+        dropdown.classList.remove('open');
+    }
+
+    input.addEventListener('focus', () => openWithResults(input.value.trim()));
+    input.addEventListener('input', () => {
+        clearTimeout(debounceTimer);
+        const q = input.value.trim();
+        if (hidden.value && q !== input.dataset.selectedLabel) {
+            hidden.value = '';
+            state.filters.customer_id = '';
+        }
+        debounceTimer = setTimeout(() => openWithResults(q), 250);
+    });
+
+    document.addEventListener('click', (e) => {
+        if (!document.getElementById('customerCombo').contains(e.target)) {
+            dropdown.classList.remove('open');
+        }
+    });
+}
+
+// ---------- Buttons ----------
+
+function setupButtons() {
+    document.getElementById('applyFiltersBtn').addEventListener('click', () => {
+        state.page = 1;
+        loadReportData();
+    });
+
+    document.getElementById('resetFiltersBtn').addEventListener('click', () => {
+        state.filters = {
+            company_id: '', customer_id: '', country_id: '',
+            region_id: '', city_id: '', zone_id: '', area_id: ''
+        };
+        document.getElementById('companyFilter').value = '';
+        document.getElementById('customerFilterInput').value = '';
+        document.getElementById('customerFilter').value = '';
+        document.getElementById('countryFilter').value = '';
+        ['regionFilter', 'cityFilter', 'zoneFilter', 'areaFilter'].forEach(id => {
+            const el = document.getElementById(id);
+            resetSelect(el, `All ${id.replace('Filter', 's').replace(/^./, c => c.toUpperCase())}`);
+            el.disabled = true;
+        });
+        state.page = 1;
+        loadReportData();
+    });
+}
+
+function filterByBucket(bucket) {
+    // Placeholder hook for bucket-card clicks; extend as needed
+    // e.g. could set a client-side filter on state.allRows before renderPage()
+    console.log('Filter by bucket:', bucket);
+}
+
+// ---------- Data load + render ----------
+
+async function loadReportData() {
+    const params = new URLSearchParams();
+    Object.entries(state.filters).forEach(([key, val]) => {
+        if (val) params.append(key, val);
+    });
+
+    try {
+        const res = await fetch(`${DATA_ENDPOINT}?${params.toString()}`);
+        const json = await res.json();
+        if (!json.success) {
+            console.error(json.message);
+            return;
+        }
+        state.allRows = json.data;
+        renderSummary(json.summary);
+        renderPage();
+    } catch (err) {
+        console.error('Failed to load aging report:', err);
+    }
+}
+
+function renderSummary(summary) {
+    document.getElementById('totalOverdueValue').textContent = summary.total_overdue;
+    document.getElementById('bucket15Value').textContent = summary.bucket_15;
+    document.getElementById('bucket15Count').textContent = summary.count_15;
+    document.getElementById('bucket25Value').textContent = summary.bucket_25;
+    document.getElementById('bucket25Count').textContent = summary.count_25;
+    document.getElementById('bucket45Value').textContent = summary.bucket_45;
+    document.getElementById('bucket45Count').textContent = summary.count_45;
+}
+
+function renderPage() {
+    const total = state.allRows.length;
+    const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+    state.page = Math.min(state.page, totalPages);
+
+    const start = (state.page - 1) * PAGE_SIZE;
+    const pageRows = state.allRows.slice(start, start + PAGE_SIZE);
+
+    const tbody = document.getElementById('reportTableBody');
+    tbody.innerHTML = '';
+
+    if (total === 0) {
+        tbody.innerHTML = '<tr><td colspan="10" style="text-align: center; padding: 20px;">No overdue invoices found</td></tr>';
+    } else {
+        pageRows.forEach((row, i) => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${start + i + 1}</td>
+                <td>${escapeHtml(row.customerCode)}</td>
+                <td>${escapeHtml(row.customerName)}</td>
+                <td>${escapeHtml(row.address)}</td>
+                <td>${escapeHtml(row.invoiceNo)}</td>
+                <td>${escapeHtml(row.invoiceDate)}</td>
+                <td>${escapeHtml(row.type)}</td>
+                <td>${escapeHtml(row.amount)}</td>
+                <td>${row.daysOverdue}</td>
+                <td>${escapeHtml(row.bucket)}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    const infoText = total === 0
+        ? 'Showing 0 entries'
+        : `Showing ${start + 1}-${Math.min(start + PAGE_SIZE, total)} of ${total} entries`;
+    document.getElementById('paginationInfoTop').textContent = infoText;
+    document.getElementById('paginationInfoBottom').textContent = `Page ${total === 0 ? 0 : state.page} of ${totalPages}`;
+
+    renderPaginationControls(totalPages);
+}
+
+function renderPaginationControls(totalPages) {
+    const controls = document.getElementById('paginationControls');
+    controls.innerHTML = '';
+
+    const prev = document.createElement('button');
+    prev.className = 'btn btn-ghost';
+    prev.innerHTML = '<i class="fas fa-chevron-left"></i>';
+    prev.disabled = state.page <= 1;
+    prev.addEventListener('click', () => { state.page--; renderPage(); });
+    controls.appendChild(prev);
+
+    for (let p = 1; p <= totalPages; p++) {
+        if (p === 1 || p === totalPages || (p >= state.page - 1 && p <= state.page + 1)) {
+            const btn = document.createElement('button');
+            btn.className = 'btn ' + (p === state.page ? 'btn-primary' : 'btn-ghost');
+            btn.textContent = p;
+            btn.addEventListener('click', () => { state.page = p; renderPage(); });
+            controls.appendChild(btn);
+        } else if (p === state.page - 2 || p === state.page + 2) {
+            const dots = document.createElement('span');
+            dots.textContent = '...';
+            dots.style.padding = '0 8px';
+            controls.appendChild(dots);
+        }
+    }
+
+    const next = document.createElement('button');
+    next.className = 'btn btn-ghost';
+    next.innerHTML = '<i class="fas fa-chevron-right"></i>';
+    next.disabled = state.page >= totalPages;
+    next.addEventListener('click', () => { state.page++; renderPage(); });
+    controls.appendChild(next);
+}
+
+// ---------- Exports ----------
+
+function printReport() {
+    window.print();
+}
+
+function exportToJSON() {
+    const blob = new Blob([JSON.stringify(state.allRows, null, 2)], { type: 'application/json' });
+    downloadBlob(blob, 'customer-aging-report.json');
+}
+
+function exportToExcel() {
+    const headers = ['S#', 'Customer Code', 'Customer Name', 'Address', 'Invoice No', 'Invoice Date', 'Type', 'Amount', 'Days Overdue', 'Bucket'];
+    const rows = state.allRows.map((row, i) => [
+        i + 1, row.customerCode, row.customerName, row.address,
+        row.invoiceNo, row.invoiceDate, row.type, row.amount, row.daysOverdue, row.bucket
+    ]);
+    const csv = [headers, ...rows]
+        .map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(','))
+        .join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    downloadBlob(blob, 'customer-aging-report.csv');
+}
+
+function downloadBlob(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+// ---------- Helpers ----------
+
+async function fetchLookup(type, extraParams = {}) {
+    const params = new URLSearchParams({ type, ...extraParams });
+    const res = await fetch(`${FILTERS_ENDPOINT}?${params.toString()}`);
+    const json = await res.json();
+    return json.success ? json.data : [];
+}
+
+function makeOption(value, label) {
+    const opt = document.createElement('option');
+    opt.value = value;
+    opt.textContent = label;
+    return opt;
+}
+
+function resetSelect(select, placeholderLabel) {
+    select.innerHTML = '';
+    select.appendChild(makeOption('', placeholderLabel));
+}
+
+function escapeHtml(str) {
+    if (str === null || str === undefined) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
 }

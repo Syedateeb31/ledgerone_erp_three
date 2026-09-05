@@ -30,10 +30,13 @@ document.addEventListener('DOMContentLoaded', function () {
     const subAccount = document.getElementById('sub-account');
     const subAccountGroup = document.getElementById('sub-account-group');
     const currencyFilter = document.getElementById('currency-filter');
+    const symbolOverride = document.getElementById('symbol-override');
 
     let currentPage = 1;
     let totalPages = 1;
     let allData = [];
+    let allDetailedData = [];       // add this
+let detailedOpeningBalance = 0; // add this
     const itemsPerPage = 10;
     let expandedRows = new Set();
     let allCustomers = [];
@@ -84,6 +87,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     currencyFilter.innerHTML += `<option value="${currency.id}" ${isBase ? 'selected' : ''}>${currency.name} (${currency.symbol})${isBase ? ' - Base' : ''}</option>`;
                     if (isBase) {
                         currentCurrencySymbol = currency.symbol;
+                        symbolOverride.value = currency.symbol;
                     }
                 });
             }
@@ -98,8 +102,15 @@ document.addEventListener('DOMContentLoaded', function () {
         const symbolMatch = selectedOption.text.match(/\((.+?)\)/);
         if (symbolMatch) {
             currentCurrencySymbol = symbolMatch[1];
+            symbolOverride.value = symbolMatch[1];
         }
         await loadLedgerData();
+    });
+
+    // Symbol override — only changes display symbol, no conversion
+    symbolOverride.addEventListener('change', function() {
+        currentCurrencySymbol = this.value;
+        if (allData.length > 0) renderPage();
     });
     
     // Reload customers when company changes
@@ -455,6 +466,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Render detailed ledger
     function renderDetailedLedger(data, openingBalance) {
+         allDetailedData = data;
+    detailedOpeningBalance = openingBalance;
         const tbody = detailedLedgerTable.querySelector('tbody');
         tbody.innerHTML = '';
         
@@ -464,12 +477,14 @@ document.addEventListener('DOMContentLoaded', function () {
         data.forEach((row) => {
             if (row.type === 'opening_balance') {
                 const balance = parseFloat(row.running_balance) || 0;
+                const debit = parseFloat(row.debit) || 0;
+                totalDebit += debit;
                 tbody.innerHTML += `
-                    <tr>
+                    <tr style="background: rgba(31,123,255,0.04);">
                         <td>${row.date}</td>
                         <td>${row.description}</td>
                         <td>${row.reference}</td>
-                        <td></td>
+                        <td>${debit > 0 ? currentCurrencySymbol + debit.toFixed(2) : ''}</td>
                         <td></td>
                         <td class="${balance >= 0 ? 'balance-positive' : 'balance-negative'}">${currentCurrencySymbol}${Math.abs(balance).toFixed(2)} ${balance >= 0 ? 'Dr' : 'Cr'}</td>
                     </tr>
@@ -518,6 +533,8 @@ document.addEventListener('DOMContentLoaded', function () {
                         <td>
                             ${hasItems ? `<button class="expand-btn" data-row-id="${rowIndex}"><i class="fas fa-chevron-right"></i></button>` : ''}
                             ${row.description}
+                            ${row.type === 'adjustment' && row.contra_account_name ? `<br><small style="color:var(--text-muted);font-size:11px;"><i class="fas fa-exchange-alt" style="margin-right:4px;"></i>${row.contra_account_name}</small>` : ''}
+                            ${row.type === 'adjustment' && row.adj_note ? `<br><small style="color:var(--text-muted);font-size:11px;font-style:italic;">${row.adj_note}</small>` : ''}
                         </td>
                         <td>${row.reference}</td>
                         <td>${debit > 0 ? currentCurrencySymbol + debit.toFixed(2) : ''}</td>
@@ -561,7 +578,13 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         });
         
-        const finalBalance = openingBalance + totalDebit - totalCredit;
+        let lastRunningBalance = openingBalance;
+        data.forEach((row) => {
+            if (row.running_balance !== undefined) {
+                lastRunningBalance = parseFloat(row.running_balance) || 0;
+            }
+        });
+
         tbody.innerHTML += `
             <tr class="totals-row">
                 <td><strong>Totals</strong></td>
@@ -569,7 +592,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 <td></td>
                 <td><strong>${currentCurrencySymbol}${totalDebit.toFixed(2)}</strong></td>
                 <td><strong>${currentCurrencySymbol}${totalCredit.toFixed(2)}</strong></td>
-                <td><strong class="${finalBalance >= 0 ? 'balance-positive' : 'balance-negative'}">${currentCurrencySymbol}${Math.abs(finalBalance).toFixed(2)} ${finalBalance >= 0 ? 'Dr' : 'Cr'}</strong></td>
+                <td><strong class="${lastRunningBalance >= 0 ? 'balance-positive' : 'balance-negative'}">${currentCurrencySymbol}${Math.abs(lastRunningBalance).toFixed(2)} ${lastRunningBalance >= 0 ? 'Dr' : 'Cr'}</strong></td>
             </tr>
         `;
         
@@ -670,6 +693,106 @@ document.addEventListener('DOMContentLoaded', function () {
             params.append('currency_id', currencyFilter.value);
         }
         
+        window.open(`print.php?${params}`, '_blank');
+    });
+
+    document.getElementById('excel-ledger').addEventListener('click', function (e) {
+    e.preventDefault();
+    exportLedgerToExcel();
+    exportMenu.classList.remove('show');
+});
+
+function exportLedgerToExcel() {
+    const isDetailed = detailedLedgerBtn.classList.contains('active');
+    const workbook = XLSX.utils.book_new();
+
+    if (isDetailed) {
+        if (!allDetailedData || allDetailedData.length === 0) {
+            showNotification('No ledger data to export', 'error');
+            return;
+        }
+
+        const rows = [];
+        let runningBalance = detailedOpeningBalance;
+
+        allDetailedData.forEach(row => {
+            if (row.type === 'sub_account_header' || row.type === 'sub_account_total') {
+                return; // skip structural rows, keep the export flat
+            }
+            const debit = parseFloat(row.debit) || 0;
+            const credit = parseFloat(row.credit) || 0;
+            const balance = parseFloat(row.running_balance) || 0;
+
+            rows.push({
+                'Date': row.date,
+                'Description': row.description || '',
+                'Reference': row.reference || '',
+                'Debit': debit || '',
+                'Credit': credit || '',
+                'Balance': Math.abs(balance).toFixed(2),
+                'Dr/Cr': balance >= 0 ? 'Dr' : 'Cr'
+            });
+        });
+
+        const worksheet = XLSX.utils.json_to_sheet(rows);
+        worksheet['!cols'] = [
+            { wch: 12 }, { wch: 30 }, { wch: 14 }, { wch: 12 },
+            { wch: 12 }, { wch: 12 }, { wch: 8 }
+        ];
+        XLSX.utils.book_append_sheet(workbook, worksheet, 'Detailed Ledger');
+    } else {
+        if (!allData || allData.length === 0) {
+            showNotification('No ledger data to export', 'error');
+            return;
+        }
+
+        const rows = allData.map(row => {
+            const opening = parseFloat(row.opening_balance) || 0;
+            const closing = parseFloat(row.closing_balance) || 0;
+            return {
+                'Customer Name': row.customer_name,
+                'Opening Balance': Math.abs(opening).toFixed(2),
+                'Opening Dr/Cr': opening >= 0 ? 'Dr' : 'Cr',
+                'Debit': (parseFloat(row.total_debit) || 0).toFixed(2),
+                'Credit': (parseFloat(row.total_credit) || 0).toFixed(2),
+                'Closing Balance': Math.abs(closing).toFixed(2),
+                'Closing Dr/Cr': closing >= 0 ? 'Dr' : 'Cr'
+            };
+        });
+
+        const worksheet = XLSX.utils.json_to_sheet(rows);
+        worksheet['!cols'] = [
+            { wch: 24 }, { wch: 14 }, { wch: 10 }, { wch: 12 },
+            { wch: 12 }, { wch: 14 }, { wch: 10 }
+        ];
+        XLSX.utils.book_append_sheet(workbook, worksheet, 'Summary Ledger');
+    }
+
+    const dateStr = new Date().toISOString().slice(0, 10);
+    const filenamePart = isDetailed ? 'detailed' : 'summary';
+    XLSX.writeFile(workbook, `customer-ledger-${filenamePart}-${dateStr}.xlsx`);
+}
+
+    // PDF ledger
+    document.getElementById('pdf-ledger').addEventListener('click', function(e) {
+        e.preventDefault();
+        const isDetailed = detailedLedgerBtn.classList.contains('active');
+        const params = new URLSearchParams({
+            ledger_type: isDetailed ? 'detailed' : 'summary',
+            date_from: fromDate.value,
+            date_to: toDate.value,
+            pdf: '1'
+        });
+        if (customerCode.value) {
+            const encryptedCode = encryptCustomerCode(customerCode.value);
+            params.append('customer_code', encryptedCode);
+            params.append('customer_id', customerCode.value);
+        }
+        if (distribution.value) params.append('distribution_id', distribution.value);
+        if (subAccount.value) params.append('sub_account_id', subAccount.value);
+        if (isDetailed && expandedRows.size > 0) params.append('expanded_rows', Array.from(expandedRows).join(','));
+        if (company.value) params.append('company_id', company.value);
+        if (currencyFilter.value) params.append('currency_id', currencyFilter.value);
         window.open(`print.php?${params}`, '_blank');
     });
 

@@ -24,6 +24,7 @@ if (!$user_id) {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="../../../assets/css/customer_supplier/suppliers/supplier-add.css">
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
 </head>
 <style>
     .salesman-chip {
@@ -68,10 +69,16 @@ if (!$user_id) {
 <body class="light-mode">
     <div class="container">
         <div class="card">
-            <h2 class="card-title">
-                <i class="fas fa-user-plus"></i>
-                Supplier Entry
-            </h2>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 28px; padding-bottom: 16px; border-bottom: 1px solid var(--border-default);">
+                <h2 class="card-title" style="margin-bottom: 0; padding-bottom: 0; border-bottom: none;">
+                    <i class="fas fa-user-plus"></i>
+                    Supplier Entry
+                </h2>
+                <button type="button" id="customizeFieldsBtn" class="btn btn-secondary btn-sm" style="padding: 0 16px; height: 40px;">
+                    <i class="fas fa-sliders-h"></i>
+                    Customize Fields
+                </button>
+            </div>
             <form id="supplierForm">
                 <div class="form-grid">
                     <!-- Basic Information Section -->
@@ -152,12 +159,12 @@ if (!$user_id) {
                         <div class="form-group col-12">
                             <label for="supplierName" class="required">
                                 <i class="fas fa-user"></i>
-                                Brand Name
+                                Company Name
                             </label>
-                            <input type="text" id="supplierName" required placeholder="Enter Brand Name ">
+                            <input type="text" id="supplierName" required placeholder="Enter Company Name">
                             <div class="error-text" id="supplierNameError">
                                 <i class="fas fa-exclamation-circle"></i>
-                                <span>Brand Name is required</span>
+                                <span>Company Name is required</span>
                             </div>
                         </div>
                     </div>
@@ -231,6 +238,64 @@ if (!$user_id) {
                                 <i class="fas fa-exclamation-circle"></i>
                                 <span>Identity card can only contain numbers</span>
                             </div>
+                        </div>
+                    </div>
+
+                    <!-- Territory Section -->
+                    <div class="form-section">
+                        <h3 class="section-title">
+                            <i class="fas fa-map-marked-alt"></i>
+                            Territory
+                        </h3>
+
+                        <div class="form-group col-4">
+                            <label for="country">
+                                <i class="fas fa-globe"></i>
+                                Country
+                            </label>
+                            <select id="country">
+                                <option value="">Select Country</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group col-4">
+                            <label for="region">
+                                <i class="fas fa-map"></i>
+                                Region
+                            </label>
+                            <select id="region">
+                                <option value="">Select Region</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group col-4">
+                            <label for="city">
+                                <i class="fas fa-city"></i>
+                                City
+                            </label>
+                            <select id="city">
+                                <option value="">Select City</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group col-6">
+                            <label for="cityZone">
+                                <i class="fas fa-map-pin"></i>
+                                City Zone
+                            </label>
+                            <select id="cityZone">
+                                <option value="">Select City Zone</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group col-6">
+                            <label for="area">
+                                <i class="fas fa-map-marker-alt"></i>
+                                Area
+                            </label>
+                            <select id="area">
+                                <option value="">Select Area</option>
+                            </select>
                         </div>
                     </div>
 
@@ -331,6 +396,9 @@ if (!$user_id) {
                             </div>
                         </div>
                     </div>
+
+                    <!-- Linked Customer Section -->
+                    <div id="partyLinkContainer"></div>
                 </div>
 
                 <div class="form-actions">
@@ -360,6 +428,38 @@ if (!$user_id) {
         </button>
     </div>
 
+    <!-- Customize Fields Modal -->
+    <div class="modal" id="customizeFieldsModal">
+        <div class="modal-content" style="max-width: 500px; max-height: 80vh; overflow-y: auto;">
+            <div class="modal-header">
+                <h3><i class="fas fa-sliders-h"></i> Customize Fields</h3>
+                <button class="modal-close" id="customizeFieldsModalClose">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body" style="padding: 24px;">
+                <div style="margin-bottom: 16px; display: flex; gap: 8px;">
+                    <button type="button" class="btn btn-secondary btn-sm" id="customizeFieldsSelectAllBtn" style="flex: 1;">
+                        <i class="fas fa-check-square"></i> Select All
+                    </button>
+                    <button type="button" class="btn btn-secondary btn-sm" id="customizeFieldsDeselectAllBtn" style="flex: 1;">
+                        <i class="fas fa-square"></i> Deselect All
+                    </button>
+                </div>
+                <div id="customizeFieldsList" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                    <!-- Fields will be generated by JavaScript -->
+                </div>
+            </div>
+            <div class="modal-footer" style="gap: 12px;">
+                <button type="button" class="btn btn-secondary" id="customizeFieldsResetBtn">Reset to Default</button>
+                <button type="button" class="btn btn-primary" id="customizeFieldsSaveBtn">Save Preferences</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    <script src="../../../assets/js/customer_supplier/party-link.js"></script>
     <script src="../../../assets/js/customer_supplier/suppliers/supplier-add.js?v=<?php echo time(); ?>"></script>
 </body>
 

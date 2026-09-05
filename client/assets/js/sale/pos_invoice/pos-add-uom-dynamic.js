@@ -73,6 +73,15 @@ function updateTableHeadersDynamic() {
         }
     }
 
+    // Find and store Net KG cell if it exists
+    let netKgHeadCell = document.getElementById('netKgHeader');
+    let netKgFootCell = null;
+    
+    if (netKgHeadCell) {
+        // Remove it from DOM temporarily
+        netKgHeadCell.parentNode.removeChild(netKgHeadCell);
+    }
+    
     // Remove old unit columns (after Product column - index 1)
     while (thead.cells.length > 2 && thead.cells[2].classList.contains('unit-header')) {
         thead.deleteCell(2);
@@ -91,6 +100,15 @@ function updateTableHeadersDynamic() {
         tf.id = `totalUnit${i + 1}`;
         tf.textContent = '0.00';
     }
+    
+    // Re-insert Net KG cell at correct position (after unit columns, before price column)
+    if (netKgHeadCell) {
+        const th = thead.insertCell(2 + maxUnits);
+        th.className = netKgHeadCell.className;
+        th.width = netKgHeadCell.width;
+        th.id = netKgHeadCell.id;
+        th.innerHTML = netKgHeadCell.innerHTML;
+    }
 }
 
 // Update row unit cells
@@ -100,6 +118,17 @@ function updateRowUnitCells(row, uomConfig, maxUnits, existingValues = []) {
     if (!priceCell) return;
     
     const priceCellIndex = priceCell.cellIndex;
+    
+    // Find and store Net KG cell
+    let netKgCell = row.querySelector('.net-kg-cell');
+    let netKgContent = null;
+    
+    if (netKgCell) {
+        // Store the content
+        netKgContent = netKgCell.innerHTML;
+        // Remove it from row
+        netKgCell.parentNode.removeChild(netKgCell);
+    }
     
     // Remove existing unit cells
     while (row.cells.length > 2 && row.cells[2].cellIndex < priceCellIndex) {
@@ -145,6 +174,22 @@ function updateRowUnitCells(row, uomConfig, maxUnits, existingValues = []) {
             input.readOnly = true;
             input.tabIndex = -1;
             cell.appendChild(input);
+        }
+    }
+    
+    // Re-insert Net KG cell at correct position (after unit columns, before price column)
+    if (netKgContent !== null) {
+        const newNetKgCell = row.insertCell(2 + maxUnits);
+        newNetKgCell.className = 'net-kg-cell';
+        newNetKgCell.innerHTML = netKgContent;
+        
+        // Restore event listeners for Net KG input
+        const netKgInput = newNetKgCell.querySelector('input');
+        if (netKgInput) {
+            netKgInput.addEventListener('input', function() {
+                updateNetKGTotal();
+                calculateBrokenAmount();
+            });
         }
     }
 }
