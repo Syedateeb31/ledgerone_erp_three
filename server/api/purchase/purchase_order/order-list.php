@@ -31,6 +31,40 @@ try {
     // already confirmed/fulfilled don't clutter the default Soda Book Buyer view.
     $statusFilter = strtolower(trim($_GET['status'] ?? 'pending'));
 
+    $dateFrom   = $_GET['date_from'] ?? null;
+    $dateTo     = $_GET['date_to'] ?? null;
+    $companyId  = isset($_GET['company_id']) && $_GET['company_id'] !== '' ? (int)$_GET['company_id'] : null;
+    $supplierId = isset($_GET['supplier_id']) && $_GET['supplier_id'] !== '' ? (int)$_GET['supplier_id'] : null;
+    $search     = trim($_GET['search'] ?? '');
+
+    // Build WHERE clause (all server-side so pagination/counts stay correct
+    // regardless of which page the matching rows fall on).
+    $where = "pi.tenant_id = ?";
+    $params = [$tenant_id];
+
+    if ($dateFrom) {
+        $where .= " AND pi.purchase_date >= ?";
+        $params[] = $dateFrom;
+    }
+    if ($dateTo) {
+        $where .= " AND pi.purchase_date <= ?";
+        $params[] = $dateTo;
+    }
+    if ($companyId) {
+        $where .= " AND pi.company_id = ?";
+        $params[] = $companyId;
+    }
+    if ($supplierId) {
+        $where .= " AND pi.supplier_id = ?";
+        $params[] = $supplierId;
+    }
+    if ($search !== '') {
+        $where .= " AND (pi.bill_no LIKE ? OR s.supplier_name LIKE ?)";
+        $searchParam = "%{$search}%";
+        $params[] = $searchParam;
+        $params[] = $searchParam;
+    }
+
     // Shared building blocks: the fulfillment_status CASE expression and its
     // underlying joins, reused identically by both the count query and the
     // paginated data query so the two never disagree.
@@ -69,13 +103,14 @@ try {
         SELECT COUNT(*) FROM (
             SELECT pi.id, $fulfillmentCase as fulfillment_status
             FROM purchase_order pi
+            LEFT JOIN suppliers s ON pi.supplier_id = s.id
             LEFT JOIN purchase_order_items pii ON pi.id = pii.purchase_invoice_id
-            WHERE pi.tenant_id = ?
+            WHERE $where
             GROUP BY pi.id
             $havingClause
         ) t
     ");
-    $countStmt->execute(array_merge([$tenant_id], $havingParams));
+    $countStmt->execute(array_merge($params, $havingParams));
     $totalRecords = $countStmt->fetchColumn();
 
     // Get paginated data
@@ -103,14 +138,14 @@ try {
         LEFT JOIN suppliers s ON pi.supplier_id = s.id
         LEFT JOIN purchase_order_items pii ON pi.id = pii.purchase_invoice_id
         LEFT JOIN ledgerone_public.currencies c ON pi.currency_id = c.id
-        WHERE pi.tenant_id = ?
+        WHERE $where
         GROUP BY pi.id
         $havingClause
         ORDER BY pi.purchase_date DESC, pi.id DESC
         LIMIT $limit OFFSET $offset
     ");
 
-    $stmt->execute(array_merge([$tenant_id], $havingParams));
+    $stmt->execute(array_merge($params, $havingParams));
     $invoices = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     echo json_encode([

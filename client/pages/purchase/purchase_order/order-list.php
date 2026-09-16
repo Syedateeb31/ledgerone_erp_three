@@ -36,10 +36,14 @@ if (!$user_id) { header('Location: ../../auth/login.html'); exit(); }
                     </select>
                 </div>
                 <div class="form-group">
-                    <label for="supplierFilter">Supplier</label>
-                    <select id="supplierFilter">
-                        <option value="">All Suppliers</option>
-                    </select>
+                    <label for="supplierFilterSearch">Supplier</label>
+                    <div class="searchable-dropdown">
+                        <input type="text" class="search-input" autocomplete="off" placeholder="All Suppliers" id="supplierFilterSearch">
+                        <div class="dropdown-options" id="supplierFilterOptions">
+                            <!-- Options loaded dynamically -->
+                        </div>
+                        <input type="hidden" id="supplierFilter">
+                    </div>
                 </div>
                 <div class="form-group">
                     <label for="statusFilter">Status</label>

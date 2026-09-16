@@ -8,7 +8,19 @@ document.addEventListener('DOMContentLoaded', function () {
     async function loadInvoices(page = 1) {
         try {
             const statusValue = document.getElementById('statusFilter')?.value || 'pending';
-            const response = await fetch(`../../../../server/api/purchase/purchase_order/order-list.php?page=${page}&limit=10&status=${encodeURIComponent(statusValue)}`);
+            const params = new URLSearchParams({ page, limit: 10, status: statusValue });
+            const dateFromVal = document.getElementById('dateFrom')?.value;
+            const dateToVal = document.getElementById('dateTo')?.value;
+            const companyVal = document.getElementById('companyFilter')?.value;
+            const supplierVal = document.getElementById('supplierFilter')?.value;
+            const searchVal = document.getElementById('searchInput')?.value;
+            if (dateFromVal) params.append('date_from', dateFromVal);
+            if (dateToVal) params.append('date_to', dateToVal);
+            if (companyVal) params.append('company_id', companyVal);
+            if (supplierVal) params.append('supplier_id', supplierVal);
+            if (searchVal) params.append('search', searchVal);
+
+            const response = await fetch(`../../../../server/api/purchase/purchase_order/order-list.php?${params.toString()}`);
             const data = await response.json();
             
             if (data.success) {
@@ -56,22 +68,64 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
-    // Load suppliers
+    // Load suppliers into the searchable Supplier filter dropdown
     async function loadSuppliers() {
         try {
             const response = await fetch('../../../../server/api/purchase/purchase_order/get-suppliers.php');
             const data = await response.json();
             if (data.success) {
-                const supplierFilter = document.getElementById('supplierFilter');
+                const optionsContainer = document.getElementById('supplierFilterOptions');
+                optionsContainer.innerHTML = '<div class="dropdown-option" data-value="">All Suppliers</div>';
                 data.suppliers.forEach(supplier => {
-                    const option = document.createElement('option');
-                    option.value = supplier.id;
+                    const option = document.createElement('div');
+                    option.className = 'dropdown-option';
+                    option.setAttribute('data-value', supplier.id);
                     option.textContent = `${supplier.supplier_code} - ${supplier.supplier_name}`;
-                    supplierFilter.appendChild(option);
+                    optionsContainer.appendChild(option);
                 });
+                initSearchableDropdown('supplierFilterSearch', 'supplierFilterOptions', 'supplierFilter');
             }
         } catch (error) {
             console.error('Error loading suppliers:', error);
+        }
+    }
+
+    // Generic searchable dropdown: types to filter, click to select, updates
+    // the hidden input and re-fetches from the server (page 1).
+    function initSearchableDropdown(searchInputId, optionsContainerId, hiddenInputId) {
+        const searchInput = document.getElementById(searchInputId);
+        const optionsContainer = document.getElementById(optionsContainerId);
+        const hiddenInput = document.getElementById(hiddenInputId);
+
+        searchInput.addEventListener('click', function (e) {
+            e.stopPropagation();
+            optionsContainer.style.display = 'block';
+            filterOptions();
+        });
+
+        searchInput.addEventListener('input', filterOptions);
+
+        optionsContainer.addEventListener('click', function (e) {
+            if (e.target.classList.contains('dropdown-option')) {
+                const value = e.target.getAttribute('data-value');
+                searchInput.value = value ? e.target.textContent : '';
+                hiddenInput.value = value;
+                optionsContainer.style.display = 'none';
+                loadInvoices(1);
+            }
+        });
+
+        document.addEventListener('click', function () {
+            optionsContainer.style.display = 'none';
+        });
+
+        function filterOptions() {
+            const searchTerm = searchInput.value.toLowerCase();
+            const options = optionsContainer.getElementsByClassName('dropdown-option');
+            for (let i = 0; i < options.length; i++) {
+                const text = options[i].textContent.toLowerCase();
+                options[i].style.display = text.includes(searchTerm) ? 'block' : 'none';
+            }
         }
     }
 
@@ -188,79 +242,29 @@ document.addEventListener('DOMContentLoaded', function () {
     loadCompanies();
     loadSuppliers();
 
-    // Filter functionality
+    // All filters are applied server-side (see loadInvoices) so pagination and
+    // counts stay correct regardless of which page the matching rows fall on.
     const dateFrom = document.getElementById('dateFrom');
     const dateTo = document.getElementById('dateTo');
     const companyFilter = document.getElementById('companyFilter');
-    const supplierFilter = document.getElementById('supplierFilter');
     const searchInput = document.getElementById('searchInput');
 
-    function applyFilters() {
-        let filteredInvoices = [...invoices];
+    dateFrom.addEventListener('change', () => loadInvoices(1));
+    dateTo.addEventListener('change', () => loadInvoices(1));
+    companyFilter.addEventListener('change', () => loadInvoices(1));
+    document.getElementById('statusFilter').addEventListener('change', () => loadInvoices(1));
 
-        // Date filter
-        if (dateFrom.value) {
-            filteredInvoices = filteredInvoices.filter(invoice =>
-                new Date(invoice.date) >= new Date(dateFrom.value)
-            );
-        }
-
-        if (dateTo.value) {
-            filteredInvoices = filteredInvoices.filter(invoice =>
-                new Date(invoice.date) <= new Date(dateTo.value)
-            );
-        }
-
-        // Company filter
-        if (companyFilter.value) {
-            filteredInvoices = filteredInvoices.filter(invoice =>
-                invoice.company_id == companyFilter.value
-            );
-        }
-
-        // Supplier filter
-        if (supplierFilter.value) {
-            filteredInvoices = filteredInvoices.filter(invoice =>
-                invoice.supplier_id == supplierFilter.value
-            );
-        }
-
-
-
-        // Search filter
-        if (searchInput.value) {
-            const searchTerm = searchInput.value.toLowerCase();
-            filteredInvoices = filteredInvoices.filter(invoice =>
-                invoice.invoiceNo.toLowerCase().includes(searchTerm) ||
-                invoice.supplier.toLowerCase().includes(searchTerm)
-            );
-        }
-
-        populateTable(filteredInvoices);
-    }
-
-    // Add event listeners for filters
-    dateFrom.addEventListener('change', applyFilters);
-    dateTo.addEventListener('change', applyFilters);
-    companyFilter.addEventListener('change', applyFilters);
-    supplierFilter.addEventListener('change', applyFilters);
-    searchInput.addEventListener('input', applyFilters);
-
-    // Status is filtered server-side (so pagination/counts stay correct),
-    // so changing it re-fetches from page 1 instead of just re-filtering
-    // the already-loaded page.
-    document.getElementById('statusFilter').addEventListener('change', function () {
-        loadInvoices(1);
+    // Debounce free-text search so it doesn't re-fetch on every keystroke
+    let searchDebounce;
+    searchInput.addEventListener('input', () => {
+        clearTimeout(searchDebounce);
+        searchDebounce = setTimeout(() => loadInvoices(1), 350);
     });
 
-    // Explicit "Filter" button: re-fetches with the current Status (server-side),
-    // then re-applies the other (client-side) filters on top of the fresh result.
+    // Explicit "Filter" button: re-fetches with all current filter values
     const applyFilterBtn = document.getElementById('applyFilterBtn');
     if (applyFilterBtn) {
-        applyFilterBtn.addEventListener('click', async function () {
-            await loadInvoices(1);
-            applyFilters();
-        });
+        applyFilterBtn.addEventListener('click', () => loadInvoices(1));
     }
 
     // Update pagination

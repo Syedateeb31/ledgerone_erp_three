@@ -27,6 +27,10 @@ try {
     $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 10;
     $offset = ($page - 1) * $limit;
     $company_id = isset($_GET['company_id']) ? (int)$_GET['company_id'] : null;
+    $customer_id = isset($_GET['customer_id']) && $_GET['customer_id'] !== '' ? (int)$_GET['customer_id'] : null;
+    $dateFrom = $_GET['date_from'] ?? null;
+    $dateTo   = $_GET['date_to'] ?? null;
+    $search   = trim($_GET['search'] ?? '');
     // Status filter: pending (default) / confirmed / partially fulfilled / all.
     // Matches the fulfillment_status computed below. Defaults to 'pending' so
     // orders whose sale invoice is already confirmed don't clutter the default
@@ -35,13 +39,29 @@ try {
 
     // Build WHERE clause
     $where = "si.tenant_id = ? AND si.status = 'Posted'";
-    $countParams = [$tenant_id];
     $params = [$tenant_id];
 
     if ($company_id) {
         $where .= " AND si.company_id = ?";
-        $countParams[] = $company_id;
         $params[] = $company_id;
+    }
+    if ($customer_id) {
+        $where .= " AND si.customer_id = ?";
+        $params[] = $customer_id;
+    }
+    if ($dateFrom) {
+        $where .= " AND si.sale_date >= ?";
+        $params[] = $dateFrom;
+    }
+    if ($dateTo) {
+        $where .= " AND si.sale_date <= ?";
+        $params[] = $dateTo;
+    }
+    if ($search !== '') {
+        $where .= " AND (si.bill_no LIKE ? OR c.customer_name LIKE ?)";
+        $searchParam = "%{$search}%";
+        $params[] = $searchParam;
+        $params[] = $searchParam;
     }
 
     // Shared fulfillment_status expression, reused identically by the count
@@ -70,12 +90,13 @@ try {
         SELECT COUNT(*) FROM (
             SELECT si.id, $fulfillmentCase as fulfillment_status
             FROM sale_order si
+            LEFT JOIN customers c ON si.customer_id = c.id
             WHERE $where
             GROUP BY si.id
             $havingClause
         ) t
     ");
-    $countStmt->execute(array_merge($countParams, $havingParams));
+    $countStmt->execute(array_merge($params, $havingParams));
     $totalRecords = $countStmt->fetchColumn();
 
     // Get paginated data

@@ -30,12 +30,20 @@ function initializeListPage(permissions) {
     // Load invoices from API
     async function loadInvoices(page = 1) {
         try {
-            const companyFilter = document.getElementById('companyFilter').value;
             const statusValue = document.getElementById('statusFilter')?.value || 'pending';
-            let url = `../../../../server/api/sale/sale_order/order-list.php?page=${page}&limit=10&status=${encodeURIComponent(statusValue)}`;
-            if (companyFilter) url += `&company_id=${companyFilter}`;
+            const params = new URLSearchParams({ page, limit: 10, status: statusValue });
+            const dateFromVal = document.getElementById('dateFrom')?.value;
+            const dateToVal = document.getElementById('dateTo')?.value;
+            const companyVal = document.getElementById('companyFilter')?.value;
+            const customerVal = document.getElementById('customerFilter')?.value;
+            const searchVal = document.getElementById('searchInput')?.value;
+            if (dateFromVal) params.append('date_from', dateFromVal);
+            if (dateToVal) params.append('date_to', dateToVal);
+            if (companyVal) params.append('company_id', companyVal);
+            if (customerVal) params.append('customer_id', customerVal);
+            if (searchVal) params.append('search', searchVal);
 
-            const response = await fetch(url);
+            const response = await fetch(`../../../../server/api/sale/sale_order/order-list.php?${params.toString()}`);
             const data = await response.json();
             
             if (data.success) {
@@ -192,6 +200,7 @@ function initializeListPage(permissions) {
     // Initial load
     loadInvoices();
     loadCompanies();
+    loadCustomers();
 
     // Load companies
     async function loadCompanies() {
@@ -212,71 +221,91 @@ function initializeListPage(permissions) {
         }
     }
 
-    // Filter functionality
+    // Load customers into the searchable Customer filter dropdown
+    async function loadCustomers() {
+        try {
+            const response = await fetch('../../../../server/api/sale/sale_order/get-customers.php');
+            const data = await response.json();
+            if (data.success) {
+                const optionsContainer = document.getElementById('customerFilterOptions');
+                optionsContainer.innerHTML = '<div class="dropdown-option" data-value="">All Customers</div>';
+                data.customers.forEach(customer => {
+                    const option = document.createElement('div');
+                    option.className = 'dropdown-option';
+                    option.setAttribute('data-value', customer.id);
+                    option.textContent = `${customer.customer_code} - ${customer.customer_name}`;
+                    optionsContainer.appendChild(option);
+                });
+                initSearchableDropdown('customerFilterSearch', 'customerFilterOptions', 'customerFilter');
+            }
+        } catch (error) {
+            console.error('Error loading customers:', error);
+        }
+    }
+
+    // Generic searchable dropdown: types to filter, click to select, updates
+    // the hidden input and re-fetches from the server (page 1).
+    function initSearchableDropdown(searchInputId, optionsContainerId, hiddenInputId) {
+        const searchInput = document.getElementById(searchInputId);
+        const optionsContainer = document.getElementById(optionsContainerId);
+        const hiddenInput = document.getElementById(hiddenInputId);
+
+        searchInput.addEventListener('click', function (e) {
+            e.stopPropagation();
+            optionsContainer.style.display = 'block';
+            filterOptions();
+        });
+
+        searchInput.addEventListener('input', filterOptions);
+
+        optionsContainer.addEventListener('click', function (e) {
+            if (e.target.classList.contains('dropdown-option')) {
+                const value = e.target.getAttribute('data-value');
+                searchInput.value = value ? e.target.textContent : '';
+                hiddenInput.value = value;
+                optionsContainer.style.display = 'none';
+                loadInvoices(1);
+            }
+        });
+
+        document.addEventListener('click', function () {
+            optionsContainer.style.display = 'none';
+        });
+
+        function filterOptions() {
+            const searchTerm = searchInput.value.toLowerCase();
+            const options = optionsContainer.getElementsByClassName('dropdown-option');
+            for (let i = 0; i < options.length; i++) {
+                const text = options[i].textContent.toLowerCase();
+                options[i].style.display = text.includes(searchTerm) ? 'block' : 'none';
+            }
+        }
+    }
+
+    // All filters are applied server-side (see loadInvoices) so pagination and
+    // counts stay correct regardless of which page the matching rows fall on.
     const dateFrom = document.getElementById('dateFrom');
     const dateTo = document.getElementById('dateTo');
     const companyFilterEl = document.getElementById('companyFilter');
-    const customerFilter = document.getElementById('customerFilter');
     const statusFilter = document.getElementById('statusFilter');
     const searchInput = document.getElementById('searchInput');
 
-    function applyFilters() {
-        let filteredInvoices = [...invoices];
-
-        // Date filter
-        if (dateFrom.value) {
-            filteredInvoices = filteredInvoices.filter(invoice =>
-                new Date(invoice.date) >= new Date(dateFrom.value)
-            );
-        }
-
-        if (dateTo.value) {
-            filteredInvoices = filteredInvoices.filter(invoice =>
-                new Date(invoice.date) <= new Date(dateTo.value)
-            );
-        }
-
-        // Customer filter
-        if (customerFilter.value) {
-            filteredInvoices = filteredInvoices.filter(invoice =>
-                invoice.customer === customerFilter.value
-            );
-        }
-
-
-
-        // Search filter
-        if (searchInput.value) {
-            const searchTerm = searchInput.value.toLowerCase();
-            filteredInvoices = filteredInvoices.filter(invoice =>
-                invoice.invoiceNo.toLowerCase().includes(searchTerm) ||
-                invoice.customer.toLowerCase().includes(searchTerm)
-            );
-        }
-
-        populateTable(filteredInvoices);
-    }
-
-    // Add event listeners for filters
-    dateFrom.addEventListener('change', applyFilters);
-    dateTo.addEventListener('change', applyFilters);
+    dateFrom.addEventListener('change', () => loadInvoices(1));
+    dateTo.addEventListener('change', () => loadInvoices(1));
     companyFilterEl.addEventListener('change', () => loadInvoices(1));
-    customerFilter.addEventListener('change', applyFilters);
-    searchInput.addEventListener('input', applyFilters);
-
-    // Status is filtered server-side (so pagination/counts stay correct),
-    // so changing it re-fetches from page 1 instead of just re-filtering
-    // the already-loaded page.
     statusFilter.addEventListener('change', () => loadInvoices(1));
 
-    // Explicit "Filter" button: re-fetches with the current Status (server-side),
-    // then re-applies the other (client-side) filters on top of the fresh result.
+    // Debounce free-text search so it doesn't re-fetch on every keystroke
+    let searchDebounce;
+    searchInput.addEventListener('input', () => {
+        clearTimeout(searchDebounce);
+        searchDebounce = setTimeout(() => loadInvoices(1), 350);
+    });
+
+    // Explicit "Filter" button: re-fetches with all current filter values
     const applyFilterBtn = document.getElementById('applyFilterBtn');
     if (applyFilterBtn) {
-        applyFilterBtn.addEventListener('click', async function () {
-            await loadInvoices(1);
-            applyFilters();
-        });
+        applyFilterBtn.addEventListener('click', () => loadInvoices(1));
     }
 
     // Update pagination
