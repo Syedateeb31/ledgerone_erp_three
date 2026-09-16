@@ -282,6 +282,8 @@
             } catch (e) {
                 alert('Error loading data: ' + e.message);
             }
+            // Signals the PDF-generation headless browser that the page is fully rendered
+            window.__pdfReady = true;
         }
 
         function populateCompanyData(invoice) {

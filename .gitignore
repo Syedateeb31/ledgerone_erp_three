@@ -10,3 +10,6 @@ client/assets/js/dashboard/dashboard-loader.js
 
 # Local Playwright test scripts/screenshots/session state - not part of the app
 .test-artifacts/
+
+# PDF generation tool's dependencies (installed via npm, see server/pdf-tools/README.md)
+server/pdf-tools/node_modules/

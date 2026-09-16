@@ -187,14 +187,54 @@ function initializeListPage(permissions) {
                 deleteBtn.style.cursor = 'not-allowed';
             }
 
+            // PDF download button
+            const pdfBtn = document.createElement('button');
+            pdfBtn.className = 'btn btn-secondary btn-sm';
+            pdfBtn.innerHTML = '<i class="fas fa-file-pdf"></i>';
+            pdfBtn.title = 'Download PDF';
+            pdfBtn.addEventListener('click', () => downloadInvoicePdf(invoice.id, invoice.invoiceNo, pdfBtn));
+
             actionButtons.appendChild(editBtn);
             actionButtons.appendChild(convertBtn);
             actionButtons.appendChild(printBtn);
+            actionButtons.appendChild(pdfBtn);
             actionButtons.appendChild(fulfillmentBtn);
             actionButtons.appendChild(deleteBtn);
 
             actionsCell.appendChild(actionButtons);
         });
+    }
+
+    // Downloads a PDF of the order's print page via the shared server-side
+    // PDF renderer (server/api/shared/generate-pdf.php).
+    async function downloadInvoicePdf(id, billNo, btn) {
+        const originalHtml = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        try {
+            const path = encodeURIComponent(`client/pages/sale/sale_order/invoice-print.php?id=${id}`);
+            const filename = encodeURIComponent(`${billNo || 'order'}.pdf`);
+            const url = `../../../../server/api/shared/generate-pdf.php?path=${path}&filename=${filename}`;
+            const res = await fetch(url);
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                throw new Error(err.message || 'PDF generation failed');
+            }
+            const blob = await res.blob();
+            const blobUrl = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = blobUrl;
+            a.download = `${billNo || 'order'}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(blobUrl);
+        } catch (error) {
+            alert('Error generating PDF: ' + error.message);
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = originalHtml;
+        }
     }
 
     // Initial load

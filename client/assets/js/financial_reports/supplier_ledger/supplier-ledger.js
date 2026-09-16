@@ -738,20 +738,47 @@ function exportLedgerToExcel() {
     });
 
     // PDF ledger
-    document.getElementById('pdf-ledger').addEventListener('click', function(e) {
+    // PDF ledger - renders print.php through the shared server-side PDF
+    // generator (server/api/shared/generate-pdf.php) so it downloads
+    // directly instead of opening a tab.
+    document.getElementById('pdf-ledger').addEventListener('click', async function(e) {
         e.preventDefault();
+        const pdfLink = this;
+        const originalHtml = pdfLink.innerHTML;
         const isDetailed = detailedLedgerBtn.classList.contains('active');
         const params = new URLSearchParams({
             ledger_type: isDetailed ? 'detailed' : 'summary',
             date_from: fromDate.value,
-            date_to: toDate.value,
-            pdf: '1'
+            date_to: toDate.value
         });
         if (supplierCode.value) params.append('supplier_id', supplierCode.value);
         if (companyFilter.value) params.append('company_id', companyFilter.value);
         if (currencyFilter.value) params.append('currency_id', currencyFilter.value);
         if (expandedInvoices.size > 0) params.append('expanded', Array.from(expandedInvoices).join(','));
-        window.open(`print.php?${params}`, '_blank');
+
+        pdfLink.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating...';
+        try {
+            const path = encodeURIComponent(`client/pages/financial_reports/supplier_ledger/print.php?${params}`);
+            const filename = encodeURIComponent(`supplier-ledger-${isDetailed ? 'detailed' : 'summary'}-${new Date().toISOString().split('T')[0]}.pdf`);
+            const res = await fetch(`../../../../server/api/shared/generate-pdf.php?path=${path}&filename=${filename}`);
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                throw new Error(err.message || 'PDF generation failed');
+            }
+            const blob = await res.blob();
+            const blobUrl = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = blobUrl;
+            a.download = decodeURIComponent(filename);
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(blobUrl);
+        } catch (error) {
+            alert('Error generating PDF: ' + error.message);
+        } finally {
+            pdfLink.innerHTML = originalHtml;
+        }
     });
 
     // Close dropdown when clicking outside

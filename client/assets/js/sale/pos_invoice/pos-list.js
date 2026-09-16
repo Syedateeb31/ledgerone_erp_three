@@ -241,6 +241,13 @@ function initializeListPage(permissions) {
             printBtn.title = 'Print Invoice';
             printBtn.addEventListener('click', () => printInvoice(invoice.id));
 
+            // PDF download button
+            const pdfBtn = document.createElement('button');
+            pdfBtn.className = 'btn btn-secondary btn-sm';
+            pdfBtn.innerHTML = '<i class="fas fa-file-pdf"></i>';
+            pdfBtn.title = 'Download PDF';
+            pdfBtn.addEventListener('click', () => downloadInvoicePdf(invoice.id, invoice.invoiceNo, pdfBtn));
+
             // Delete button
             const deleteBtn = document.createElement('button');
             deleteBtn.className = 'btn btn-danger btn-sm';
@@ -256,12 +263,45 @@ function initializeListPage(permissions) {
 
             actionButtons.appendChild(editBtn);
             actionButtons.appendChild(printBtn);
+            actionButtons.appendChild(pdfBtn);
             actionButtons.appendChild(deleteBtn);
 
             actionsCell.appendChild(actionButtons);
         });
-        
+
         updateSummary(invoiceCount, totalAmount, data[0]?.currencySymbol || '', 0, 0);
+    }
+
+    // Downloads a PDF of the invoice's print page via the shared server-side
+    // PDF renderer (server/api/shared/generate-pdf.php).
+    async function downloadInvoicePdf(id, billNo, btn) {
+        const originalHtml = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        try {
+            const path = encodeURIComponent(`client/pages/sale/pos_invoice/invoice-print.php?id=${id}`);
+            const filename = encodeURIComponent(`${billNo || 'invoice'}.pdf`);
+            const url = `../../../../server/api/shared/generate-pdf.php?path=${path}&filename=${filename}`;
+            const res = await fetch(url);
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                throw new Error(err.message || 'PDF generation failed');
+            }
+            const blob = await res.blob();
+            const blobUrl = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = blobUrl;
+            a.download = `${billNo || 'invoice'}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(blobUrl);
+        } catch (error) {
+            alert('Error generating PDF: ' + error.message);
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = originalHtml;
+        }
     }
     
     function updateSummary(count, total, currencySymbol, amountPaid, remaining) {

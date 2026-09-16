@@ -292,6 +292,8 @@ $company_timezone = $company['timezone'] ?? 'UTC';
             
             document.getElementById('report-content').innerHTML = html;
             window.dispatchEvent(new Event('invoiceLoaded'));
+            // Signals the PDF-generation headless browser that the page is fully rendered
+            window.__pdfReady = true;
         }
 
         async function fetchAndRenderItems(type, id) {
@@ -482,6 +484,8 @@ $company_timezone = $company['timezone'] ?? 'UTC';
             
             document.getElementById('report-content').innerHTML = html;
             window.dispatchEvent(new Event('invoiceLoaded'));
+            // Signals the PDF-generation headless browser that the page is fully rendered
+            window.__pdfReady = true;
         }
     </script>
 </body>

@@ -322,8 +322,10 @@
             } catch (error) {
                 alert('Error loading data: ' + error.message);
             }
+            // Signals the PDF-generation headless browser that the page is fully rendered
+            window.__pdfReady = true;
         }
-        
+
         function populateCompanyData(invoice) {
             document.getElementById('companyName').textContent = invoice.company_name || invoice.legal_name || 'Company Name';
             document.getElementById('companyAddress').textContent = invoice.company_address || '';

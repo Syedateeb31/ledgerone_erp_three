@@ -1,0 +1,8 @@
+{
+  "name": "ledgerone-pdf-tools",
+  "private": true,
+  "description": "Renders app pages to PDF via headless Chromium (Playwright), invoked by server/api/shared/generate-pdf.php",
+  "dependencies": {
+    "playwright": "^1.48.0"
+  }
+}

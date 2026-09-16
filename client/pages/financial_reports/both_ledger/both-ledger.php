@@ -49,6 +49,10 @@ $currency_symbol = $currency['symbol'] ?? '$';
         .txn-type-adjustment { background: rgba(150,150,150,0.15); color: #666; }
         .txn-type-other { background: rgba(150,150,150,0.1); color: #888; }
         .side-tag { font-size: 11px; color: var(--subtext, #888); }
+        @media print {
+            #navbar-container, .pdf-hide { display: none !important; }
+            .main-content { margin-left: 0 !important; }
+        }
     </style>
 </head>
 <body>
@@ -61,11 +65,11 @@ $currency_symbol = $currency['symbol'] ?? '$';
             </div>
         </div>
 
-        <div class="card" style="background: #f0f9ff; border-left: 4px solid #1f7bff; margin-bottom: 16px;">
+        <div class="card pdf-hide" style="background: #f0f9ff; border-left: 4px solid #1f7bff; margin-bottom: 16px;">
             <p style="margin: 0; font-size: 14px; color: #1f7bff;"><strong>Tip:</strong> This report shows a party's Customer ledger AND Supplier ledger together. It only lists parties registered as "Both" (Customer + Supplier). Individual Customer Ledger / Supplier Ledger reports are unaffected by this page.</p>
         </div>
 
-        <div class="card">
+        <div class="card pdf-hide">
             <h2 class="card-title">Filters</h2>
             <div class="filters">
                 <div class="form-group">
@@ -106,10 +110,13 @@ $currency_symbol = $currency['symbol'] ?? '$';
                 <button class="btn btn-secondary" id="reset-filters-btn">
                     <i class="fas fa-undo"></i> Reset Filters
                 </button>
+                <button class="btn btn-secondary" id="pdf-ledger-btn">
+                    <i class="fas fa-file-pdf"></i> Download PDF
+                </button>
             </div>
         </div>
 
-        <div class="card" style="background: #f0f9ff; border-left: 4px solid #1f7bff; margin-bottom: 16px;">
+        <div class="card pdf-hide" style="background: #f0f9ff; border-left: 4px solid #1f7bff; margin-bottom: 16px;">
             <p style="margin: 0; font-size: 14px; color: #1f7bff;"><strong>Help:</strong> "Type" shows what each entry is - Opening (Customer/Supplier), Sale, Sale Return, Receive, Purchase, Purchase Return, Payment, Adjustment. Customer Bal = Dr means the customer owes you; Supplier Bal = Cr means you owe the supplier.</p>
         </div>
 

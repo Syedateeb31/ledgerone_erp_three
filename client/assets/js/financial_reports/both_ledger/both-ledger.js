@@ -28,12 +28,33 @@ document.addEventListener('DOMContentLoaded', function () {
     fromDate.value = '';
     toDate.value = '';
 
-    loadCompanies();
-    loadCurrencies();
-    loadParties();
+    // Initial load: if the URL carries filter params (used by the headless
+    // PDF renderer, or a shared link), pre-fill and auto-run the report once
+    // the dropdowns are populated; otherwise this is a normal blank visit.
+    Promise.all([loadCompanies(), loadCurrencies(), loadParties()]).then(applyUrlParams);
+
+    function applyUrlParams() {
+        const urlParams = new URLSearchParams(window.location.search);
+        if ([...urlParams.keys()].length === 0) return;
+
+        if (urlParams.get('from_date')) fromDate.value = urlParams.get('from_date');
+        if (urlParams.get('to_date')) toDate.value = urlParams.get('to_date');
+        if (urlParams.get('company_id')) companySelect.value = urlParams.get('company_id');
+        if (urlParams.get('currency_id')) currencyFilter.value = urlParams.get('currency_id');
+
+        if (urlParams.get('type') === 'detailed' && urlParams.get('customer_id')) {
+            partyCode.value = urlParams.get('customer_id');
+            const party = allParties.find(p => String(p.id) === String(partyCode.value));
+            if (party) partySearch.value = `${party.customer_code} - ${party.customer_name}`;
+            showDetailedLedger();
+        } else {
+            showSummaryLedger();
+            loadLedgerData();
+        }
+    }
 
     function loadCompanies() {
-        fetch('../../../../server/api/financial_reports/customer_ledger/get-companies.php')
+        return fetch('../../../../server/api/financial_reports/customer_ledger/get-companies.php')
             .then(r => r.json())
             .then(data => {
                 if (data.success) {
@@ -202,6 +223,51 @@ document.addEventListener('DOMContentLoaded', function () {
         loadLedgerData();
     });
 
+    // PDF: re-renders this same page (with the current filters carried as
+    // URL params, see applyUrlParams above) through the shared server-side
+    // PDF generator (server/api/shared/generate-pdf.php).
+    const pdfLedgerBtn = document.getElementById('pdf-ledger-btn');
+    if (pdfLedgerBtn) {
+        pdfLedgerBtn.addEventListener('click', async function () {
+            const originalHtml = pdfLedgerBtn.innerHTML;
+            const isDetailed = detailedLedgerBtn.classList.contains('active');
+            if (isDetailed && !partyCode.value) { showPartyError(); return; }
+
+            const params = new URLSearchParams({ type: isDetailed ? 'detailed' : 'summary' });
+            if (fromDate.value) params.append('from_date', fromDate.value);
+            if (toDate.value) params.append('to_date', toDate.value);
+            if (isDetailed && partyCode.value) params.append('customer_id', partyCode.value);
+            if (companySelect.value) params.append('company_id', companySelect.value);
+            if (currencyFilter.value) params.append('currency_id', currencyFilter.value);
+
+            pdfLedgerBtn.disabled = true;
+            pdfLedgerBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating...';
+            try {
+                const path = encodeURIComponent(`client/pages/financial_reports/both_ledger/both-ledger.php?${params}`);
+                const filename = encodeURIComponent(`both-ledger-${isDetailed ? 'detailed' : 'summary'}-${new Date().toISOString().split('T')[0]}.pdf`);
+                const res = await fetch(`../../../../server/api/shared/generate-pdf.php?path=${path}&filename=${filename}`);
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    throw new Error(err.message || 'PDF generation failed');
+                }
+                const blob = await res.blob();
+                const blobUrl = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = blobUrl;
+                a.download = decodeURIComponent(filename);
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                URL.revokeObjectURL(blobUrl);
+            } catch (error) {
+                alert('Error generating PDF: ' + error.message);
+            } finally {
+                pdfLedgerBtn.disabled = false;
+                pdfLedgerBtn.innerHTML = originalHtml;
+            }
+        });
+    }
+
     async function loadLedgerData() {
         if (!validateDates()) return;
         const isDetailed = detailedLedgerBtn.classList.contains('active');
@@ -224,9 +290,12 @@ document.addEventListener('DOMContentLoaded', function () {
             } else {
                 alert(result.message || 'Error loading data');
             }
+            // Signals the PDF-generation headless browser that the page is fully rendered
+            window.__pdfReady = true;
         } catch (err) {
             console.error(err);
             alert('Network error occurred');
+            window.__pdfReady = true;
         }
     }
 

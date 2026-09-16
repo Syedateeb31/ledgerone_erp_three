@@ -342,8 +342,6 @@
         </div>
     </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
     <script>
         // Paper size
         function setPaperSize(size) {
@@ -562,6 +560,8 @@
             } catch (e) {
                 alert('Error loading data: ' + e.message);
             }
+            // Signals the PDF-generation headless browser that the page is fully rendered
+            window.__pdfReady = true;
         }
 
         function populateCompanyData(company) {
@@ -945,9 +945,11 @@
             if (localStorage.getItem('hidePrintGeneratedBy')   === 'true') document.getElementById('generatedBySection').style.display = 'none';
             if (localStorage.getItem('hidePrintGeneratedOn')   === 'true') document.getElementById('generatedOnSection').style.display = 'none';
 
-            // QR Code
-            setTimeout(() => {
-                if (localStorage.getItem('enablePrintQRCode') === 'true' && typeof QRCode !== 'undefined') {
+            // QR Code - libraries are loaded on demand (only when this setting is on)
+            // so the PDF/headless renderer never blocks on an external CDN request
+            // for the common case where no QR code is shown.
+            if (localStorage.getItem('enablePrintQRCode') === 'true') {
+                loadQrLibraries().then(() => {
                     const qrDiv = document.getElementById('qrCode');
                     if (qrDiv && !qrDiv.hasChildNodes()) {
                         document.getElementById('qrCodeSection').style.display = 'block';
@@ -955,8 +957,26 @@
                         const url   = `${window.location.origin}/ledgerone_erp/client/pages/sale/pos_invoice/verify-invoice.php?invoice=${invoice.bill_no}&token=${token}`;
                         new QRCode(qrDiv, { text: url, width: 100, height: 100, correctLevel: QRCode.CorrectLevel.H });
                     }
-                }
-            }, 500);
+                }).catch(() => {});
+            }
+        }
+
+        function loadScript(src) {
+            return new Promise((resolve, reject) => {
+                const s = document.createElement('script');
+                s.src = src;
+                s.onload = resolve;
+                s.onerror = reject;
+                document.head.appendChild(s);
+            });
+        }
+
+        function loadQrLibraries() {
+            if (typeof QRCode !== 'undefined' && typeof CryptoJS !== 'undefined') return Promise.resolve();
+            return Promise.all([
+                loadScript('https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js'),
+                loadScript('https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js')
+            ]);
         }
 
         document.getElementById('generatedOn').textContent = new Date().toLocaleString();
