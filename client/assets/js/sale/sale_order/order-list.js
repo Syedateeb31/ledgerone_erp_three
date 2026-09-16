@@ -43,6 +43,7 @@ function initializeListPage(permissions) {
                     id: invoice.id,
                     invoiceNo: invoice.bill_no,
                     date: invoice.sale_date,
+                    lastDate: invoice.last_date,
                     customer: invoice.customer_name,
                     items: invoice.item_count,
                     totalAmount: parseFloat(invoice.net_amount),
@@ -80,12 +81,43 @@ function initializeListPage(permissions) {
             // Create cells
             row.insertCell(0).textContent = invoice.invoiceNo;
             row.insertCell(1).textContent = formattedDate;
-            row.insertCell(2).textContent = invoice.customer || 'N/A';
-            row.insertCell(3).textContent = invoice.items;
-            row.insertCell(4).textContent = formattedAmount;
-            
+
+            // Last Date cell: the date plus a "days left / overdue" counter against today
+            const lastDateCell = row.insertCell(2);
+            if (invoice.lastDate) {
+                const formattedLastDate = new Date(invoice.lastDate).toLocaleDateString('en-US', {
+                    year: 'numeric', month: 'short', day: 'numeric'
+                });
+                const todayMidnight = new Date(); todayMidnight.setHours(0, 0, 0, 0);
+                const lastDateMidnight = new Date(invoice.lastDate); lastDateMidnight.setHours(0, 0, 0, 0);
+                const diffDays = Math.round((lastDateMidnight - todayMidnight) / 86400000);
+
+                let counterText, counterClass;
+                if (diffDays < 0) {
+                    counterText = `Overdue by ${Math.abs(diffDays)} day${Math.abs(diffDays) === 1 ? '' : 's'}`;
+                    counterClass = 'status-overdue';
+                } else if (diffDays === 0) {
+                    counterText = 'Due today';
+                    counterClass = 'status-warning';
+                } else {
+                    counterText = `${diffDays} day${diffDays === 1 ? '' : 's'} left`;
+                    counterClass = diffDays <= 3 ? 'status-warning' : 'status-paid';
+                }
+
+                lastDateCell.innerHTML = `
+                    <div>${formattedLastDate}</div>
+                    <span class="status ${counterClass}" style="margin-top: 4px; display: inline-block;">${counterText}</span>
+                `;
+            } else {
+                lastDateCell.textContent = '-';
+            }
+
+            row.insertCell(3).textContent = invoice.customer || 'N/A';
+            row.insertCell(4).textContent = invoice.items;
+            row.insertCell(5).textContent = formattedAmount;
+
             // Status cell
-            const statusCell = row.insertCell(5);
+            const statusCell = row.insertCell(6);
             const statusBadge = document.createElement('span');
             const statusClassMap = {
                 'Pending': 'status-pending',
@@ -96,7 +128,7 @@ function initializeListPage(permissions) {
             statusBadge.textContent = invoice.status || 'Pending';
             statusCell.appendChild(statusBadge);
 
-            const actionsCell = row.insertCell(6);
+            const actionsCell = row.insertCell(7);
             const actionButtons = document.createElement('div');
             actionButtons.className = 'action-buttons';
 

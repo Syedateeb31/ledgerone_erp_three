@@ -63,7 +63,7 @@ try {
             previous_balance, total_bill, total_discount_percent,
             total_discount_amount, total_tax_percent, total_tax_amount,
             shipping_fees, shipping_fees_type, net_amount, status, supplier_invoice_no, supplier_invoice_date,
-            purchase_order_id, rpo_no, truck_no, payment_term_id, bilty_no, transport_name, remarks, sub_account_id,
+            purchase_order_id, rpo_no, truck_no, delivered_at, payment_term_id, bilty_no, transport_name, remarks, sub_account_id,
             rate_type, brokery_rate_type, brokery_kg_basis, brokery_pct_mode, brokery_rate, brokery_amount, brokery_amount_sign,
             brokery_tax_percent, brokery_tax_amount, brokery_tax_amount_sign,
             wt_charges, wt_charges_sign, freight, freight_sign, m_sukri, m_sukri_sign,
@@ -71,7 +71,7 @@ try {
             bardana, bardana_sign, phone_charges, phone_charges_sign,
             filling_charges, filling_charges_sign, total_charges,
             created_by, updated_by
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ");
     
     $stmt->execute([
@@ -97,6 +97,7 @@ try {
         $input['purchaseOrderId'] ?? null,
         $input['rpoNo'] ?? null,
         $input['truckNo'] ?? null,
+        $input['deliveredAt'] ?? null,
         $input['paymentTermId'] ?? null,
         $input['biltyNo'],
         $input['transportName'],

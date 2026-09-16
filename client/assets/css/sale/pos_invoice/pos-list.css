@@ -269,6 +269,33 @@ tbody tr:hover {
   color: var(--error);
 }
 
+.status-badge {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.status-confirmed {
+  background: rgba(47, 191, 113, 0.1);
+  color: var(--success);
+}
+
+.status-select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  font: inherit;
+  cursor: pointer;
+  border: none;
+}
+
+.status-select:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
 .pagination {
   display: flex;
   justify-content: space-between;

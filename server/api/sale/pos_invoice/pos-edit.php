@@ -56,6 +56,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 sm.employee_id as supplier_man_employee_id,
                 sm.full_name as supplier_man_name,
                 br.supplier_name as brand_name,
+                so.bill_no as sale_order_bill_no,
                 COALESCE(rv.amount, 0) as amount_paid,
                 CASE 
                     WHEN rv.payment_method_id = 1 THEN 'cash'
@@ -73,6 +74,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             LEFT JOIN employees e ON si.sale_officer_id = e.id
             LEFT JOIN employees sm ON si.supplier_man_id = sm.id
             LEFT JOIN suppliers br ON si.brand_id = br.id
+            LEFT JOIN sale_order so ON si.sale_order_id = so.id
             LEFT JOIN receive_voucher rv ON si.bill_no = rv.bill_no AND si.tenant_id = rv.tenant_id
             LEFT JOIN payment_terms pt ON si.payment_term_id = pt.id
             WHERE si.id = ? AND si.tenant_id = ?
@@ -143,7 +145,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
         $stmt = $pdo->prepare("
             UPDATE sale_invoice SET
                 currency_id = ?, sale_date = ?, customer_id = ?, sub_account_id = ?, company_id = ?, branch_id = ?,
-                previous_balance = ?, sale_officer_id = ?, supplier_man_id = ?, brand_id = ?, sale_order_id = ?, rpo_no = ?, truck_no = ?, payment_term_id = ?, bilty_no = ?, transport_name = ?,
+                previous_balance = ?, sale_officer_id = ?, supplier_man_id = ?, brand_id = ?, sale_order_id = ?, rpo_no = ?, truck_no = ?, delivered_from = ?, payment_term_id = ?, bilty_no = ?, transport_name = ?,
                 rate_type = ?, brokery_rate_type = ?, brokery_kg_basis = ?, brokery_pct_mode = ?, brokery_rate = ?, brokery_amount = ?,
                 brokery_tax_percent = ?, brokery_tax_amount = ?,
                 wt_charges = ?, wt_charges_sign = ?, freight = ?, freight_sign = ?, m_sukri = ?, m_sukri_sign = ?,
@@ -170,6 +172,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
             $input['saleOrderId'] ?? null,
             $input['rpoNo'] ?? null,
             $input['truckNo'] ?? null,
+            $input['deliveredFrom'] ?? null,
             $input['paymentTermId'] ?? null,
             $input['biltyNo'] ?? null,
             $input['transportName'] ?? null,

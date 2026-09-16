@@ -186,7 +186,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
         // Update sale invoice
         $stmt = $pdo->prepare("
             UPDATE sale_order SET
-                company_id = ?, currency_id = ?, sale_date = ?, customer_id = ?, branch_id = ?,
+                company_id = ?, currency_id = ?, sale_date = ?, last_date = ?, customer_id = ?, branch_id = ?,
                 previous_balance = ?, bilty_no = ?, transport_name = ?, rpo_no = ?, broker = ?, delivered_date = ?,
                 mill_name = ?, truck_no = ?, goods = ?, mobile_no = ?, freight = ?,
                 total_bill = ?, total_discount_percent = ?, total_discount_amount = ?,
@@ -198,6 +198,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
             $input['companyId'] ?? null,
             $input['currencyId'] ?? null,
             $input['saleDate'],
+            $input['lastDate'] ?? null,
             $input['customerId'],
             $input['branchId'],
             extractBalanceAmount($input['previousBalance'] ?? '0.00'),

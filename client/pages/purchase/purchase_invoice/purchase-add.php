@@ -92,6 +92,10 @@ if (!$user_id) {
                         <input type="text" id="truckNo" placeholder="Enter truck number">
                     </div>
                     <div class="form-group">
+                        <label for="deliveredAt">Delivered At</label>
+                        <input type="text" id="deliveredAt" placeholder="Enter delivery location">
+                    </div>
+                    <div class="form-group">
                         <label for="rateType">Rate Type</label>
                         <select id="rateType" tabindex="-1">
                             <option value="">Select Rate Type</option>
@@ -174,11 +178,6 @@ if (!$user_id) {
                         </select>
                         <div class="error-message" id="currencyError">Please select a currency</div>
                     </div>
-                    <div class="form-group full-width" style="display:none">
-                        <label for="remarks">Remarks</label>
-                        <textarea id="remarks" placeholder="Enter any additional remarks" tabindex="-1"></textarea>
-                    </div>
-
                 </div>
             </div>
 
@@ -382,6 +381,10 @@ if (!$user_id) {
                     <div class="summary-item">
                         <span class="summary-label" id="netAmountSummaryLabel">Net Amount</span>
                         <span class="summary-value" id="netAmount">0.00</span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-label">Remarks</span>
+                        <input type="text" id="remarks" class="table-input" placeholder="Enter remarks">
                     </div>
                     <!-- Dynamic Invoice-Level Taxes will be inserted here -->
                     <div id="invoiceLevelTaxesContainer"></div>

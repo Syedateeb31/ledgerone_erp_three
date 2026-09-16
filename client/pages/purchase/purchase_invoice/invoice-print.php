@@ -78,8 +78,8 @@
                 <p id="transportRow"><strong>Transport:</strong> <span id="transportName">-</span></p>
                 <p id="rpoNoRow"><strong>RPO #:</strong> <span id="rpoNo">-</span></p>
                 <p id="truckNoRow"><strong>Truck No:</strong> <span id="truckNo">-</span></p>
+                <p id="deliveredAtRow"><strong>Delivered At:</strong> <span id="deliveredAt">-</span></p>
                 <p id="paymentTermRow"><strong>Payment Cond.:</strong> <span id="paymentTermName">-</span></p>
-                <p><strong>Previous Balance:</strong> <span id="previousBalance">0.00</span></p>
             </div>
             <div class="info-box">
                 <h3>Invoice Information</h3>
@@ -87,7 +87,6 @@
                 <p id="currencyRow"><strong>Currency:</strong> <span id="currency">Loading...</span></p>
                 <p id="rateTypeRow"><strong>Rate Type:</strong> <span id="rateTypeDisplay">-</span></p>
                 <p id="brokeryRateTypeRow"><strong>Brokery Rate Type:</strong> <span id="brokeryRateTypeDisplay">-</span></p>
-                <p id="brokeryKgBasisRow"><strong>Brokery Basis:</strong> <span id="brokeryKgBasisDisplay">-</span></p>
                 <p id="remarksRow"><strong>Remarks:</strong> <span id="remarks">-</span></p>
             </div>
         </div>
@@ -311,8 +310,8 @@
             document.getElementById('transportName').textContent    = invoice.transport_name || '-';
             document.getElementById('rpoNo').textContent            = invoice.rpo_no || '-';
             document.getElementById('truckNo').textContent          = invoice.truck_no || '-';
+            document.getElementById('deliveredAt').textContent      = invoice.delivered_at || '-';
             document.getElementById('paymentTermName').textContent  = invoice.payment_term_name || '-';
-            document.getElementById('previousBalance').textContent  = parseFloat(invoice.previous_balance||0).toFixed(2);
 
             const branchText = invoice.parent_branch_name
                 ? `${invoice.branch_name} (${invoice.branch_type}) - ${invoice.parent_branch_name}`
@@ -330,6 +329,7 @@
             hideIfEmpty('transportRow',      invoice.transport_name);
             hideIfEmpty('rpoNoRow',          invoice.rpo_no);
             hideIfEmpty('truckNoRow',        invoice.truck_no);
+            hideIfEmpty('deliveredAtRow',    invoice.delivered_at);
             hideIfEmpty('paymentTermRow',    invoice.payment_term_name);
             hideIfEmpty('remarksRow',        invoice.remarks);
             if (!invoice.branch_name)   document.getElementById('branchRow').style.display = 'none';
@@ -342,14 +342,6 @@
             const brokeryRT = invoice.brokery_rate_type || '';
             if (brokeryRT) document.getElementById('brokeryRateTypeDisplay').textContent = rateTypeLabels[brokeryRT] || brokeryRT;
             else document.getElementById('brokeryRateTypeRow').style.display = 'none';
-
-            // Brokery KG Basis (only relevant for KG-based brokery rate types)
-            const kgBasedBrokeryTypes = ['100_kg', 'mon', 'ton', 'per_kg'];
-            if (brokeryRT && kgBasedBrokeryTypes.includes(brokeryRT)) {
-                document.getElementById('brokeryKgBasisDisplay').textContent = invoice.brokery_kg_basis === 'total' ? 'Total KG' : 'Net KG';
-            } else {
-                document.getElementById('brokeryKgBasisRow').style.display = 'none';
-            }
 
             // Group items by product
             const grouped = {};
@@ -385,8 +377,10 @@
                 if (parseFloat(item.al_kg||0) > 0)           autoHideCols.al_kg = true;
                 if (parseFloat(item.net_kg||0) > 0)          autoHideCols.net_kg = true;
                 if (parseFloat(item.al_rate_cut||0) > 0)     autoHideCols.al_rate_cut = true;
-                if (parseFloat(item.net_rate||0) > 0)        autoHideCols.net_rate = true;
             });
+
+            // Net Rate only makes sense alongside AL Rate Cut - hide it unless AL Rate Cut is present
+            autoHideCols.net_rate = autoHideCols.al_rate_cut;
 
             buildTableHeader(maxUnitColumns, rateType);
             buildFooterRow(maxUnitColumns);

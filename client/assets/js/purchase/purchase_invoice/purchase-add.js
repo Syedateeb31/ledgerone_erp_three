@@ -458,6 +458,9 @@ document.addEventListener('DOMContentLoaded', function () {
                 document.getElementById('transportName').value = invoice.transport_name || '';
                 document.getElementById('rpoNo').value = invoice.rpo_no || '';
                 document.getElementById('truckNo').value = invoice.truck_no || '';
+                document.getElementById('deliveredAt').value = invoice.delivered_at || '';
+                document.getElementById('purchaseOrder').value = invoice.purchase_order_id || '';
+                document.getElementById('purchaseOrderSearch').value = invoice.purchase_order_id ? (invoice.purchase_order_bill_no || '') : '';
                 if (invoice.payment_term_id) document.getElementById('paymentTerm').value = invoice.payment_term_id;
                 document.getElementById('company').value = invoice.company_id || '';
                 document.getElementById('supplierCodeSearch').value = `${invoice.supplier_code || ''} - ${invoice.supplier_name || ''}`;
@@ -1987,6 +1990,7 @@ document.addEventListener('DOMContentLoaded', function () {
             transportName: document.getElementById('transportName')?.value || null,
             rpoNo: document.getElementById('rpoNo')?.value || null,
             truckNo: document.getElementById('truckNo')?.value || null,
+            deliveredAt: document.getElementById('deliveredAt')?.value || null,
             paymentTermId: document.getElementById('paymentTerm')?.value || null,
             companyId: document.getElementById('company')?.value,
             supplierId: document.getElementById('supplierCode')?.value,

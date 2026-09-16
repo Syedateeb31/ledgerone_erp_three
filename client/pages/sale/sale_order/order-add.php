@@ -48,6 +48,10 @@ if (!$user_id) {
                         <label for="saleDate" class="required">Sale Date</label>
                         <input type="date" id="saleDate" required tabindex="-1">
                     </div>
+                    <div class="form-group">
+                        <label for="lastDate">Last Date</label>
+                        <input type="date" id="lastDate" tabindex="-1">
+                    </div>
                     <div class="form-group" id="previousBalanceGroup">
                         <label for="previousBalance">Customer's Previous Balance</label>
                         <input type="text" id="previousBalance" value="0.00" readonly tabindex="-1">

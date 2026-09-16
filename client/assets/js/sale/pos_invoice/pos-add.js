@@ -1287,6 +1287,12 @@ function initializePage(permissions) {
                 if (rpoNoEl) rpoNoEl.value = invoice.rpo_no || '';
                 const truckNoEl = document.getElementById('truckNo');
                 if (truckNoEl) truckNoEl.value = invoice.truck_no || '';
+                const deliveredFromEl = document.getElementById('deliveredFrom');
+                if (deliveredFromEl) deliveredFromEl.value = invoice.delivered_from || '';
+                const saleOrderEl = document.getElementById('saleOrder');
+                if (saleOrderEl) saleOrderEl.value = invoice.sale_order_id || '';
+                const saleOrderSearchEl = document.getElementById('saleOrderSearch');
+                if (saleOrderSearchEl) saleOrderSearchEl.value = invoice.sale_order_id ? (invoice.sale_order_bill_no || '') : '';
                 const paymentTermEl = document.getElementById('paymentTerm');
                 if (paymentTermEl && invoice.payment_term_id) paymentTermEl.value = invoice.payment_term_id;
                 const rateTypeEl = document.getElementById('rateType');
@@ -3499,6 +3505,7 @@ function saveInvoice(status = 'Posted') {
         transportName: document.getElementById('transportName')?.value || null,
         rpoNo: document.getElementById('rpoNo')?.value || null,
         truckNo: document.getElementById('truckNo')?.value || null,
+        deliveredFrom: document.getElementById('deliveredFrom')?.value || null,
         paymentTermId: document.getElementById('paymentTerm')?.value || null,
         rateType: document.getElementById('rateType')?.value || null,
         brokeryRateType: document.getElementById('brokeryRateType')?.value || null,
@@ -5844,6 +5851,7 @@ function saveInvoice(status = 'Posted') {
         biltyNo: document.getElementById('biltyNo').value || null,
         rpoNo: document.getElementById('rpoNo')?.value || null,
         truckNo: document.getElementById('truckNo')?.value || null,
+        deliveredFrom: document.getElementById('deliveredFrom')?.value || null,
         paymentTermId: document.getElementById('paymentTerm')?.value || null,
         invoiceStatus: document.getElementById('invoiceStatus')?.value || 'pending',
         transportName: document.getElementById('transportName').value || null,

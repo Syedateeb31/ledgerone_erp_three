@@ -504,6 +504,20 @@ tbody tr:hover {
   border: 1px solid #c3e6cb;
 }
 
+.status-select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  font: inherit;
+  cursor: pointer;
+  border: none;
+}
+
+.status-select:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
 .dark-theme .status-pending {
   background-color: rgba(232, 178, 63, 0.15);
   color: #e8b23f;

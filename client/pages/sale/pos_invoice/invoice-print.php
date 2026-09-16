@@ -133,18 +133,15 @@
         }
         .totals-balance-cards {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: 1fr;
             border-top: 1px solid #ddd;
         }
         .balance-card {
             padding: 10px 12px;
             text-align: center;
         }
-        .balance-card:first-child { border-right: 1px solid #ddd; }
         .balance-card .bc-label { font-size: 10px; color: #888; margin-bottom: 3px; text-transform: uppercase; letter-spacing: 0.4px; }
         .balance-card .bc-value { font-size: 14px; font-weight: bold; }
-        .balance-card.prev-bal .bc-value { color: #e65100; }
-        .balance-card.prev-bal { background: #fff8f0; }
         .balance-card.total-bal .bc-value { color: #1565c0; }
         .balance-card.total-bal { background: #f0f8ff; }
 
@@ -243,9 +240,9 @@
                 <p><strong>Currency:</strong> <span id="currency">Loading...</span></p>
                 <p id="rateTypeRow"><strong>Rate Type:</strong> <span id="rateTypeDisplay">-</span></p>
                 <p id="brokeryRateTypeRow"><strong>Brokery Rate Type:</strong> <span id="brokeryRateTypeDisplay">-</span></p>
-                <p id="brokeryKgBasisRow"><strong>Brokery Basis:</strong> <span id="brokeryKgBasisDisplay">-</span></p>
                 <p><strong>Bilty No:</strong> <span id="biltyNo">-</span></p>
                 <p><strong>Transport:</strong> <span id="transportName">-</span></p>
+                <p id="deliveredFromRow"><strong>Delivered From:</strong> <span id="deliveredFrom">-</span></p>
                 <p id="rpoNoRow"><strong>RPO #:</strong> <span id="rpoNo">-</span></p>
                 <p id="truckNoRow"><strong>Truck No:</strong> <span id="truckNo">-</span></p>
                 <p id="paymentTermRow"><strong>Payment Cond.:</strong> <span id="paymentTermName">-</span></p>
@@ -297,10 +294,6 @@
                     <div class="totals-row" id="paymentMethodRow"><span>Payment Method</span><span id="paymentMethod">-</span></div>
                     <div class="totals-row subtotal" id="remainingBalanceRow"><span>Remaining Balance</span><span id="remainingBalance">0.00</span></div>
                     <div class="totals-balance-cards">
-                        <div class="balance-card prev-bal">
-                            <div class="bc-label">Previous Balance</div>
-                            <div class="bc-value" id="previousBalanceAmount">0.00</div>
-                        </div>
                         <div class="balance-card total-bal">
                             <div class="bc-label">Total Balance</div>
                             <div class="bc-value" id="totalBalance">0.00</div>
@@ -637,20 +630,13 @@
                 document.getElementById('brokeryRateTypeRow').style.display = 'none';
             }
 
-            // Brokery KG Basis (only relevant for KG-based brokery rate types)
-            const kgBasedBrokeryTypes = ['100_kg', 'mon', 'ton', 'per_kg'];
-            if (brokeryRateType && kgBasedBrokeryTypes.includes(brokeryRateType)) {
-                document.getElementById('brokeryKgBasisDisplay').textContent = invoice.brokery_kg_basis === 'total' ? 'Total KG' : 'Net KG';
-            } else {
-                document.getElementById('brokeryKgBasisRow').style.display = 'none';
-            }
-
             // Other info fields
             const fields = {
                 biltyNo:       { val: invoice.bilty_no,             hide: 'hidePrintBiltyNo' },
                 transportName: { val: invoice.transport_name,       hide: 'hidePrintTransport' },
                 rpoNo:         { val: invoice.rpo_no,               hide: null },
                 truckNo:       { val: invoice.truck_no,             hide: null },
+                deliveredFrom: { val: invoice.delivered_from,       hide: null },
                 paymentTermName: { val: invoice.payment_term_name,  hide: null },
                 remarks:       { val: invoice.remarks,              hide: 'hidePrintRemarks' }
             };
@@ -699,8 +685,10 @@
                 if (parseFloat(item.net_kg||0) > 0)          autoHideCols.net_kg = true;
                 if (parseFloat(item.al_rate_cut||0) > 0)     autoHideCols.al_rate_cut = true;
                 if (parseFloat(item.sale_price||0) > 0)      autoHideCols.price = true;
-                if (parseFloat(item.net_rate||0) > 0)        autoHideCols.net_rate = true;
             });
+
+            // Net Rate only makes sense alongside AL Rate Cut - hide it unless AL Rate Cut is present
+            autoHideCols.net_rate = autoHideCols.al_rate_cut;
 
             buildTableHeader(maxUnitColumns, rateType);
             buildTotalsRow(maxUnitColumns);
@@ -900,9 +888,6 @@
                 { id: 'remainingBalance', label: localStorage.getItem('labelRemainingBalance') || 'Remaining Balance',
                   value: `${sym} ${remainingBal.toFixed(2)}`,
                   show: localStorage.getItem('hidePrintRemainingBalance') !== 'true' },
-                { id: 'previousBalance', label: 'Previous Balance',
-                  value: `${sym} ${Math.abs(invoicePrevBal).toFixed(2)} ${prevBalSign}`,
-                  show: true, isSpecial: 'previousBalance' },
                 { id: 'totalBalance',    label: 'Total Balance',
                   value: `${sym} ${Math.abs(totalBalVal).toFixed(2)} ${totalBalSign}`,
                   show: true, isSpecial: 'totalBalance' }
@@ -940,7 +925,6 @@
                 document.getElementById('amountPaid').textContent     = `${sym} ${amountPaid.toFixed(2)}`;
                 document.getElementById('paymentMethod').textContent  = invoice.payment_method || '-';
                 document.getElementById('remainingBalance').textContent = `${sym} ${remainingBal.toFixed(2)}`;
-                document.getElementById('previousBalanceAmount').textContent = `${sym} ${Math.abs(invoicePrevBal).toFixed(2)} ${prevBalSign}`;
                 document.getElementById('totalBalance').textContent   = `${sym} ${Math.abs(totalBalVal).toFixed(2)} ${totalBalSign}`;
 
                 const hideRow = (id) => { const el = document.getElementById(id); if (el) el.closest('[id$="Row"]') && (el.closest('[id$="Row"]').style.display = 'none'); };

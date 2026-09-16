@@ -64,12 +64,12 @@ try {
     // Insert sale invoice
     $stmt = $pdo->prepare("
         INSERT INTO sale_order (
-            tenant_id, company_id, currency_id, bill_no, sale_date, customer_id, branch_id,
+            tenant_id, company_id, currency_id, bill_no, sale_date, last_date, customer_id, branch_id,
             previous_balance, bilty_no, transport_name, rpo_no, broker, delivered_date, mill_name,
             truck_no, goods, mobile_no, freight, total_bill, total_discount_percent,
             total_discount_amount, total_gst_percent, total_gst_amount, shipping_fees,
             net_amount, remarks, status, payment_term_id, created_by, updated_by
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ");
 
     $stmt->execute([
@@ -78,6 +78,7 @@ try {
         $input['currencyId'] ?? null,
         $billNo,
         $input['saleDate'],
+        $input['lastDate'] ?? null,
         $input['customerId'],
         $input['branchId'],
         extractBalanceAmount($input['previousBalance'] ?? '0.00'),

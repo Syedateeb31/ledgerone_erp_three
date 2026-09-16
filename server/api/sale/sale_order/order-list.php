@@ -84,6 +84,7 @@ try {
             si.id,
             si.bill_no,
             si.sale_date,
+            si.last_date,
             c.customer_name,
             e.full_name as sales_officer_name,
             sm.full_name as supplier_man_name,

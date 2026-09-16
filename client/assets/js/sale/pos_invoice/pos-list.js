@@ -177,11 +177,45 @@ function initializeListPage(permissions) {
             row.insertCell(4).textContent = invoice.items;
             row.insertCell(5).textContent = formattedAmount;
 
+            // Status cell: inline-editable dropdown so status can be changed right from the list
             const statusCell6 = row.insertCell(6);
-            const statusBadge6 = document.createElement('span');
-            statusBadge6.className = 'status-badge status-' + (invoice.invoiceStatus || 'pending');
-            statusBadge6.textContent = invoice.invoiceStatus === 'confirmed' ? 'Confirmed' : 'Pending';
-            statusCell6.appendChild(statusBadge6);
+            const statusSelect6 = document.createElement('select');
+            const currentStatus6 = invoice.invoiceStatus === 'confirmed' ? 'confirmed' : 'pending';
+            statusSelect6.className = 'status-badge status-select status-' + currentStatus6;
+            ['pending', 'confirmed'].forEach(s => {
+                const opt = document.createElement('option');
+                opt.value = s;
+                opt.textContent = s.charAt(0).toUpperCase() + s.slice(1);
+                if (s === currentStatus6) opt.selected = true;
+                statusSelect6.appendChild(opt);
+            });
+            statusSelect6.addEventListener('click', e => e.stopPropagation());
+            statusSelect6.addEventListener('change', async () => {
+                const newStatus = statusSelect6.value;
+                const previousStatus = currentStatus6;
+                statusSelect6.disabled = true;
+                try {
+                    const res = await fetch('../../../../server/api/sale/pos_invoice/update-status.php', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ id: invoice.id, status: newStatus })
+                    });
+                    const result = await res.json();
+                    if (result.success) {
+                        invoice.invoiceStatus = newStatus;
+                        statusSelect6.className = 'status-badge status-select status-' + newStatus;
+                    } else {
+                        statusSelect6.value = previousStatus;
+                        alert('Failed to update status: ' + (result.message || 'Unknown error'));
+                    }
+                } catch (error) {
+                    statusSelect6.value = previousStatus;
+                    alert('Failed to update status: ' + error.message);
+                } finally {
+                    statusSelect6.disabled = false;
+                }
+            });
+            statusCell6.appendChild(statusSelect6);
 
             const actionsCell = row.insertCell(7);
             const actionButtons = document.createElement('div');

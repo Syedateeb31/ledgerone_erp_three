@@ -566,6 +566,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const invoiceData = {
             companyId: document.getElementById('company').value,
             saleDate: document.getElementById('saleDate').value,
+            lastDate: document.getElementById('lastDate').value || null,
             customerId: document.getElementById('customerCode').value,
             branchId: document.getElementById('branch').value,
             currencyId: document.getElementById('currency').value,
@@ -647,6 +648,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 const invoiceData = data.invoice;
 
                 document.getElementById('saleDate').value = invoiceData.sale_date;
+                document.getElementById('lastDate').value = invoiceData.last_date || '';
                 document.getElementById('company').value = invoiceData.company_id || '';
                 document.getElementById('customerCodeSearch').value = `${invoiceData.customer_code} - ${invoiceData.customer_name}`;
                 document.getElementById('customerCode').value = invoiceData.customer_id;

@@ -79,7 +79,7 @@ try {
     $stmt = $pdo->prepare("
         INSERT INTO sale_invoice (
             tenant_id, company_id, currency_id, bill_no, sale_date, customer_id, sub_account_id, branch_id,
-            previous_balance, sale_officer_id, supplier_man_id, brand_id, sale_order_id, rpo_no, truck_no, payment_term_id, bilty_no, transport_name,
+            previous_balance, sale_officer_id, supplier_man_id, brand_id, sale_order_id, rpo_no, truck_no, delivered_from, payment_term_id, bilty_no, transport_name,
             rate_type, brokery_rate_type, brokery_kg_basis, brokery_pct_mode, brokery_rate, brokery_amount, brokery_tax_percent, brokery_tax_amount,
             wt_charges, wt_charges_sign, freight, freight_sign, m_sukri, m_sukri_sign,
             broken_percent, broken_amount, broken_amount_sign, brokery_amount_sign, brokery_tax_amount_sign,
@@ -88,7 +88,7 @@ try {
             extra_discount_1_percent, extra_discount_1_amount, extra_discount_2_percent, extra_discount_2_amount,
             shipping_fees, net_amount, withholding_tax_percent, withholding_tax_amount, amount_paid_auto_fill,
             invoice_type, due_date, remarks, status, invoice_status, created_by, updated_by
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ");
 
     $stmt->execute([
@@ -107,6 +107,7 @@ try {
         $input['saleOrderId'] ?? null,
         $input['rpoNo'] ?? null,
         $input['truckNo'] ?? null,
+        $input['deliveredFrom'] ?? null,
         $input['paymentTermId'] ?? null,
         $input['biltyNo'] ?? null,
         $input['transportName'] ?? null,

@@ -70,12 +70,13 @@ if (!$user_id) { header('Location: ../../auth/login.html'); exit(); }
                     <thead>
                         <tr>
                             <th width="10%">Order No</th>
-                            <th width="12%">Date</th>
-                            <th width="20%">Customer</th>
-                            <th width="10%">Items</th>
+                            <th width="10%">Date</th>
+                            <th width="13%">Last Date</th>
+                            <th width="17%">Customer</th>
+                            <th width="8%">Items</th>
                             <th width="12%">Total Amount</th>
                             <th width="10%">Status</th>
-                            <th width="26%">Actions</th>
+                            <th width="20%">Actions</th>
                         </tr>
                     </thead>
                     <tbody>

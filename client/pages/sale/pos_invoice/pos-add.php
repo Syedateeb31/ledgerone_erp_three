@@ -83,7 +83,7 @@ if (!$user_id) {
                         </select>
                     </div>
 
-                    <div class="form-group" id="saleOrderGroup" style="display:none;">
+                    <div class="form-group" id="saleOrderGroup">
                         <label for="saleOrder">Sale Order#</label>
                         <div class="searchable-dropdown">
                             <input type="text" class="search-input" placeholder="Search sale order..." id="saleOrderSearch" autocomplete="off">
@@ -168,6 +168,10 @@ if (!$user_id) {
                     <div class="form-group" id="truckNoGroup">
                         <label for="truckNo">Truck No</label>
                         <input type="text" id="truckNo" placeholder="Enter truck number" tabindex="-1">
+                    </div>
+                    <div class="form-group" id="deliveredFromGroup">
+                        <label for="deliveredFrom">Delivered From</label>
+                        <input type="text" id="deliveredFrom" placeholder="Enter delivery source location" tabindex="-1">
                     </div>
                     <div class="form-group" id="paymentTermGroup">
                         <label for="paymentTerm">Payment Cond.</label>
